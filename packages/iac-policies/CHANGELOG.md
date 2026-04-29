@@ -1,3 +1,7 @@
+## 0.1.1 (2026-04-29)
+
+This was a version bump only for @adaptiveworx/iac-policies to align it with other projects, there were no code changes.
+
 # Changelog
 
 All notable changes to `@adaptiveworx/iac-policies` are documented here.

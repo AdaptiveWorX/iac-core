@@ -1,6 +1,6 @@
 {
   "name": "@adaptiveworx/iac-schemas",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Region aliases, canonical region names, and Zod-derived schema types for AdaptiveWorX™ infrastructure-as-code. Pure data + types — no runtime dependencies.",
   "license": "Apache-2.0",
