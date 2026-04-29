@@ -1,3 +1,7 @@
+## 0.1.1 (2026-04-29)
+
+This was a version bump only for @adaptiveworx/iac-azure to align it with other projects, there were no code changes.
+
 # Changelog
 
 All notable changes to `@adaptiveworx/iac-azure` are documented
