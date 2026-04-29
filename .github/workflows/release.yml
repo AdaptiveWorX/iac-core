@@ -1,0 +1,127 @@
+name: Release
+
+# Two ways to trigger a release:
+#   1. Manual: maintainers run `pnpm nx release` locally; the resulting
+#      per-package tags (e.g. iac-core@0.2.0) are pushed to main and
+#      this workflow picks them up to publish.
+#   2. workflow_dispatch: cut+publish from CI in one shot (use sparingly).
+on:
+  push:
+    tags:
+      # Nx Release emits per-package tags of the form
+      #   @adaptiveworx/<unscoped>@<version>
+      # (matches the {projectName}@{version} pattern in nx.json#release).
+      - '@adaptiveworx/*@*'
+  workflow_dispatch:
+    inputs:
+      first_release:
+        description: 'First-release run (skip "since last tag" history walk)'
+        type: boolean
+        default: false
+      dry_run:
+        description: 'Dry-run only — do not publish'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write       # nx release commits version bumps + creates tags
+  id-token: write       # npm provenance (sigstore OIDC)
+  pull-requests: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history so Nx Release can walk conventional commits.
+          fetch-depth: 0
+
+      - name: Configure git identity (for nx release commits)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          # Provenance requires npm >= 9.5; setup-node ships modern npm.
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Quality gates
+        run: |
+          pnpm nx run-many -t lint typecheck test build
+
+      # ---------------------------------------------------------------
+      # Path A: tag push — packages are already versioned, just publish.
+      # ---------------------------------------------------------------
+      - name: Publish (tag-driven)
+        if: github.ref_type == 'tag'
+        env:
+          NPM_CONFIG_PROVENANCE: 'true'
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # Tag format: @adaptiveworx/<name>@<version>
+          # Strip the trailing @<version> to get the full project name.
+          TAG="${GITHUB_REF#refs/tags/}"
+          PROJECT_NAME="${TAG%@*}"
+          echo "Publishing project: ${PROJECT_NAME}"
+          pnpm nx release publish --projects="${PROJECT_NAME}"
+
+      # ---------------------------------------------------------------
+      # Path B: workflow_dispatch — version + publish from main in CI.
+      # ---------------------------------------------------------------
+      - name: Release (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          NPM_CONFIG_PROVENANCE: 'true'
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ARGS=""
+          if [[ "${{ inputs.first_release }}" == "true" ]]; then
+            ARGS="${ARGS} --first-release"
+          fi
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            ARGS="${ARGS} --dry-run"
+          fi
+          echo "pnpm nx release ${ARGS}"
+          pnpm nx release ${ARGS}
+
+      - name: Job summary
+        if: always()
+        run: |
+          echo "### Release run summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Ref:** \`${{ github.ref }}\`" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            echo "- **Tag:** \`${TAG}\`" >> $GITHUB_STEP_SUMMARY
+          fi
