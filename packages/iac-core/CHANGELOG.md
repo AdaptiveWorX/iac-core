@@ -1,3 +1,9 @@
+## 0.1.2 (2026-04-29)
+
+### 🧱 Updated Dependencies
+
+- Updated @adaptiveworx/iac-schemas to 0.1.2
+
 ## 0.1.1 (2026-04-29)
 
 ### 🧱 Updated Dependencies

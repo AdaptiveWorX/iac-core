@@ -1,3 +1,17 @@
+## 0.2.0 (2026-04-29)
+
+### 🚀 Features
+
+- **iac-aws:** add topology subtree (account registry, organization, cidr, regions) ([44a0ade](https://github.com/AdaptiveWorX/iac-core/commit/44a0ade))
+
+### 🧱 Updated Dependencies
+
+- Updated @adaptiveworx/iac-core to 0.1.2
+
+### ❤️ Thank You
+
+- Lloyd Mangnall @lloydmangnall
+
 ## 0.1.1 (2026-04-29)
 
 This was a version bump only for @adaptiveworx/iac-aws to align it with other projects, there were no code changes.
