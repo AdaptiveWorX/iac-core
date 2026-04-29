@@ -102,22 +102,31 @@ jobs:
           # @adaptiveworx/iac-* package has a Trusted Publisher rule on
           # npmjs.com pinned to repo=AdaptiveWorX/flux-core,
           # workflow=release.yml, environment=production.
-          #
-          # pnpm reads OIDC_REQUEST_TOKEN/OIDC_REQUEST_URL to mint the
-          # OIDC token it sends to npm. GitHub injects the source
-          # values as ACTIONS_ID_TOKEN_REQUEST_{TOKEN,URL} into the
-          # shell env when id-token: write is set on the job — but
-          # those names aren't visible to workflow expressions, only
-          # to the runtime shell, so we alias them here.
           export OIDC_REQUEST_TOKEN="$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
           export OIDC_REQUEST_URL="$ACTIONS_ID_TOKEN_REQUEST_URL"
 
+          echo "=== diagnostics ==="
+          node --version
+          npm --version
+          pnpm --version
+          echo "OIDC_REQUEST_TOKEN length: ${#OIDC_REQUEST_TOKEN}"
+          echo "OIDC_REQUEST_URL set: $([ -n "$OIDC_REQUEST_URL" ] && echo yes || echo no)"
+          echo "ACTIONS_ID_TOKEN_REQUEST_URL set: $([ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && echo yes || echo no)"
+          echo "==================="
+
           # Tag format: @adaptiveworx/<name>@<version>
-          # Strip the trailing @<version> to get the full project name.
           TAG="${GITHUB_REF#refs/tags/}"
           PROJECT_NAME="${TAG%@*}"
-          echo "Publishing project: ${PROJECT_NAME}"
-          pnpm nx release publish --projects="${PROJECT_NAME}"
+          UNSCOPED="${PROJECT_NAME#@adaptiveworx/}"
+          PKG_DIR="packages/${UNSCOPED}"
+          echo "Publishing ${PROJECT_NAME} from ${PKG_DIR}"
+
+          # Use npm publish directly — it has first-class TP support
+          # since 11.5.1 and reads OIDC_REQUEST_{TOKEN,URL}. pnpm 10.x
+          # forwards to npm under the hood for the actual HTTP call but
+          # has had OIDC quirks; bypass them by calling npm directly.
+          cd "${PKG_DIR}"
+          npm publish --provenance --access public
 
       # ---------------------------------------------------------------
       # Path B: workflow_dispatch — version + publish from main in CI.
