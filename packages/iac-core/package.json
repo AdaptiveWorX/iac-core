@@ -1,0 +1,93 @@
+{
+  "name": "@adaptiveworx/iac-core",
+  "version": "0.2.0",
+  "type": "module",
+  "description": "Core utilities for AdaptiveWorX™ infrastructure-as-code: secret management, stack context detection, region resolution, CIDR allocation, and Zod-validated configuration schemas.",
+  "license": "Apache-2.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./config/*": {
+      "types": "./dist/config/*.d.ts",
+      "import": "./dist/config/*.js"
+    },
+    "./utils/*": {
+      "types": "./dist/utils/*.d.ts",
+      "import": "./dist/utils/*.js"
+    },
+    "./schemas/*": {
+      "types": "./dist/schemas/*.d.ts",
+      "import": "./dist/schemas/*.js"
+    },
+    "./types/*": {
+      "types": "./dist/types/*.d.ts",
+      "import": "./dist/types/*.js"
+    },
+    "./validation/*": {
+      "types": "./dist/validation/*.d.ts",
+      "import": "./dist/validation/*.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "NOTICE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AdaptiveWorX/flux-core.git",
+    "directory": "packages/iac-core"
+  },
+  "homepage": "https://github.com/AdaptiveWorX/flux-core/tree/main/packages/iac-core#readme",
+  "bugs": {
+    "url": "https://github.com/AdaptiveWorX/flux-core/issues"
+  },
+  "keywords": [
+    "iac",
+    "pulumi",
+    "infrastructure-as-code",
+    "aws",
+    "multi-cloud",
+    "typescript",
+    "zod",
+    "infisical",
+    "secrets",
+    "stack-context",
+    "cidr-allocation",
+    "adaptiveworx"
+  ],
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org/"
+  },
+  "dependencies": {
+    "@adaptiveworx/iac-schemas": "workspace:*",
+    "@infisical/sdk": "^4.0.6"
+  },
+  "peerDependencies": {
+    "@pulumi/pulumi": "^3.0.0",
+    "zod": "^3.22.0 || ^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@pulumi/pulumi": {
+      "optional": false
+    }
+  },
+  "devDependencies": {
+    "@pulumi/aws": "^7.7.0",
+    "@pulumi/pulumi": "^3.200.0",
+    "zod": "^3",
+    "zod-to-json-schema": "^3.24.6"
+  }
+}

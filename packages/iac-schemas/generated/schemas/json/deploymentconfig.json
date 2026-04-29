@@ -1,0 +1,117 @@
+{
+  "$ref": "#/$defs/DeploymentConfig",
+  "$defs": {
+    "DeploymentConfig": {
+      "type": "object",
+      "properties": {
+        "tenant": {
+          "type": "string",
+          "minLength": 2,
+          "errorMessage": {
+            "minLength": "Organization prefix must be at least 2 characters",
+            "maxLength": "Organization prefix must be at most 8 characters",
+            "pattern": "Organization prefix must start with lowercase letter and contain only lowercase letters and numbers"
+          },
+          "maxLength": 8,
+          "pattern": "^[a-z][a-z0-9]*$"
+        },
+        "orgName": {
+          "type": "string",
+          "minLength": 2,
+          "errorMessage": {
+            "minLength": "Organization name required"
+          },
+          "maxLength": 100
+        },
+        "orgDomain": {
+          "type": "string",
+          "pattern": "^[a-z0-9.-]+\\.[a-z]{2,}$",
+          "errorMessage": {
+            "pattern": "Invalid domain format"
+          }
+        },
+        "accountPurposes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 10,
+            "pattern": "^[a-z][a-z0-9]*$",
+            "errorMessage": {
+              "pattern": "Account purpose must start with lowercase letter and contain only lowercase alphanumeric characters"
+            }
+          },
+          "minItems": 1,
+          "errorMessage": {
+            "minItems": "At least one account purpose required"
+          }
+        },
+        "accountEnvironments": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 15,
+            "pattern": "^[a-z][a-z0-9]*$",
+            "errorMessage": {
+              "pattern": "Environment must start with lowercase letter and contain only lowercase alphanumeric characters"
+            }
+          },
+          "minItems": 1,
+          "errorMessage": {
+            "minItems": "At least one environment required"
+          }
+        },
+        "enableMultiPurpose": {
+          "type": "boolean"
+        },
+        "useInfisical": {
+          "type": "boolean"
+        },
+        "awsRegion": {
+          "type": "string",
+          "enum": [
+            "us-east-1",
+            "us-east-2",
+            "us-west-1",
+            "us-west-2",
+            "eu-west-1",
+            "eu-west-2",
+            "eu-central-1",
+            "ap-southeast-1",
+            "ap-southeast-2",
+            "ap-northeast-1",
+            "use1",
+            "use2",
+            "usw1",
+            "usw2",
+            "euw1",
+            "euw2",
+            "euc1",
+            "apse1",
+            "apse2",
+            "apne1"
+          ]
+        }
+      },
+      "required": [
+        "tenant",
+        "orgName",
+        "orgDomain",
+        "accountPurposes",
+        "accountEnvironments",
+        "enableMultiPurpose",
+        "useInfisical",
+        "awsRegion"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.adaptiveworx.com/iac/deploymentconfig.json",
+  "title": "DeploymentConfig Schema",
+  "description": "JSON Schema for DeploymentConfig validation in agent-optimized IaC deployments",
+  "x-agent-optimized": true,
+  "x-version": "1.0.0",
+  "x-namespace": "adaptiveworx.iac"
+}

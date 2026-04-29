@@ -158,7 +158,7 @@ feat(iac-components-azure)!: rename FabricCapacity.skuTier to skuName
 
 - Don't introduce new top-level dependencies without discussion — every
   added dep has a per-package and per-consumer cost.
-- Don't widen `iac-core`'s scope to anything cloud-specific. AWS/Azure
+- Don't widen `iac-core`'s scope to anything cloud-specific. AWS/Azure/GCP
   primitives go in their respective component packages. (See
   [architecture.md § boundary rules](./docs/architecture.md#boundary-rules).)
 - Don't import across cloud component boundaries. AWS doesn't import

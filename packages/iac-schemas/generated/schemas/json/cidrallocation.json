@@ -1,0 +1,71 @@
+{
+  "$ref": "#/$defs/CidrAllocation",
+  "$defs": {
+    "CidrAllocation": {
+      "type": "object",
+      "properties": {
+        "environment": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 15,
+          "pattern": "^[a-z][a-z0-9]*$",
+          "errorMessage": {
+            "pattern": "Environment must start with lowercase letter and contain only lowercase alphanumeric characters"
+          }
+        },
+        "vpcCidr": {
+          "type": "string",
+          "pattern": "^10\\.([0-9]{1,3})\\.([0-9]{1,3})\\.([0-9]{1,3})\\/([0-9]{1,2})$",
+          "errorMessage": {
+            "pattern": "VPC CIDR must be valid RFC1918 format"
+          }
+        },
+        "publicSubnets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "errorMessage": {
+            "minItems": "At least 2 public subnets required for HA"
+          }
+        },
+        "privateSubnets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "errorMessage": {
+            "minItems": "At least 2 private subnets required for HA"
+          }
+        },
+        "databaseSubnets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "errorMessage": {
+            "minItems": "At least 2 database subnets required for HA"
+          }
+        }
+      },
+      "required": [
+        "environment",
+        "vpcCidr",
+        "publicSubnets",
+        "privateSubnets",
+        "databaseSubnets"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.adaptiveworx.com/iac/cidrallocation.json",
+  "title": "CidrAllocation Schema",
+  "description": "JSON Schema for CidrAllocation validation in agent-optimized IaC deployments",
+  "x-agent-optimized": true,
+  "x-version": "1.0.0",
+  "x-namespace": "adaptiveworx.iac"
+}

@@ -1,0 +1,6 @@
+# Pulumi Policy Pack Configuration
+# Defines the runtime and dependencies for the adaptiveworx-baseline-governance policy pack
+
+name: adaptiveworx-baseline-governance
+runtime: nodejs
+description: Agent-optimized infrastructure governance with automated compliance checking

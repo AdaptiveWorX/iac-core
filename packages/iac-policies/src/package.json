@@ -1,0 +1,13 @@
+{
+  "name": "adaptiveworx-baseline-governance",
+  "version": "1.0.0",
+  "description": "Agent-optimized infrastructure governance with automated compliance checking",
+  "main": "index.ts",
+  "dependencies": {
+    "@pulumi/policy": "^1.14.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "$ref": "#/$defs/StackContext",
+  "$defs": {
+    "StackContext": {
+      "type": "object",
+      "properties": {
+        "org": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tenant": {
+          "type": "string",
+          "minLength": 2,
+          "errorMessage": {
+            "minLength": "Organization prefix must be at least 2 characters",
+            "maxLength": "Organization prefix must be at most 8 characters",
+            "pattern": "Organization prefix must start with lowercase letter and contain only lowercase letters and numbers"
+          },
+          "maxLength": 8,
+          "pattern": "^[a-z][a-z0-9]*$"
+        },
+        "cloud": {
+          "type": "string",
+          "enum": [
+            "aws",
+            "gcp",
+            "azure"
+          ]
+        },
+        "accountPurpose": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 10,
+          "pattern": "^[a-z][a-z0-9]*$",
+          "errorMessage": {
+            "pattern": "Account purpose must start with lowercase letter and contain only lowercase alphanumeric characters"
+          }
+        },
+        "stackPurpose": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 20,
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "errorMessage": {
+            "pattern": "Stack purpose must start with lowercase letter and contain only lowercase alphanumeric characters and hyphens"
+          }
+        },
+        "environment": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 15,
+          "pattern": "^[a-z][a-z0-9]*$",
+          "errorMessage": {
+            "pattern": "Environment must start with lowercase letter and contain only lowercase alphanumeric characters"
+          }
+        },
+        "region": {
+          "type": "string",
+          "enum": [
+            "us-east-1",
+            "us-east-2",
+            "us-west-1",
+            "us-west-2",
+            "eu-west-1",
+            "eu-west-2",
+            "eu-central-1",
+            "ap-southeast-1",
+            "ap-southeast-2",
+            "ap-northeast-1",
+            "use1",
+            "use2",
+            "usw1",
+            "usw2",
+            "euw1",
+            "euw2",
+            "euc1",
+            "apse1",
+            "apse2",
+            "apne1"
+          ]
+        },
+        "projectName": {
+          "type": "string",
+          "minLength": 7,
+          "errorMessage": {
+            "minLength": "Project name too short",
+            "pattern": "Project name must be kebab-case"
+          },
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+        },
+        "stackName": {
+          "type": "string",
+          "minLength": 5,
+          "errorMessage": {
+            "minLength": "Stack name too short",
+            "pattern": "Stack name must be kebab-case"
+          },
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+        },
+        "concern": {
+          "type": "string"
+        },
+        "targetEnvironment": {
+          "$ref": "#/$defs/StackContext/properties/environment"
+        }
+      },
+      "required": [
+        "org",
+        "tenant",
+        "cloud",
+        "accountPurpose",
+        "stackPurpose",
+        "environment",
+        "region",
+        "projectName",
+        "stackName"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.adaptiveworx.com/iac/stackcontext.json",
+  "title": "StackContext Schema",
+  "description": "JSON Schema for StackContext validation in agent-optimized IaC deployments",
+  "x-agent-optimized": true,
+  "x-version": "1.0.0",
+  "x-namespace": "adaptiveworx.iac"
+}

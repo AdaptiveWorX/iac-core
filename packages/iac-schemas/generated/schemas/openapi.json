@@ -1,0 +1,644 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "IaC-Worx Agent API",
+    "description": "API specification for agent-optimized Infrastructure as Code operations",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Adaptive Intelligence, LLC",
+      "url": "https://adaptiveworx.com"
+    },
+    "license": {
+      "name": "Apache 2.0",
+      "url": "https://www.apache.org/licenses/LICENSE-2.0"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.adaptiveworx.com/iac/v1",
+      "description": "Production API"
+    },
+    {
+      "url": "https://staging.adaptiveworx.com/iac/v1",
+      "description": "Staging API"
+    }
+  ],
+  "paths": {
+    "/validate/stack-context": {
+      "post": {
+        "summary": "Validate Stack Context",
+        "description": "Validate stack context configuration for agent deployment",
+        "operationId": "validateStackContext",
+        "tags": [
+          "validation"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StackContext"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validation successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "valid": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "valid": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ValidationError"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/validate/deployment-config": {
+      "post": {
+        "summary": "Validate Deployment Configuration",
+        "description": "Validate deployment configuration for agent safety",
+        "operationId": "validateDeploymentConfig",
+        "tags": [
+          "validation"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentConfig"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validation successful"
+          },
+          "400": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AccountConfig": {
+        "type": "object",
+        "properties": {
+          "accountPurpose": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 10,
+            "pattern": "^[a-z][a-z0-9]*$"
+          },
+          "environment": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 15,
+            "pattern": "^[a-z][a-z0-9]*$"
+          },
+          "complianceRequirements": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "pci-dss",
+                "hipaa",
+                "sox",
+                "gdpr",
+                "iso27001",
+                "nist"
+              ]
+            }
+          },
+          "enableLogging": {
+            "type": "boolean"
+          },
+          "enableMonitoring": {
+            "type": "boolean"
+          },
+          "enableBackup": {
+            "type": "boolean"
+          },
+          "retentionPolicyDays": {
+            "type": "integer",
+            "minimum": 30,
+            "maximum": 2557
+          }
+        },
+        "required": [
+          "accountPurpose",
+          "environment",
+          "complianceRequirements",
+          "enableLogging",
+          "enableMonitoring",
+          "enableBackup",
+          "retentionPolicyDays"
+        ],
+        "additionalProperties": false
+      },
+      "AccountPurpose": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 10,
+        "pattern": "^[a-z][a-z0-9]*$"
+      },
+      "AgentGuardrails": {
+        "type": "object",
+        "properties": {
+          "enablePreflightValidation": {
+            "type": "boolean"
+          },
+          "enableRiskAssessment": {
+            "type": "boolean"
+          },
+          "enableAutoApproval": {
+            "type": "boolean"
+          },
+          "maxRiskScore": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "requireManualApproval": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "enablePreflightValidation",
+          "enableRiskAssessment",
+          "enableAutoApproval",
+          "maxRiskScore",
+          "requireManualApproval"
+        ],
+        "additionalProperties": false
+      },
+      "AwsRegion": {
+        "type": "string",
+        "enum": [
+          "us-east-1",
+          "us-east-2",
+          "us-west-1",
+          "us-west-2",
+          "eu-west-1",
+          "eu-west-2",
+          "eu-central-1",
+          "ap-southeast-1",
+          "ap-southeast-2",
+          "ap-northeast-1",
+          "use1",
+          "use2",
+          "usw1",
+          "usw2",
+          "euw1",
+          "euw2",
+          "euc1",
+          "apse1",
+          "apse2",
+          "apne1"
+        ]
+      },
+      "CidrAllocation": {
+        "type": "object",
+        "properties": {
+          "environment": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 15,
+            "pattern": "^[a-z][a-z0-9]*$"
+          },
+          "vpcCidr": {
+            "type": "string",
+            "pattern": "^10\\.([0-9]{1,3})\\.([0-9]{1,3})\\.([0-9]{1,3})\\/([0-9]{1,2})$"
+          },
+          "publicSubnets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2
+          },
+          "privateSubnets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2
+          },
+          "databaseSubnets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2
+          }
+        },
+        "required": [
+          "environment",
+          "vpcCidr",
+          "publicSubnets",
+          "privateSubnets",
+          "databaseSubnets"
+        ],
+        "additionalProperties": false
+      },
+      "CloudProvider": {
+        "type": "string",
+        "enum": [
+          "aws",
+          "gcp",
+          "azure"
+        ]
+      },
+      "ComplianceRequirement": {
+        "type": "string",
+        "enum": [
+          "pci-dss",
+          "hipaa",
+          "sox",
+          "gdpr",
+          "iso27001",
+          "nist"
+        ]
+      },
+      "DeploymentConfig": {
+        "type": "object",
+        "properties": {
+          "tenant": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 8,
+            "pattern": "^[a-z][a-z0-9]*$"
+          },
+          "orgName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "orgDomain": {
+            "type": "string",
+            "pattern": "^[a-z0-9.-]+\\.[a-z]{2,}$"
+          },
+          "accountPurposes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 10,
+              "pattern": "^[a-z][a-z0-9]*$"
+            },
+            "minItems": 1
+          },
+          "accountEnvironments": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 15,
+              "pattern": "^[a-z][a-z0-9]*$"
+            },
+            "minItems": 1
+          },
+          "enableMultiPurpose": {
+            "type": "boolean"
+          },
+          "useInfisical": {
+            "type": "boolean"
+          },
+          "awsRegion": {
+            "type": "string",
+            "enum": [
+              "us-east-1",
+              "us-east-2",
+              "us-west-1",
+              "us-west-2",
+              "eu-west-1",
+              "eu-west-2",
+              "eu-central-1",
+              "ap-southeast-1",
+              "ap-southeast-2",
+              "ap-northeast-1",
+              "use1",
+              "use2",
+              "usw1",
+              "usw2",
+              "euw1",
+              "euw2",
+              "euc1",
+              "apse1",
+              "apse2",
+              "apne1"
+            ]
+          }
+        },
+        "required": [
+          "tenant",
+          "orgName",
+          "orgDomain",
+          "accountPurposes",
+          "accountEnvironments",
+          "enableMultiPurpose",
+          "useInfisical",
+          "awsRegion"
+        ],
+        "additionalProperties": false
+      },
+      "Environment": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 15,
+        "pattern": "^[a-z][a-z0-9]*$"
+      },
+      "EnvironmentClass": {
+        "type": "string",
+        "enum": [
+          "development",
+          "testing",
+          "staging",
+          "production",
+          "operations",
+          "disaster-recovery"
+        ]
+      },
+      "OrgPrefix": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 8,
+        "pattern": "^[a-z][a-z0-9]*$"
+      },
+      "PolicyConfig": {
+        "type": "object",
+        "properties": {
+          "enableCostGuardrails": {
+            "type": "boolean"
+          },
+          "enableSecurityPolicies": {
+            "type": "boolean"
+          },
+          "enableCompliancePolicies": {
+            "type": "boolean"
+          },
+          "maxMonthlyCostUsd": {
+            "type": "number",
+            "minimum": 100,
+            "maximum": 1000000
+          },
+          "allowedRegions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "us-east-1",
+                "us-east-2",
+                "us-west-1",
+                "us-west-2",
+                "eu-west-1",
+                "eu-west-2",
+                "eu-central-1",
+                "ap-southeast-1",
+                "ap-southeast-2",
+                "ap-northeast-1",
+                "use1",
+                "use2",
+                "usw1",
+                "usw2",
+                "euw1",
+                "euw2",
+                "euc1",
+                "apse1",
+                "apse2",
+                "apne1"
+              ]
+            },
+            "minItems": 1
+          },
+          "requiredTags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "enableCostGuardrails",
+          "enableSecurityPolicies",
+          "enableCompliancePolicies",
+          "maxMonthlyCostUsd",
+          "allowedRegions",
+          "requiredTags"
+        ],
+        "additionalProperties": false
+      },
+      "ProjectName": {
+        "type": "string",
+        "minLength": 7,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "StackContext": {
+        "type": "object",
+        "properties": {
+          "org": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tenant": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 8,
+            "pattern": "^[a-z][a-z0-9]*$"
+          },
+          "cloud": {
+            "type": "string",
+            "enum": [
+              "aws",
+              "gcp",
+              "azure"
+            ]
+          },
+          "accountPurpose": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 10,
+            "pattern": "^[a-z][a-z0-9]*$"
+          },
+          "stackPurpose": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 20,
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "environment": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 15,
+            "pattern": "^[a-z][a-z0-9]*$"
+          },
+          "region": {
+            "type": "string",
+            "enum": [
+              "us-east-1",
+              "us-east-2",
+              "us-west-1",
+              "us-west-2",
+              "eu-west-1",
+              "eu-west-2",
+              "eu-central-1",
+              "ap-southeast-1",
+              "ap-southeast-2",
+              "ap-northeast-1",
+              "use1",
+              "use2",
+              "usw1",
+              "usw2",
+              "euw1",
+              "euw2",
+              "euc1",
+              "apse1",
+              "apse2",
+              "apne1"
+            ]
+          },
+          "projectName": {
+            "type": "string",
+            "minLength": 7,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "stackName": {
+            "type": "string",
+            "minLength": 5,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "concern": {
+            "type": "string"
+          },
+          "targetEnvironment": {
+            "$ref": "#/properties/environment"
+          }
+        },
+        "required": [
+          "org",
+          "tenant",
+          "cloud",
+          "accountPurpose",
+          "stackPurpose",
+          "environment",
+          "region",
+          "projectName",
+          "stackName"
+        ],
+        "additionalProperties": false
+      },
+      "StackName": {
+        "type": "string",
+        "minLength": 5,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "StackPurpose": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 20,
+        "pattern": "^[a-z][a-z0-9-]*$"
+      },
+      "StackPurposeClass": {
+        "type": "string",
+        "enum": [
+          "infrastructure",
+          "security",
+          "compute",
+          "data",
+          "observability",
+          "edge",
+          "integration"
+        ]
+      },
+      "ValidationError": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "REQUIRED_FIELD_MISSING",
+              "INVALID_FORMAT",
+              "INVALID_VALUE",
+              "CONSTRAINT_VIOLATION",
+              "SECURITY_VIOLATION",
+              "POLICY_VIOLATION",
+              "CROSS_ACCOUNT_VIOLATION"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "info"
+            ]
+          }
+        },
+        "required": [
+          "field",
+          "message",
+          "code",
+          "severity"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "validation",
+      "description": "Schema validation endpoints for agent safety"
+    },
+    {
+      "name": "guardrails",
+      "description": "Agent guardrails and risk assessment"
+    }
+  ]
+}

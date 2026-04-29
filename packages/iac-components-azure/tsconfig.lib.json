@@ -7,7 +7,8 @@
     "declarationMap": true,
     "sourceMap": true,
     "composite": false,
-    "tsBuildInfoFile": "./dist/.tsbuildinfo"
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "types": ["node"]
   },
   "include": ["src/**/*.ts"],
   "exclude": [

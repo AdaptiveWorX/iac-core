@@ -1,0 +1,23 @@
+{
+  "$ref": "#/$defs/OrgPrefix",
+  "$defs": {
+    "OrgPrefix": {
+      "type": "string",
+      "minLength": 2,
+      "errorMessage": {
+        "minLength": "Organization prefix must be at least 2 characters",
+        "maxLength": "Organization prefix must be at most 8 characters",
+        "pattern": "Organization prefix must start with lowercase letter and contain only lowercase letters and numbers"
+      },
+      "maxLength": 8,
+      "pattern": "^[a-z][a-z0-9]*$"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.adaptiveworx.com/iac/orgprefix.json",
+  "title": "OrgPrefix Schema",
+  "description": "JSON Schema for OrgPrefix validation in agent-optimized IaC deployments",
+  "x-agent-optimized": true,
+  "x-version": "1.0.0",
+  "x-namespace": "adaptiveworx.iac"
+}

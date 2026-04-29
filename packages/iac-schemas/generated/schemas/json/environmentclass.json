@@ -1,0 +1,23 @@
+{
+  "$ref": "#/$defs/EnvironmentClass",
+  "$defs": {
+    "EnvironmentClass": {
+      "type": "string",
+      "enum": [
+        "development",
+        "testing",
+        "staging",
+        "production",
+        "operations",
+        "disaster-recovery"
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.adaptiveworx.com/iac/environmentclass.json",
+  "title": "EnvironmentClass Schema",
+  "description": "JSON Schema for EnvironmentClass validation in agent-optimized IaC deployments",
+  "x-agent-optimized": true,
+  "x-version": "1.0.0",
+  "x-namespace": "adaptiveworx.iac"
+}

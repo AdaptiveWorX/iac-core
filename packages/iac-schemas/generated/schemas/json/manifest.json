@@ -1,0 +1,426 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.adaptiveworx.com/iac/manifest.json",
+  "title": "IaC Schema Manifest",
+  "description": "Registry of available JSON schemas for agent-optimized IaC validation",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "namespace": {
+      "type": "string",
+      "const": "adaptiveworx.iac"
+    },
+    "schemas": {
+      "type": "object",
+      "properties": {
+        "accountconfig": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "AccountConfig"
+            },
+            "file": {
+              "type": "string",
+              "const": "accountconfig.json"
+            },
+            "url": {
+              "type": "string",
+              "const": "https://schemas.adaptiveworx.com/iac/accountconfig.json"
+            }
+          },
+          "required": [
+            "name",
+            "file",
+            "url"
+          ]
+        },
+        "accountpurpose": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "AccountPurpose"
+            },
+            "file": {
+              "type": "string",
+              "const": "accountpurpose.json"
+            },
+            "url": {
+              "type": "string",
+              "const": "https://schemas.adaptiveworx.com/iac/accountpurpose.json"
+            }
+          },
+          "required": [
+            "name",
+            "file",
+            "url"
+          ]
+        },
+        "agentguardrails": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "AgentGuardrails"
+            },
+            "file": {
+              "type": "string",
+              "const": "agentguardrails.json"
+            },
+            "url": {
+              "type": "string",
+              "const": "https://schemas.adaptiveworx.com/iac/agentguardrails.json"
+            }
+          },
+          "required": [
+            "name",
+            "file",
+            "url"
+          ]
+        },
+        "awsregion": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "AwsRegion"
+            },
+            "file": {
+              "type": "string",
+              "const": "awsregion.json"
+            },
+            "url": {
+              "type": "string",
+              "const": "https://schemas.adaptiveworx.com/iac/awsregion.json"
+            }
+          },
+          "required": [
+            "name",
+            "file",
+            "url"
+          ]
+        },
+        "cidrallocation": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "CidrAllocation"
+            },
+            "file": {
+              "type": "string",
+              "const": "cidrallocation.json"
+            },
+            "url": {
+              "type": "string",
+              "const": "https://schemas.adaptiveworx.com/iac/cidrallocation.json"
+            }
+          },
+          "required": [
+            "name",
+            "file",
+            "url"
+          ]
+        },
+        "cloudprovider": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "CloudProvider"
+            },
+            "file": {
+              "type": "string",
+              "const": "cloudprovider.json"
+            },
+            "url": {
+              "type": "string",
+              "const": "https://schemas.adaptiveworx.com/iac/cloudprovider.json"
+            }
+          },
+          "required": [
+            "name",
+            "file",
+            "url"
+          ]
+        },
+        "compliancerequirement": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "ComplianceRequirement"
+            },
+            "file": {
+              "type": "string",
+              "const": "compliancerequirement.json"
+            },
+            "url": {
+              "type": "string",
+              "const": "https://schemas.adaptiveworx.com/iac/compliancerequirement.json"
+            }
+          },
+          "required": [
+            "name",
+            "file",
+            "url"
+          ]
+        },
+        "deploymentconfig": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "DeploymentConfig"
+            },
+            "file": {
+              "type": "string",
+              "const": "deploymentconfig.json"
+            },
+            "url": {
+              "type": "string",
+              "const": "https://schemas.adaptiveworx.com/iac/deploymentconfig.json"
+            }
+          },
+          "required": [
+            "name",
+            "file",
+            "url"
+          ]
+        },
+        "environment": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "Environment"
+            },
+            "file": {
+              "type": "string",
+              "const": "environment.json"
+            },
+            "url": {
+              "type": "string",
+              "const": "https://schemas.adaptiveworx.com/iac/environment.json"
+            }
+          },
+          "required": [
+            "name",
+            "file",
+            "url"
+          ]
+        },
+        "environmentclass": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "EnvironmentClass"
+            },
+            "file": {
+              "type": "string",
+              "const": "environmentclass.json"
+            },
+            "url": {
+              "type": "string",
+              "const": "https://schemas.adaptiveworx.com/iac/environmentclass.json"
+            }
+          },
+          "required": [
+            "name",
+            "file",
+            "url"
+          ]
+        },
+        "orgprefix": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "OrgPrefix"
+            },
+            "file": {
+              "type": "string",
+              "const": "orgprefix.json"
+            },
+            "url": {
+              "type": "string",
+              "const": "https://schemas.adaptiveworx.com/iac/orgprefix.json"
+            }
+          },
+          "required": [
+            "name",
+            "file",
+            "url"
+          ]
+        },
+        "policyconfig": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "PolicyConfig"
+            },
+            "file": {
+              "type": "string",
+              "const": "policyconfig.json"
+            },
+            "url": {
+              "type": "string",
+              "const": "https://schemas.adaptiveworx.com/iac/policyconfig.json"
+            }
+          },
+          "required": [
+            "name",
+            "file",
+            "url"
+          ]
+        },
+        "projectname": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "ProjectName"
+            },
+            "file": {
+              "type": "string",
+              "const": "projectname.json"
+            },
+            "url": {
+              "type": "string",
+              "const": "https://schemas.adaptiveworx.com/iac/projectname.json"
+            }
+          },
+          "required": [
+            "name",
+            "file",
+            "url"
+          ]
+        },
+        "stackcontext": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "StackContext"
+            },
+            "file": {
+              "type": "string",
+              "const": "stackcontext.json"
+            },
+            "url": {
+              "type": "string",
+              "const": "https://schemas.adaptiveworx.com/iac/stackcontext.json"
+            }
+          },
+          "required": [
+            "name",
+            "file",
+            "url"
+          ]
+        },
+        "stackname": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "StackName"
+            },
+            "file": {
+              "type": "string",
+              "const": "stackname.json"
+            },
+            "url": {
+              "type": "string",
+              "const": "https://schemas.adaptiveworx.com/iac/stackname.json"
+            }
+          },
+          "required": [
+            "name",
+            "file",
+            "url"
+          ]
+        },
+        "stackpurpose": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "StackPurpose"
+            },
+            "file": {
+              "type": "string",
+              "const": "stackpurpose.json"
+            },
+            "url": {
+              "type": "string",
+              "const": "https://schemas.adaptiveworx.com/iac/stackpurpose.json"
+            }
+          },
+          "required": [
+            "name",
+            "file",
+            "url"
+          ]
+        },
+        "stackpurposeclass": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "StackPurposeClass"
+            },
+            "file": {
+              "type": "string",
+              "const": "stackpurposeclass.json"
+            },
+            "url": {
+              "type": "string",
+              "const": "https://schemas.adaptiveworx.com/iac/stackpurposeclass.json"
+            }
+          },
+          "required": [
+            "name",
+            "file",
+            "url"
+          ]
+        },
+        "validationerror": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "ValidationError"
+            },
+            "file": {
+              "type": "string",
+              "const": "validationerror.json"
+            },
+            "url": {
+              "type": "string",
+              "const": "https://schemas.adaptiveworx.com/iac/validationerror.json"
+            }
+          },
+          "required": [
+            "name",
+            "file",
+            "url"
+          ]
+        }
+      }
+    }
+  },
+  "required": [
+    "version",
+    "namespace",
+    "schemas"
+  ],
+  "x-agent-optimized": true,
+  "x-version": "1.0.0",
+  "x-namespace": "adaptiveworx.iac"
+}

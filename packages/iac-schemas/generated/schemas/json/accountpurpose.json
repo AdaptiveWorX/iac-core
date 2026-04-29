@@ -1,0 +1,21 @@
+{
+  "$ref": "#/$defs/AccountPurpose",
+  "$defs": {
+    "AccountPurpose": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 10,
+      "pattern": "^[a-z][a-z0-9]*$",
+      "errorMessage": {
+        "pattern": "Account purpose must start with lowercase letter and contain only lowercase alphanumeric characters"
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.adaptiveworx.com/iac/accountpurpose.json",
+  "title": "AccountPurpose Schema",
+  "description": "JSON Schema for AccountPurpose validation in agent-optimized IaC deployments",
+  "x-agent-optimized": true,
+  "x-version": "1.0.0",
+  "x-namespace": "adaptiveworx.iac"
+}

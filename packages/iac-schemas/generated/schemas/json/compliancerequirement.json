@@ -1,0 +1,23 @@
+{
+  "$ref": "#/$defs/ComplianceRequirement",
+  "$defs": {
+    "ComplianceRequirement": {
+      "type": "string",
+      "enum": [
+        "pci-dss",
+        "hipaa",
+        "sox",
+        "gdpr",
+        "iso27001",
+        "nist"
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.adaptiveworx.com/iac/compliancerequirement.json",
+  "title": "ComplianceRequirement Schema",
+  "description": "JSON Schema for ComplianceRequirement validation in agent-optimized IaC deployments",
+  "x-agent-optimized": true,
+  "x-version": "1.0.0",
+  "x-namespace": "adaptiveworx.iac"
+}

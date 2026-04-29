@@ -1,0 +1,23 @@
+{
+  "name": "@adaptiveworx/iac-policies",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "packages/iac-policies/src",
+  "tags": ["scope:policies", "type:library", "publish:public"],
+  "targets": {
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "biome check packages/iac-policies/src"
+      },
+      "cache": true
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --noEmit -p packages/iac-policies/tsconfig.json"
+      },
+      "cache": true
+    }
+  }
+}

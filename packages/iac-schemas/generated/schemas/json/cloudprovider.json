@@ -1,0 +1,20 @@
+{
+  "$ref": "#/$defs/CloudProvider",
+  "$defs": {
+    "CloudProvider": {
+      "type": "string",
+      "enum": [
+        "aws",
+        "gcp",
+        "azure"
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.adaptiveworx.com/iac/cloudprovider.json",
+  "title": "CloudProvider Schema",
+  "description": "JSON Schema for CloudProvider validation in agent-optimized IaC deployments",
+  "x-agent-optimized": true,
+  "x-version": "1.0.0",
+  "x-namespace": "adaptiveworx.iac"
+}

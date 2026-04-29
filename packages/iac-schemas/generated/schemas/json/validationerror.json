@@ -1,0 +1,50 @@
+{
+  "$ref": "#/$defs/ValidationError",
+  "$defs": {
+    "ValidationError": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string",
+          "enum": [
+            "REQUIRED_FIELD_MISSING",
+            "INVALID_FORMAT",
+            "INVALID_VALUE",
+            "CONSTRAINT_VIOLATION",
+            "SECURITY_VIOLATION",
+            "POLICY_VIOLATION",
+            "CROSS_ACCOUNT_VIOLATION"
+          ]
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info"
+          ]
+        }
+      },
+      "required": [
+        "field",
+        "message",
+        "code",
+        "severity"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.adaptiveworx.com/iac/validationerror.json",
+  "title": "ValidationError Schema",
+  "description": "JSON Schema for ValidationError validation in agent-optimized IaC deployments",
+  "x-agent-optimized": true,
+  "x-version": "1.0.0",
+  "x-namespace": "adaptiveworx.iac"
+}

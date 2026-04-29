@@ -1,0 +1,45 @@
+{
+  "$ref": "#/$defs/AgentGuardrails",
+  "$defs": {
+    "AgentGuardrails": {
+      "type": "object",
+      "properties": {
+        "enablePreflightValidation": {
+          "type": "boolean"
+        },
+        "enableRiskAssessment": {
+          "type": "boolean"
+        },
+        "enableAutoApproval": {
+          "type": "boolean"
+        },
+        "maxRiskScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "requireManualApproval": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "enablePreflightValidation",
+        "enableRiskAssessment",
+        "enableAutoApproval",
+        "maxRiskScore",
+        "requireManualApproval"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.adaptiveworx.com/iac/agentguardrails.json",
+  "title": "AgentGuardrails Schema",
+  "description": "JSON Schema for AgentGuardrails validation in agent-optimized IaC deployments",
+  "x-agent-optimized": true,
+  "x-version": "1.0.0",
+  "x-namespace": "adaptiveworx.iac"
+}

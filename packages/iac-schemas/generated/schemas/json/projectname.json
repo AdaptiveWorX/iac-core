@@ -1,0 +1,21 @@
+{
+  "$ref": "#/$defs/ProjectName",
+  "$defs": {
+    "ProjectName": {
+      "type": "string",
+      "minLength": 7,
+      "errorMessage": {
+        "minLength": "Project name too short",
+        "pattern": "Project name must be kebab-case"
+      },
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.adaptiveworx.com/iac/projectname.json",
+  "title": "ProjectName Schema",
+  "description": "JSON Schema for ProjectName validation in agent-optimized IaC deployments",
+  "x-agent-optimized": true,
+  "x-version": "1.0.0",
+  "x-namespace": "adaptiveworx.iac"
+}

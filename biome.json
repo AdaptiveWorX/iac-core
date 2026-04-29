@@ -222,5 +222,35 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "scripts/**/*.ts",
+        "packages/iac-core/src/schemas/generators/**/*.ts",
+        "packages/iac-core/src/utils/**/*.ts"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "packages/iac-core/src/schemas/generators/**/*.ts",
+        "packages/iac-core/src/validation/agent-validation.ts",
+        "packages/iac-core/src/**/*.test.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "useNamingConvention": "off"
+          }
+        }
+      }
+    }
+  ]
 }

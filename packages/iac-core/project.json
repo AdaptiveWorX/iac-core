@@ -1,0 +1,49 @@
+{
+  "name": "@adaptiveworx/iac-core",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "packages/iac-core/src",
+  "tags": ["scope:core", "type:library", "publish:public"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/iac-core",
+        "command": "tsc -p tsconfig.lib.json"
+      },
+      "outputs": ["{projectRoot}/dist"],
+      "dependsOn": ["^build"],
+      "cache": true
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vitest run packages/iac-core --reporter=verbose"
+      },
+      "cache": true
+    },
+    "test:unit": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vitest run 'packages/iac-core/**/*.unit.test.ts' --reporter=verbose"
+      },
+      "cache": true
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "biome check packages/iac-core/src"
+      },
+      "cache": true
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/iac-core",
+        "command": "tsc --noEmit -p tsconfig.lib.json"
+      },
+      "dependsOn": ["^build"],
+      "cache": true
+    }
+  }
+}

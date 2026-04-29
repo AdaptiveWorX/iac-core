@@ -1,0 +1,24 @@
+{
+  "$ref": "#/$defs/StackPurposeClass",
+  "$defs": {
+    "StackPurposeClass": {
+      "type": "string",
+      "enum": [
+        "infrastructure",
+        "security",
+        "compute",
+        "data",
+        "observability",
+        "edge",
+        "integration"
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.adaptiveworx.com/iac/stackpurposeclass.json",
+  "title": "StackPurposeClass Schema",
+  "description": "JSON Schema for StackPurposeClass validation in agent-optimized IaC deployments",
+  "x-agent-optimized": true,
+  "x-version": "1.0.0",
+  "x-namespace": "adaptiveworx.iac"
+}

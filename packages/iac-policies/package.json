@@ -1,0 +1,58 @@
+{
+  "name": "@adaptiveworx/iac-policies",
+  "version": "0.2.0",
+  "type": "module",
+  "description": "Pulumi CrossGuard policy pack for AdaptiveWorX™ infrastructure governance: required-tag enforcement, environment-aware deployment gates, region allowlisting, and tenant-aware compliance frameworks.",
+  "license": "Apache-2.0",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./src": "./src/",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "LICENSE",
+    "NOTICE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AdaptiveWorX/flux-core.git",
+    "directory": "packages/iac-policies"
+  },
+  "homepage": "https://github.com/AdaptiveWorX/flux-core/tree/main/packages/iac-policies#readme",
+  "bugs": {
+    "url": "https://github.com/AdaptiveWorX/flux-core/issues"
+  },
+  "keywords": [
+    "pulumi",
+    "policy-pack",
+    "crossguard",
+    "iac",
+    "infrastructure",
+    "governance",
+    "compliance",
+    "aws",
+    "multi-cloud",
+    "adaptiveworx"
+  ],
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org/"
+  },
+  "peerDependencies": {
+    "@pulumi/policy": "^1.18.0",
+    "@pulumi/pulumi": "^3.150.0"
+  },
+  "devDependencies": {
+    "@pulumi/policy": "^1.18.1",
+    "@pulumi/pulumi": "^3.200.0"
+  }
+}

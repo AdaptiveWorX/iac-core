@@ -1,0 +1,73 @@
+{
+  "$ref": "#/$defs/AccountConfig",
+  "$defs": {
+    "AccountConfig": {
+      "type": "object",
+      "properties": {
+        "accountPurpose": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 10,
+          "pattern": "^[a-z][a-z0-9]*$",
+          "errorMessage": {
+            "pattern": "Account purpose must start with lowercase letter and contain only lowercase alphanumeric characters"
+          }
+        },
+        "environment": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 15,
+          "pattern": "^[a-z][a-z0-9]*$",
+          "errorMessage": {
+            "pattern": "Environment must start with lowercase letter and contain only lowercase alphanumeric characters"
+          }
+        },
+        "complianceRequirements": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "pci-dss",
+              "hipaa",
+              "sox",
+              "gdpr",
+              "iso27001",
+              "nist"
+            ]
+          }
+        },
+        "enableLogging": {
+          "type": "boolean"
+        },
+        "enableMonitoring": {
+          "type": "boolean"
+        },
+        "enableBackup": {
+          "type": "boolean"
+        },
+        "retentionPolicyDays": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 2557
+        }
+      },
+      "required": [
+        "accountPurpose",
+        "environment",
+        "complianceRequirements",
+        "enableLogging",
+        "enableMonitoring",
+        "enableBackup",
+        "retentionPolicyDays"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.adaptiveworx.com/iac/accountconfig.json",
+  "title": "AccountConfig Schema",
+  "description": "JSON Schema for AccountConfig validation in agent-optimized IaC deployments",
+  "x-agent-optimized": true,
+  "x-version": "1.0.0",
+  "x-namespace": "adaptiveworx.iac"
+}

@@ -1,0 +1,40 @@
+{
+  "name": "@adaptiveworx/iac-schemas",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "packages/iac-schemas/src",
+  "tags": ["scope:schemas", "type:library", "publish:public"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/iac-schemas",
+        "command": "tsc -p tsconfig.lib.json"
+      },
+      "outputs": ["{projectRoot}/dist"],
+      "cache": true
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vitest run packages/iac-schemas --reporter=verbose --passWithNoTests"
+      },
+      "cache": true
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "biome check packages/iac-schemas/src"
+      },
+      "cache": true
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/iac-schemas",
+        "command": "tsc --noEmit -p tsconfig.lib.json"
+      },
+      "cache": true
+    }
+  }
+}
