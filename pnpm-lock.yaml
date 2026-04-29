@@ -47,6 +47,9 @@ importers:
 
   packages/iac-aws:
     devDependencies:
+      '@adaptiveworx/iac-core':
+        specifier: workspace:*
+        version: link:../iac-core
       '@pulumi/aws':
         specifier: ^7.7.0
         version: 7.27.0(typescript@6.0.3)
