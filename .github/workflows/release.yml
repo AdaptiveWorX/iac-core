@@ -1,62 +1,39 @@
 name: Release
 
-# Two ways to trigger a release:
-#   1. Manual: maintainers run `pnpm nx release` locally; the resulting
-#      per-package tags (e.g. iac-core@0.2.0) are pushed to main and
-#      this workflow picks them up to publish.
-#   2. workflow_dispatch: cut+publish from CI in one shot (use sparingly).
+# Tag-driven publish. Maintainers run `pnpm nx release ...` locally to
+# version + tag + push; this workflow picks up each per-package tag and
+# publishes the corresponding npm package via Trusted Publishing (OIDC).
+#
+# Tag format: @adaptiveworx/<unscoped>@<version>  (e.g. iac-aws@0.2.0).
 on:
   push:
     tags:
-      # Nx Release emits per-package tags of the form
-      #   @adaptiveworx/<unscoped>@<version>
-      # GitHub's glob doesn't reliably match patterns with two wildcards
-      # separated by a literal `@`, so each package gets an explicit entry.
+      # GitHub's tag glob doesn't reliably match patterns with two `*`
+      # separated by a literal `@`, so each package gets an explicit
+      # entry. New packages must be added here.
       - '@adaptiveworx/iac-aws@*'
       - '@adaptiveworx/iac-azure@*'
       - '@adaptiveworx/iac-core@*'
       - '@adaptiveworx/iac-policies@*'
       - '@adaptiveworx/iac-schemas@*'
-  workflow_dispatch:
-    inputs:
-      first_release:
-        description: 'First-release run (skip "since last tag" history walk)'
-        type: boolean
-        default: false
-      dry_run:
-        description: 'Dry-run only — do not publish'
-        type: boolean
-        default: true
 
 permissions:
-  contents: write       # nx release commits version bumps + creates tags
-  id-token: write       # npm provenance (sigstore OIDC)
-  pull-requests: read
+  contents: read
+  id-token: write       # npm Trusted Publishing + provenance
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    # Binds this job to the `production` GitHub environment. Two effects:
-    #   1. Secrets defined under that environment (NPM_TOKEN until we
-    #      finish the TP migration) are scoped here, not repo-wide.
-    #   2. The OIDC token issued for npm provenance + Trusted Publishing
-    #      includes an `environment: production` claim, which we bind on
-    #      each package's npm Trusted Publisher rule.
+    # The job's OIDC token includes `environment: production` as a
+    # claim. Each package's npm Trusted Publisher rule pins to
+    # repo=AdaptiveWorX/flux-core, workflow=release.yml,
+    # environment=production — the claims must match for the publish
+    # to succeed.
     environment: production
-    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          # Full history so Nx Release can walk conventional commits.
-          fetch-depth: 0
-
-      - name: Configure git identity (for nx release commits)
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Enable Corepack
         run: corepack enable
@@ -64,13 +41,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          # Intentionally NOT setting `registry-url:` — that flag makes
-          # setup-node generate an .npmrc with `always-auth=true` and a
-          # `${NODE_AUTH_TOKEN}` placeholder, which forces npm into
-          # token-auth mode and prevents it from falling back to
-          # Trusted Publishing OIDC. Each package declares its
-          # publishConfig.registry directly, so npm targets npmjs.com
-          # via that path.
+          # Intentionally NOT setting `registry-url:` — it makes
+          # setup-node generate an .npmrc with `always-auth=true` and
+          # a `${NODE_AUTH_TOKEN}` placeholder, which forces npm into
+          # token-auth mode and blocks the OIDC fallback. Each package
+          # declares publishConfig.registry directly.
 
       - uses: pnpm/action-setup@v4
         with:
@@ -92,84 +67,28 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Quality gates
-        run: |
-          pnpm nx run-many -t lint typecheck test build
+        run: pnpm nx run-many -t lint typecheck test build
 
-      # ---------------------------------------------------------------
-      # Path A: tag push — packages are already versioned, just publish.
-      # ---------------------------------------------------------------
-      - name: Publish (tag-driven)
-        if: github.ref_type == 'tag'
+      - name: Publish
         env:
           NPM_CONFIG_PROVENANCE: 'true'
         run: |
-          # Authentication via npm Trusted Publishing (OIDC). Each
-          # @adaptiveworx/iac-* package has a Trusted Publisher rule on
-          # npmjs.com pinned to repo=AdaptiveWorX/flux-core,
-          # workflow=release.yml, environment=production.
-          export OIDC_REQUEST_TOKEN="$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
-          export OIDC_REQUEST_URL="$ACTIONS_ID_TOKEN_REQUEST_URL"
-
-          echo "=== diagnostics ==="
-          node --version
-          npm --version
-          pnpm --version
-          echo "OIDC_REQUEST_TOKEN length: ${#OIDC_REQUEST_TOKEN}"
-          echo "OIDC_REQUEST_URL: ${OIDC_REQUEST_URL}"
-          echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN length: ${#ACTIONS_ID_TOKEN_REQUEST_TOKEN}"
-          echo "ACTIONS_ID_TOKEN_REQUEST_URL: ${ACTIONS_ID_TOKEN_REQUEST_URL}"
-          echo "--- npm config (sanitized) ---"
-          npm config list 2>&1 | grep -vE '_authToken|password|secret' || true
-          echo "--- relevant env ---"
-          env | grep -E '^(NPM_|NODE_|GITHUB_|RUNNER_|ACTIONS_ID|OIDC_)' | grep -vE '_TOKEN=|TOKEN_REQUEST_TOKEN=' || true
-          echo "==================="
-
+          # Tag format: @adaptiveworx/<name>@<version>
+          # Strip trailing @<version> to get the scoped project name.
           TAG="${GITHUB_REF#refs/tags/}"
           PROJECT_NAME="${TAG%@*}"
           UNSCOPED="${PROJECT_NAME#@adaptiveworx/}"
           PKG_DIR="packages/${UNSCOPED}"
+
           echo "Publishing ${PROJECT_NAME} from ${PKG_DIR}"
-
           cd "${PKG_DIR}"
-          npm publish --provenance --access public --loglevel=verbose 2>&1 | tee /tmp/publish.log
-          PUBLISH_EXIT=${PIPESTATUS[0]}
-          echo "--- last 60 lines of publish log ---"
-          tail -60 /tmp/publish.log
-          exit ${PUBLISH_EXIT}
-
-      # ---------------------------------------------------------------
-      # Path B: workflow_dispatch — version + publish from main in CI.
-      # ---------------------------------------------------------------
-      - name: Release (workflow_dispatch)
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          NPM_CONFIG_PROVENANCE: 'true'
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Same TP/OIDC alias as the tag-driven path above — pnpm
-          # needs OIDC_REQUEST_{TOKEN,URL} to authenticate via Trusted
-          # Publishing.
-          export OIDC_REQUEST_TOKEN="$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
-          export OIDC_REQUEST_URL="$ACTIONS_ID_TOKEN_REQUEST_URL"
-
-          ARGS=""
-          if [[ "${{ inputs.first_release }}" == "true" ]]; then
-            ARGS="${ARGS} --first-release"
-          fi
-          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
-            ARGS="${ARGS} --dry-run"
-          fi
-          echo "pnpm nx release ${ARGS}"
-          pnpm nx release ${ARGS}
+          npm publish --provenance --access public
 
       - name: Job summary
         if: always()
         run: |
-          echo "### Release run summary" >> $GITHUB_STEP_SUMMARY
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "### Release: \`${TAG}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Trigger:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Ref:** \`${{ github.ref }}\`" >> $GITHUB_STEP_SUMMARY
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            TAG="${GITHUB_REF#refs/tags/}"
-            echo "- **Tag:** \`${TAG}\`" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "- **Conclusion:** \`${{ job.status }}\`" >> $GITHUB_STEP_SUMMARY
