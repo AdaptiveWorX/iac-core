@@ -9,11 +9,11 @@
  * Agent-optimized with comprehensive error handling and validation
  */
 
-import { StackContextSchema } from "@adaptiveworx/iac-core/schemas/core/core-schemas";
-import type { AccountPurpose, StackContext } from "@adaptiveworx/iac-core/types/core";
-import { resolveRegion } from "@adaptiveworx/iac-core/utils/region-utils";
 import type * as aws from "@pulumi/aws";
 import * as pulumi from "@pulumi/pulumi";
+import { StackContextSchema } from "../schemas/core/core-schemas.js";
+import type { AccountPurpose, StackContext } from "../types/core.js";
+import { resolveRegion } from "./region-utils.js";
 
 /**
  * Resolve AWS region from shorthand code or return as-is if already full name

@@ -27,10 +27,12 @@
       "cache": true
     },
     "test": {
+      "dependsOn": ["^build"],
       "inputs": ["default", "^production", "{workspaceRoot}/vitest.config.ts"],
       "cache": true
     },
     "test:unit": {
+      "dependsOn": ["^build"],
       "inputs": ["default", "^production", "{workspaceRoot}/vitest.config.ts"],
       "cache": true
     },
