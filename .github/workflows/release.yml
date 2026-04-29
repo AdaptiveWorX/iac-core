@@ -10,8 +10,13 @@ on:
     tags:
       # Nx Release emits per-package tags of the form
       #   @adaptiveworx/<unscoped>@<version>
-      # (matches the {projectName}@{version} pattern in nx.json#release).
-      - '@adaptiveworx/*@*'
+      # GitHub's glob doesn't reliably match patterns with two wildcards
+      # separated by a literal `@`, so each package gets an explicit entry.
+      - '@adaptiveworx/iac-aws@*'
+      - '@adaptiveworx/iac-azure@*'
+      - '@adaptiveworx/iac-core@*'
+      - '@adaptiveworx/iac-policies@*'
+      - '@adaptiveworx/iac-schemas@*'
   workflow_dispatch:
     inputs:
       first_release:
