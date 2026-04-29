@@ -97,12 +97,21 @@ jobs:
         if: github.ref_type == 'tag'
         env:
           NPM_CONFIG_PROVENANCE: 'true'
+        run: |
           # Authentication via npm Trusted Publishing (OIDC). Each
           # @adaptiveworx/iac-* package has a Trusted Publisher rule on
           # npmjs.com pinned to repo=AdaptiveWorX/flux-core,
-          # workflow=release.yml, environment=production. The id-token
-          # GH issues for this job is what authenticates `npm publish`.
-        run: |
+          # workflow=release.yml, environment=production.
+          #
+          # pnpm reads OIDC_REQUEST_TOKEN/OIDC_REQUEST_URL to mint the
+          # OIDC token it sends to npm. GitHub injects the source
+          # values as ACTIONS_ID_TOKEN_REQUEST_{TOKEN,URL} into the
+          # shell env when id-token: write is set on the job — but
+          # those names aren't visible to workflow expressions, only
+          # to the runtime shell, so we alias them here.
+          export OIDC_REQUEST_TOKEN="$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
+          export OIDC_REQUEST_URL="$ACTIONS_ID_TOKEN_REQUEST_URL"
+
           # Tag format: @adaptiveworx/<name>@<version>
           # Strip the trailing @<version> to get the full project name.
           TAG="${GITHUB_REF#refs/tags/}"
@@ -117,9 +126,14 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         env:
           NPM_CONFIG_PROVENANCE: 'true'
-          # Same TP/OIDC auth as the tag-driven path above.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Same TP/OIDC alias as the tag-driven path above — pnpm
+          # needs OIDC_REQUEST_{TOKEN,URL} to authenticate via Trusted
+          # Publishing.
+          export OIDC_REQUEST_TOKEN="$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
+          export OIDC_REQUEST_URL="$ACTIONS_ID_TOKEN_REQUEST_URL"
+
           ARGS=""
           if [[ "${{ inputs.first_release }}" == "true" ]]; then
             ARGS="${ARGS} --first-release"
