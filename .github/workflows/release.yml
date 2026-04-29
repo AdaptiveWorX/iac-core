@@ -64,8 +64,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
-          # Provenance requires npm >= 9.5; setup-node ships modern npm.
+          # Intentionally NOT setting `registry-url:` — that flag makes
+          # setup-node generate an .npmrc with `always-auth=true` and a
+          # `${NODE_AUTH_TOKEN}` placeholder, which forces npm into
+          # token-auth mode and prevents it from falling back to
+          # Trusted Publishing OIDC. Each package declares its
+          # publishConfig.registry directly, so npm targets npmjs.com
+          # via that path.
 
       - uses: pnpm/action-setup@v4
         with:
