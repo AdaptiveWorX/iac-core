@@ -1,57 +1,65 @@
 {
-  "name": "@adaptiveworx/iac-components",
-  "version": "0.6.1",
+  "name": "@adaptiveworx/flux-core",
+  "version": "0.0.0",
+  "private": true,
   "type": "module",
-  "description": "Reusable Pulumi infrastructure components for Adaptive projects",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
+  "description": "AdaptiveWorX Flux — open-source Pulumi infrastructure libraries for multi-cloud IaC.",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AdaptiveWorX/iac-components.git"
+    "url": "git+https://github.com/AdaptiveWorX/flux-core.git"
   },
   "bugs": {
-    "url": "https://github.com/AdaptiveWorX/iac-components/issues"
+    "url": "https://github.com/AdaptiveWorX/flux-core/issues"
   },
-  "homepage": "https://github.com/AdaptiveWorX/iac-components#readme",
+  "homepage": "https://github.com/AdaptiveWorX/flux-core#readme",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "clean": "rm -rf dist",
-    "prepare": "yarn build",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:ui": "vitest --ui",
-    "lint": "biome check --write .",
-    "lint:check": "biome check --max-diagnostics=0 .",
+    "nx": "nx",
+    "build": "nx run-many -t build",
+    "build:affected": "nx affected -t build",
+    "test": "nx run-many -t test",
+    "test:affected": "nx affected -t test",
+    "lint": "nx run-many -t lint",
+    "lint:affected": "nx affected -t lint",
+    "typecheck": "nx run-many -t typecheck",
     "format": "biome format --write .",
     "format:check": "biome format .",
+    "graph": "nx graph",
+    "affected": "nx affected",
+    "clean": "nx reset && rm -rf node_modules/.cache .nx/cache packages/*/dist",
+    "release": "nx release",
+    "release:dry": "nx release --dry-run",
+    "release:publish": "nx release publish",
     "compliance:report": "tsx scripts/compliance-report.ts"
   },
   "keywords": [
     "pulumi",
     "iac",
-    "infrastructure",
-    "components"
+    "infrastructure-as-code",
+    "aws",
+    "azure",
+    "multi-cloud",
+    "typescript",
+    "adaptiveworx"
   ],
-  "author": "Adaptive Technology",
-  "license": "Apache-2.0",
-  "dependencies": {
-    "@pulumi/aws": "^7.7.0",
-    "@pulumi/pulumi": "^3.200.0"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^2.2.5",
-    "@tsconfig/strictest": "^2.0.6",
-    "@vitest/ui": "^3.2.4",
-    "tsx": "^4.20.6",
-    "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
-  },
+  "author": "Adaptive Intelligence, LLC",
   "engines": {
-    "node": ">=22.0.0",
-    "yarn": ">=4.0.0"
+    "node": ">=24.0.0",
+    "pnpm": ">=10.0.0"
   },
-  "packageManager": "yarn@4.10.3"
+  "packageManager": "pnpm@10.26.2",
+  "devDependencies": {
+    "@biomejs/biome": "2.2.5",
+    "@nx/devkit": "^22.5.1",
+    "@nx/js": "^22.5.1",
+    "@tsconfig/strictest": "^2.0.6",
+    "@types/node": "^22.10.6",
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/ui": "^3.2.4",
+    "nx": "^22.5.1",
+    "tsx": "^4.20.6",
+    "typescript": "^6.0.0",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^3.2.4"
+  }
 }

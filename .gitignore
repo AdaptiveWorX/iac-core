@@ -1,18 +1,16 @@
-# Yarn PnP files
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions
+# Dependencies
+node_modules/
 
 # Build output
 dist/
 *.tsbuildinfo
 
-# Legacy (not used with PnP)
-node_modules/
+# Nx cache
+.nx/cache
+.nx/workspace-data
+
+# Vitest
+coverage/
 
 # IDE
 .vscode/
@@ -20,3 +18,8 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Env (should never be committed)
+.env
+.env.local
+.env.*.local

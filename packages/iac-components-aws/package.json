@@ -1,0 +1,60 @@
+{
+  "name": "@adaptiveworx/iac-components-aws",
+  "version": "0.7.0",
+  "type": "module",
+  "description": "Reusable Pulumi infrastructure components for AWS — VPC, IAM cross-account roles, GitHub Actions OIDC, and IAM policy helpers.",
+  "license": "Apache-2.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "NOTICE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AdaptiveWorX/flux-core.git",
+    "directory": "packages/iac-components-aws"
+  },
+  "homepage": "https://github.com/AdaptiveWorX/flux-core/tree/main/packages/iac-components-aws#readme",
+  "bugs": {
+    "url": "https://github.com/AdaptiveWorX/flux-core/issues"
+  },
+  "keywords": [
+    "pulumi",
+    "iac",
+    "infrastructure-as-code",
+    "aws",
+    "vpc",
+    "iam",
+    "oidc",
+    "github-actions",
+    "typescript",
+    "adaptiveworx"
+  ],
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org/"
+  },
+  "peerDependencies": {
+    "@pulumi/aws": "^7.0.0",
+    "@pulumi/pulumi": "^3.0.0"
+  },
+  "devDependencies": {
+    "@pulumi/aws": "^7.7.0",
+    "@pulumi/pulumi": "^3.200.0"
+  }
+}

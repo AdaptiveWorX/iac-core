@@ -16,8 +16,8 @@ import {
   buildFoundationAccessPolicyName,
   buildFoundationAccessRoleName,
   getEnvironmentSegment,
-} from "../shared/naming.js";
-import type { Environment } from "../shared/types.js";
+} from "./naming.js";
+import type { Environment } from "./types.js";
 
 export interface CrossAccountRoleConfig {
   productLine: string;

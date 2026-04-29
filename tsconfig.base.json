@@ -1,0 +1,26 @@
+{
+  "extends": "@tsconfig/strictest/tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2024"],
+    "rootDir": ".",
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "removeComments": false,
+    "noPropertyAccessFromIndexSignature": false,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "paths": {
+      "@adaptiveworx/iac-components-aws": ["packages/iac-components-aws/src/index.ts"],
+      "@adaptiveworx/iac-components-aws/*": ["packages/iac-components-aws/src/*"],
+      "@adaptiveworx/iac-components-azure": ["packages/iac-components-azure/src/index.ts"],
+      "@adaptiveworx/iac-components-azure/*": ["packages/iac-components-azure/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "tmp", "dist"]
+}

@@ -1,0 +1,54 @@
+{
+  "name": "@adaptiveworx/iac-components-azure",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Reusable Pulumi infrastructure components for Microsoft Azure (Fabric, Storage, Key Vault, Networking). Empty skeleton — components extracted as Prosilio's first inline implementations stabilize.",
+  "license": "Apache-2.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "NOTICE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AdaptiveWorX/flux-core.git",
+    "directory": "packages/iac-components-azure"
+  },
+  "homepage": "https://github.com/AdaptiveWorX/flux-core/tree/main/packages/iac-components-azure#readme",
+  "bugs": {
+    "url": "https://github.com/AdaptiveWorX/flux-core/issues"
+  },
+  "keywords": [
+    "pulumi",
+    "iac",
+    "infrastructure-as-code",
+    "azure",
+    "fabric",
+    "onelake",
+    "typescript",
+    "adaptiveworx"
+  ],
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org/"
+  },
+  "peerDependencies": {
+    "@pulumi/azure-native": "^3.0.0",
+    "@pulumi/pulumi": "^3.0.0"
+  }
+}

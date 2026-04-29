@@ -1,32 +1,63 @@
-# @adaptiveworx/iac-components
+# AdaptiveWorX Flux
 
-Reusable Pulumi infrastructure components maintained by Adaptive Technology and published under the Apache 2.0 license. The library provides ready-to-use building blocks for common AWS identity, security, and automation scenarios so teams can focus on higher-level infrastructure design.
+Open-source Pulumi infrastructure libraries for multi-cloud
+infrastructure-as-code, written in TypeScript.
 
-## Features
+This is a publish-focused **Nx monorepo** that produces the
+`@adaptiveworx/iac-*` family of npm packages. Every directory under
+`packages/` is a separately-versioned npm artifact, released
+independently via [Nx Release](https://nx.dev/features/manage-releases)
+from conventional commits.
 
-- **GitHub Actions OIDC bridge** – provisions multi-account OIDC providers and deployment roles with environment-specific trust policies.
-- **Cross-account IAM roles** – creates Pulumi automation, foundation access, and health-check roles with vetted policies.
-- **Policy helpers** – reusable IAM policy definitions and attachment utilities.
-- **Shared naming & typing utilities** – consistent resource naming and strongly typed configuration primitives.
+## Packages
 
-## Installation
+| Package | Purpose |
+|---|---|
+| [`@adaptiveworx/iac-core`](./packages/iac-core) | Cross-cloud primitives: organization config, secret management, region utils, CIDR allocation, validation, schemas |
+| [`@adaptiveworx/iac-schemas`](./packages/iac-schemas) | Zod-derived JSON schemas for configuration contracts |
+| [`@adaptiveworx/iac-policies`](./packages/iac-policies) | Pulumi policy packs for security, compliance, cost |
+| [`@adaptiveworx/iac-components-aws`](./packages/iac-components-aws) | AWS Pulumi components: VPC, IAM, OIDC |
+| [`@adaptiveworx/iac-components-azure`](./packages/iac-components-azure) | Azure Pulumi components (Fabric, OneLake, secure storage, networking) |
+
+> **Status (2026-04):** `iac-components-aws` is restructured and tests
+> passing. `iac-core`, `iac-schemas`, `iac-policies` migration from
+> `iac-worx` is in progress. `iac-components-azure` is an empty skeleton.
+> See [docs/platform-coordination.md](./docs/platform-coordination.md) for
+> sequencing.
+
+## Install (consumers)
 
 ```bash
-npm install @adaptiveworx/iac-components
-# or
-yarn add @adaptiveworx/iac-components
-# or
-pnpm add @adaptiveworx/iac-components
+# AWS-only
+pnpm add @adaptiveworx/iac-core @adaptiveworx/iac-components-aws \
+  @pulumi/aws @pulumi/pulumi
+
+# Azure-only
+pnpm add @adaptiveworx/iac-core @adaptiveworx/iac-schemas \
+  @pulumi/azure-native @pulumi/pulumi
 ```
 
-The package targets Node.js 22+ and Pulumi 3.198.0+.
+`@pulumi/*` SDKs are peer dependencies — bring your own version. Node 24+
+required.
 
-## Usage
+## Quickstart (AWS)
 
 ```ts
-import { GithubActionsOidc } from "@adaptiveworx/iac-components";
+import { SharedVpc, GitHubActionsOIDC } from "@adaptiveworx/iac-components-aws";
 
-const oidc = new GithubActionsOidc("github-actions", {
+const vpc = new SharedVpc("dev-use1", {
+  productLine: "worx",
+  environment: "dev",
+  region: "us-east-1",
+  cidrBlock: "10.10.0.0/16",
+  tiers: [
+    { name: "public",  routeToInternet: true,  shareViaRam: false },
+    { name: "private", routeToInternet: false, shareViaRam: true  },
+    { name: "data",    routeToInternet: false, shareViaRam: true  },
+  ],
+});
+
+const oidc = new GitHubActionsOIDC("github-actions", {
   awsRegion: "us-east-1",
   githubOrg: "AdaptiveWorX",
   environments: [
@@ -38,25 +69,67 @@ const oidc = new GithubActionsOidc("github-actions", {
     },
   ],
 });
-
-export const roleArns = oidc.roleArns;
 ```
 
-See [`src/aws`](./src/aws) for additional examples of the available components.
+See each package's README for full options.
 
-## Development
+## Development (contributors)
 
 ```bash
-npm install
-npm run build
+# One-time
+pnpm install
+
+# Common tasks
+pnpm build              # Build every package
+pnpm test               # Run vitest across every package
+pnpm lint               # Biome check across every package
+pnpm typecheck          # tsc --noEmit across every package
+pnpm graph              # Open Nx project graph in browser
+
+# Affected (uses Nx graph; only what changed)
+pnpm build:affected
+pnpm test:affected
+pnpm lint:affected
+
+# Single package
+pnpm nx build @adaptiveworx/iac-components-aws
+pnpm nx test @adaptiveworx/iac-components-aws
+
+# Format
+pnpm format             # Write
+pnpm format:check       # Check only
 ```
 
-Compiled artifacts are emitted to `dist/` and published automatically via the `prepare` hook when the package is installed from git.
+### Tooling
 
-## Contributing
+- **pnpm@10** workspace
+- **Nx 22** for build orchestration, caching, affected graph, releases
+- **TypeScript 5.9+** with `@tsconfig/strictest`
+- **Vitest 3** for unit + integration tests
+- **Biome 2** for lint + format
 
-We welcome pull requests that improve component coverage, documentation, or testing. Please open an issue to discuss substantial changes before submitting a PR. By contributing you agree that your contributions will be licensed under the Apache-2.0 License.
+## Architecture & docs
+
+- [docs/architecture.md](./docs/architecture.md) — package boundaries,
+  dependency graph, release model, tooling decisions
+- [docs/platform-coordination.md](./docs/platform-coordination.md) —
+  Prosilio ↔ OSS package coordination, migration sequencing, open questions
+- [docs/compliance-framework.md](./docs/compliance-framework.md)
+- [docs/security-implementation.md](./docs/security-implementation.md)
+- [docs/testing-strategy.md](./docs/testing-strategy.md)
+- [CONTRIBUTING.md](./CONTRIBUTING.md) — how to contribute, conventional
+  commits, release process
+
+## Versioning
+
+Each package ships **independent semver**. Nx Release reads conventional
+commits to bump versions, generate changelogs, tag, and publish. See
+[CONTRIBUTING.md#releases](./CONTRIBUTING.md#releases) for the
+end-to-end flow.
 
 ## License
 
-Apache License 2.0 © Adaptive Technology. See [LICENSE](./LICENSE) for details.
+Apache 2.0 © 2023-2026 Adaptive Intelligence, LLC. See [LICENSE](./LICENSE).
+
+Each package also ships its own `LICENSE` and `NOTICE` files for
+distribution clarity.

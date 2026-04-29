@@ -1,0 +1,103 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "defaultBase": "main",
+  "workspaceLayout": {
+    "libsDir": "packages",
+    "appsDir": "packages"
+  },
+  "namedInputs": {
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "sharedGlobals": [
+      "{workspaceRoot}/tsconfig.base.json",
+      "{workspaceRoot}/biome.json",
+      "{workspaceRoot}/vitest.config.ts"
+    ],
+    "production": [
+      "default",
+      "!{projectRoot}/**/?(*.)+(unit|integration|workflow|security|architectural|e2e|spec|test).[jt]s?(x)?(.snap)",
+      "!{projectRoot}/tsconfig.spec.json",
+      "!{projectRoot}/vitest.config.[jt]s"
+    ]
+  },
+  "targetDefaults": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"],
+      "outputs": ["{projectRoot}/dist"],
+      "cache": true
+    },
+    "test": {
+      "inputs": ["default", "^production", "{workspaceRoot}/vitest.config.ts"],
+      "cache": true
+    },
+    "test:unit": {
+      "inputs": ["default", "^production", "{workspaceRoot}/vitest.config.ts"],
+      "cache": true
+    },
+    "lint": {
+      "inputs": ["default", "{workspaceRoot}/biome.json"],
+      "cache": true
+    },
+    "typecheck": {
+      "inputs": ["default", "^production"],
+      "cache": true
+    },
+    "nx-release-publish": {
+      "dependsOn": ["build"]
+    }
+  },
+  "release": {
+    "projectsRelationship": "independent",
+    "projects": ["packages/*"],
+    "releaseTagPattern": "{projectName}@{version}",
+    "version": {
+      "conventionalCommits": true,
+      "preVersionCommand": "pnpm nx run-many -t build"
+    },
+    "changelog": {
+      "automaticFromRef": true,
+      "projectChangelogs": {
+        "createRelease": "github",
+        "renderOptions": {
+          "authors": true,
+          "commitReferences": true,
+          "versionTitleDate": true
+        }
+      },
+      "workspaceChangelog": false
+    },
+    "git": {
+      "commit": true,
+      "commitMessage": "chore(release): publish\n\n{releaseGroupName} {version}",
+      "tag": true
+    },
+    "version-plans": false
+  },
+  "plugins": [],
+  "parallel": 3,
+  "cacheDirectory": ".nx/cache",
+  "enforce-module-boundaries": {
+    "depConstraints": [
+      {
+        "sourceTag": "scope:core",
+        "onlyDependOnLibsWithTags": ["scope:core"]
+      },
+      {
+        "sourceTag": "scope:aws",
+        "onlyDependOnLibsWithTags": ["scope:core", "scope:aws"]
+      },
+      {
+        "sourceTag": "scope:azure",
+        "onlyDependOnLibsWithTags": ["scope:core", "scope:azure"]
+      },
+      {
+        "sourceTag": "scope:policies",
+        "onlyDependOnLibsWithTags": ["scope:core", "scope:policies"]
+      },
+      {
+        "sourceTag": "scope:schemas",
+        "onlyDependOnLibsWithTags": ["scope:schemas"]
+      }
+    ]
+  }
+}
