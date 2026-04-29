@@ -11,7 +11,7 @@ reaches `1.0.0`. Until then, breaking changes may land in any `0.x` minor.
 
 ## 0.1.0 (unreleased)
 
-Initial publish from the `flux-core` monorepo. First public version on
+Initial publish from the `iac-core` monorepo. First public version on
 npm.
 
 ### Ships

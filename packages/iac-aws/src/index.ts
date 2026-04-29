@@ -1,5 +1,5 @@
 /**
- * AdaptiveWorX™ Flux
+ * AdaptiveWorX™
  * Copyright (c) 2023-2026 Adaptive Intelligence, LLC
  * SPDX-License-Identifier: Apache-2.0
  */

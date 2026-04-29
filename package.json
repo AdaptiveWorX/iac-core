@@ -1,18 +1,18 @@
 {
-  "name": "@adaptiveworx/flux-core",
+  "name": "@adaptiveworx/iac-suite",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "AdaptiveWorX Flux — open-source Pulumi infrastructure libraries for multi-cloud IaC.",
+  "description": "AdaptiveWorX iac-core — open-source Pulumi infrastructure libraries for multi-cloud IaC.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AdaptiveWorX/flux-core.git"
+    "url": "git+https://github.com/AdaptiveWorX/iac-core.git"
   },
   "bugs": {
-    "url": "https://github.com/AdaptiveWorX/flux-core/issues"
+    "url": "https://github.com/AdaptiveWorX/iac-core/issues"
   },
-  "homepage": "https://github.com/AdaptiveWorX/flux-core#readme",
+  "homepage": "https://github.com/AdaptiveWorX/iac-core#readme",
   "scripts": {
     "nx": "nx",
     "build": "nx run-many -t build",

@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     # The job's OIDC token includes `environment: production` as a
     # claim. Each package's npm Trusted Publisher rule pins to
-    # repo=AdaptiveWorX/flux-core, workflow=release.yml,
+    # repo=AdaptiveWorX/iac-core, workflow=release.yml,
     # environment=production — the claims must match for the publish
     # to succeed.
     environment: production

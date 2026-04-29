@@ -2,7 +2,7 @@
 
 Reusable Pulumi infrastructure components for AWS, written in TypeScript.
 
-Part of [AdaptiveWorX Flux](https://github.com/AdaptiveWorX/flux-core) — a
+Part of [AdaptiveWorX `iac-core`](https://github.com/AdaptiveWorX/iac-core) — a
 suite of open-source IaC libraries for multi-cloud Pulumi deployments.
 
 ## Install
@@ -42,7 +42,7 @@ See each component's source for its full options interface.
 ## Versioning & releases
 
 This package ships independent semver. See the
-[root CHANGELOG conventions](https://github.com/AdaptiveWorX/flux-core/blob/main/CONTRIBUTING.md#releases)
+[root CHANGELOG conventions](https://github.com/AdaptiveWorX/iac-core/blob/main/CONTRIBUTING.md#releases)
 and this package's [CHANGELOG.md](./CHANGELOG.md).
 
 ## License

@@ -1,7 +1,7 @@
 # Platform Coordination — Prosilio ↔ AdaptiveWorX OSS `iac-*` packages
 
 > **Audience**: anyone (human or agent) opening a working session in
-> `adaptive/iac-worx`, `adaptive/flux-core`, or any external consumer
+> `adaptive/iac-worx`, `adaptive/iac-core`, or any external consumer
 > repo (e.g. Prosilio) needs this context.
 > **Purpose**: capture decisions made in the Prosilio design sessions that
 > ripple into the OSS packages, so coordinated work doesn't need to
@@ -18,7 +18,7 @@ Azure infrastructure with Pulumi + TypeScript, consuming `iac-core` and
 `iac-schemas` directly, and eventually a new `iac-azure` once
 patterns stabilize. This forces the packages to graduate from
 "AdaptiveWorX-internal reusable code" to "externally consumable Apache 2.0
-libraries," which is the catalyst for the **flux-core** OSS monorepo.
+libraries," which is the catalyst for the **iac-core** OSS monorepo.
 
 Full Prosilio architecture: `architecture.md` (separate repo).
 This repo's OSS architecture: [architecture.md](./architecture.md).
@@ -27,7 +27,7 @@ This repo's OSS architecture: [architecture.md](./architecture.md).
 
 | Repo | Role | Visibility |
 |---|---|---|
-| **`adaptive/flux-core`** (this repo) | **Producer.** Hosts every reusable OSS `iac-*` package as an Nx-managed monorepo. Each package ships independent semver to public npm via Nx Release. | Public, Apache 2.0 |
+| **`adaptive/iac-core`** (this repo) | **Producer.** Hosts every reusable OSS `iac-*` package as an Nx-managed monorepo. Each package ships independent semver to public npm via Nx Release. | Public, Apache 2.0 |
 | **`adaptive/iac-worx`** | **Consumer.** AdaptiveWorX's private deployment monorepo. Pulumi stacks under `apps/aws/{dev,stg,prd,sec}` consume the published `@adaptiveworx/iac-*` packages from npm. | Private, BUSL-1.1 |
 | **External consumers** (Prosilio, future clients) | **Consumers.** `pnpm add @adaptiveworx/iac-core @adaptiveworx/iac-schemas` etc., write their own stacks. | Their own |
 
@@ -55,7 +55,7 @@ along. iac-worx becomes a consumer like any other client.
   metastore, the EUS2 footprint goes away. No Fabric or Power BI changes
   required at that transition.
 
-### OSS package layout (flux-core)
+### OSS package layout (iac-core)
 
 Nx workspace, **pnpm**, independent semver via **Nx Release**, all
 packages Apache 2.0, all published to public npm under the `@adaptiveworx`
@@ -74,7 +74,7 @@ The directory layout under `packages/` matches each unscoped package name
 and folder name are always grep-equivalent.
 
 There is **no `iac-shared` package**. The folder formerly at
-`flux-core/src/shared/` was AWS-IAM-specific naming helpers, not
+`iac-core/src/shared/` was AWS-IAM-specific naming helpers, not
 cross-cloud — those folded into `iac-aws`. Genuinely
 cross-cloud primitives live in `iac-core`; that's the right semantic name
 because it's the foundation everything else depends on.
@@ -124,7 +124,7 @@ because it's the foundation everything else depends on.
 ## What's blocking Prosilio
 
 Now that the OSS monorepo exists, blockers shift from "fix license fields
-in iac-worx" to "publish initial versions from flux-core."
+in iac-worx" to "publish initial versions from iac-core."
 
 ### Phase 1 — `iac-core` + `iac-schemas` initial publishes (~1 day)
 
@@ -193,11 +193,11 @@ general-purpose lakehouse.
 
 | # | Question | Owner | Why routed |
 |---|---|---|---|
-| 1 | SecretManager pluggable backend interface design | `flux-core` (`iac-core`) | Prosilio could live with Infisical short-term, but external clients will push on this |
-| 2 | OrganizationConfig parameterization strategy | `flux-core` (`iac-core`) | Needed before second external client |
-| 3 | Semver commitment — cut 1.0 for `iac-core` / `iac-schemas` / `iac-policies` or stay 0.x? | `flux-core` | Affects Prosilio's trust calculus on consuming. Recommend staying 0.x until OrgConfig + SecretManager pluggability land. |
-| 4 | `iac-aws` version strategy — bump to 0.7.0 at rename or cut 1.0? | `flux-core` | Rename is a natural moment to commit to semver. Recommend 0.7.0 — preserves continuity with 0.6.x history; 1.0 waits for Azure parity. |
-| 5 | Azure component conventions — mirror AWS shapes or let Azure primitives drive a different API? | `flux-core` (`iac-azure`) | Answer before first Azure component. Likely different given Fabric's distinct primitive set. |
+| 1 | SecretManager pluggable backend interface design | `iac-core` (the package) | Prosilio could live with Infisical short-term, but external clients will push on this |
+| 2 | OrganizationConfig parameterization strategy | `iac-core` (the package) | Needed before second external client |
+| 3 | Semver commitment — cut 1.0 for `iac-core` / `iac-schemas` / `iac-policies` or stay 0.x? |  `iac-core` | Affects Prosilio's trust calculus on consuming. Recommend staying 0.x until OrgConfig + SecretManager pluggability land. |
+| 4 | `iac-aws` version strategy — bump to 0.7.0 at rename or cut 1.0? |  `iac-core` | Rename is a natural moment to commit to semver. Recommend 0.7.0 — preserves continuity with 0.6.x history; 1.0 waits for Azure parity. |
+| 5 | Azure component conventions — mirror AWS shapes or let Azure primitives drive a different API? |  `iac-core` (`iac-azure`) | Answer before first Azure component. Likely different given Fabric's distinct primitive set. |
 
 ## Pointers
 
@@ -212,7 +212,7 @@ general-purpose lakehouse.
 
 ## How to use this doc in a fresh session
 
-**Starting a session in `adaptive/flux-core` (this repo):**
+**Starting a session in `adaptive/iac-core` (this repo):**
 1. Read this file and [architecture.md](./architecture.md).
 2. Phase 1/2/3 above tells you what's pending. Pick a phase scope; don't
    conflate.
@@ -222,7 +222,7 @@ general-purpose lakehouse.
 **Starting a session in `adaptive/iac-worx`:**
 1. Read this file.
 2. iac-worx is now a **consumer** of the OSS packages. Don't add new
-   reusable code there — add it to the appropriate `flux-core`
+   reusable code there — add it to the appropriate `iac-core`
    package and bump its version.
 3. To consume a new feature: bump the dep version in `iac-worx` and ship.
 
@@ -231,4 +231,4 @@ general-purpose lakehouse.
 2. Check [architecture.md](./architecture.md) for which package solves
    which problem.
 3. `pnpm add @adaptiveworx/iac-core @adaptiveworx/iac-schemas`. Open issues
-   in `AdaptiveWorX/flux-core` for any gaps.
+   in `AdaptiveWorX/iac-core` for any gaps.

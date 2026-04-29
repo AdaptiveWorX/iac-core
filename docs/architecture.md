@@ -1,4 +1,4 @@
-# Architecture — AdaptiveWorX Flux
+# Architecture — AdaptiveWorX `iac-core`
 
 > The OSS infrastructure-as-code library suite for multi-cloud Pulumi
 > deployments. This document covers what's in the repo, why it's split
@@ -6,13 +6,13 @@
 
 ## Repo at a glance
 
-`flux-core` is a **publish-focused Nx monorepo** for the
+`iac-core` is a **publish-focused Nx monorepo** for the
 `@adaptiveworx/iac-*` family of npm packages. Every directory under
 `packages/` is a separately-versioned npm artifact. The repo itself is not
 deployable — it's a producer of libraries.
 
 ```
-flux-core/
+iac-core/
 ├── packages/
 │   ├── iac-core/                    # Cross-cloud primitives
 │   ├── iac-schemas/                 # Zod-derived JSON schemas

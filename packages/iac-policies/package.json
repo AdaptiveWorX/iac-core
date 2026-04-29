@@ -20,12 +20,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AdaptiveWorX/flux-core.git",
+    "url": "git+https://github.com/AdaptiveWorX/iac-core.git",
     "directory": "packages/iac-policies"
   },
-  "homepage": "https://github.com/AdaptiveWorX/flux-core/tree/main/packages/iac-policies#readme",
+  "homepage": "https://github.com/AdaptiveWorX/iac-core/tree/main/packages/iac-policies#readme",
   "bugs": {
-    "url": "https://github.com/AdaptiveWorX/flux-core/issues"
+    "url": "https://github.com/AdaptiveWorX/iac-core/issues"
   },
   "keywords": [
     "pulumi",

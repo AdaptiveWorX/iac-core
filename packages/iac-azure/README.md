@@ -7,7 +7,7 @@ TypeScript.
 > in the [Prosilio](https://github.com/AdaptiveWorX) Azure stacks first;
 > stable patterns will be extracted here.
 
-Part of [AdaptiveWorX Flux](https://github.com/AdaptiveWorX/flux-core) —
+Part of [AdaptiveWorX `iac-core`](https://github.com/AdaptiveWorX/iac-core) —
 a suite of open-source IaC libraries for multi-cloud Pulumi deployments.
 
 ## Planned components

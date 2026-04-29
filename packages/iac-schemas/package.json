@@ -29,12 +29,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AdaptiveWorX/flux-core.git",
+    "url": "git+https://github.com/AdaptiveWorX/iac-core.git",
     "directory": "packages/iac-schemas"
   },
-  "homepage": "https://github.com/AdaptiveWorX/flux-core/tree/main/packages/iac-schemas#readme",
+  "homepage": "https://github.com/AdaptiveWorX/iac-core/tree/main/packages/iac-schemas#readme",
   "bugs": {
-    "url": "https://github.com/AdaptiveWorX/flux-core/issues"
+    "url": "https://github.com/AdaptiveWorX/iac-core/issues"
   },
   "keywords": [
     "iac",

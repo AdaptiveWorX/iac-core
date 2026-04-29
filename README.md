@@ -1,4 +1,4 @@
-# AdaptiveWorX Flux
+# AdaptiveWorX `iac-core`
 
 Open-source Pulumi infrastructure libraries for multi-cloud
 infrastructure-as-code, written in TypeScript.

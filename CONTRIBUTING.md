@@ -1,6 +1,6 @@
-# Contributing to AdaptiveWorX Flux
+# Contributing to AdaptiveWorX `iac-core`
 
-Thanks for your interest in `flux-core`. This document covers
+Thanks for your interest in `iac-core`. This document covers
 everything you need to land a change: workflow, commit conventions,
 testing requirements, and the release process.
 
@@ -17,8 +17,8 @@ testing requirements, and the release process.
 ### One-time setup
 
 ```bash
-git clone https://github.com/AdaptiveWorX/flux-core.git
-cd flux-core
+git clone https://github.com/AdaptiveWorX/iac-core.git
+cd iac-core
 pnpm install
 pnpm build         # Verify everything builds
 pnpm test          # Verify the test suite passes
@@ -290,7 +290,7 @@ pointing at the stable release.
 
 ## Reporting issues
 
-- **Bugs:** open a [GitHub issue](https://github.com/AdaptiveWorX/flux-core/issues)
+- **Bugs:** open a [GitHub issue](https://github.com/AdaptiveWorX/iac-core/issues)
   with reproduction steps and the package + version affected.
 - **Security:** don't open a public issue. See
   [docs/security-implementation.md](./docs/security-implementation.md)
