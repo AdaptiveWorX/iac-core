@@ -1,5 +1,5 @@
 /**
- * AdaptiveWorX™ Flow
+ * AdaptiveWorX™ Flux
  * Copyright (c) 2023-2026 Adaptive Intelligence, LLC
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -7,41 +7,65 @@
 import process from "node:process";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-type EnvRecord = Record<string, string | undefined>;
+import { getSecretManager, SecretManager, secretManager } from "./secrets.js";
 
-const cloneEnvironment = (): EnvRecord => {
-  const clone: EnvRecord = {};
+type EnvSnapshot = Record<string, string | undefined>;
+
+const snapshotEnv = (): EnvSnapshot => {
+  const snap: EnvSnapshot = {};
   for (const key of Object.keys(process.env)) {
-    clone[key] = process.env[key];
+    snap[key] = process.env[key];
   }
-  return clone;
+  return snap;
 };
 
-import { SecretManager } from "./secrets.js";
+const restoreEnv = (snap: EnvSnapshot): void => {
+  for (const key of Object.keys(process.env)) {
+    delete process.env[key];
+  }
+  for (const key in snap) {
+    if (Object.hasOwn(snap, key)) {
+      process.env[key] = snap[key];
+    }
+  }
+};
 
-// Define SecretContext interface for tests
-interface SecretContext {
-  readonly environment?: string;
-  readonly cloud?: string;
-  readonly region?: string;
-  readonly purpose?: string;
-}
+const clearControlEnv = (): void => {
+  for (const key of [
+    "INFISICAL_CLIENT_ID",
+    "INFISICAL_CLIENT_SECRET",
+    "INFISICAL_PROJECT_ID",
+    "INFISICAL_SITE_URL",
+    "IAC_ENV",
+    "IAC_CLOUD",
+    "IAC_REGION",
+    "IAC_PURPOSE",
+    "GITHUB_ACTIONS",
+  ]) {
+    delete process.env[key];
+  }
+};
 
-// Mock Infisical SDK
-vi.mock("@infisical/sdk", () => ({
-  InfisicalSDK: vi.fn().mockImplementation(() => ({
-    auth: vi.fn().mockReturnValue({
-      universalAuth: {
-        login: vi.fn().mockResolvedValue({}),
-      },
+// Hoisted Infisical mock — login & getSecret are spies tests can configure.
+const { mockLogin, mockGetSecret, ConstructorSpy } = vi.hoisted(() => {
+  const mockLogin = vi.fn();
+  const mockGetSecret = vi.fn();
+  const ConstructorSpy = vi.fn();
+  return { mockLogin, mockGetSecret, ConstructorSpy };
+});
+
+vi.mock("@infisical/sdk", () => {
+  return {
+    InfisicalSDK: vi.fn().mockImplementation((...args: unknown[]) => {
+      ConstructorSpy(...args);
+      return {
+        auth: () => ({ universalAuth: { login: mockLogin } }),
+        secrets: () => ({ getSecret: mockGetSecret }),
+      };
     }),
-    secrets: vi.fn().mockReturnValue({
-      getSecret: vi.fn(),
-    }),
-  })),
-}));
+  };
+});
 
-// Mock Pulumi logging
 vi.mock("@pulumi/pulumi", () => ({
   log: {
     info: vi.fn(),
@@ -51,586 +75,338 @@ vi.mock("@pulumi/pulumi", () => ({
   },
 }));
 
-describe("SecretManager - Agent-Critical Functionality", () => {
-  let secretManager: SecretManager;
-  let originalEnv: EnvRecord;
+describe("SecretManager — current API", () => {
+  let envSnap: EnvSnapshot;
 
   beforeEach(() => {
-    // Store original environment
-    originalEnv = cloneEnvironment();
-
-    // Clear environment for clean slate
-    delete process.env.INFISICAL_PROJECT_ID;
-    delete process.env.INFISICAL_SITE_URL;
-    delete process.env.IAC_ENV;
-    delete process.env.IAC_CLOUD;
-    delete process.env.IAC_REGION;
-    delete process.env.IAC_PURPOSE;
-    delete process.env.GITHUB_ACTIONS;
-
-    secretManager = new SecretManager();
+    envSnap = snapshotEnv();
+    clearControlEnv();
+    mockLogin.mockReset().mockResolvedValue({});
+    mockGetSecret.mockReset();
+    ConstructorSpy.mockReset();
   });
 
   afterEach(() => {
-    // Restore original environment
-    for (const key of Object.keys(process.env)) {
-      delete process.env[key];
-    }
-    for (const key in originalEnv) {
-      if (Object.hasOwn(originalEnv, key)) {
-        process.env[key] = originalEnv[key];
-      }
-    }
+    restoreEnv(envSnap);
   });
 
-  describe("Initialization & Fallback Behavior", () => {
-    it("should initialize without Infisical and use env vars", () => {
-      expect(secretManager).toBeDefined();
-      // Should work without Infisical (CLI auth or GitHub App) - falls back to environment variables
-    });
-  });
-
-  describe("Context Resolution - Agent Environment Handling", () => {
-    it("should resolve context with default values", async () => {
-      const result = await secretManager.getOptionalSecret("MISSING_SECRET", "default-value");
-      expect(result).toBe("default-value");
+  describe("constructor", () => {
+    it("constructs with no arguments", () => {
+      expect(() => new SecretManager()).not.toThrow();
     });
 
-    it("should prioritize explicit context over environment variables", async () => {
-      process.env.IAC_ENV = "dev";
-      process.env.IAC_CLOUD = "aws";
-      process.env.TEST_SECRET = "env-value";
-
-      const context: SecretContext = {
-        environment: "prod",
-        cloud: "gcp",
-      };
-
-      const result = await secretManager.getOptionalSecret("TEST_SECRET", "default", context);
-      expect(result).toBe("env-value"); // Should still get from env since Infisical not configured
+    it("accepts a default context", () => {
+      const sm = new SecretManager({ environment: "stg", cloud: "azure" });
+      expect(sm).toBeInstanceOf(SecretManager);
     });
 
-    it("should handle missing context gracefully", async () => {
-      const result = await secretManager.getOptionalSecret("MISSING_SECRET", "fallback");
-      expect(result).toBe("fallback");
+    it("kicks off Infisical SDK init eagerly when client creds are present", () => {
+      process.env.INFISICAL_CLIENT_ID = "id";
+      process.env.INFISICAL_CLIENT_SECRET = "secret";
+      // Construct + immediately drop — InfisicalSDK should be instantiated.
+      void new SecretManager();
+      expect(ConstructorSpy).toHaveBeenCalledTimes(1);
     });
 
-    it("should trim whitespace from context values", async () => {
-      process.env.IAC_ENV = "  dev  ";
-      process.env.IAC_CLOUD = "  aws  ";
-
-      const context = {
-        environment: "  stg  ",
-        cloud: "  gcp  ",
-      };
-
-      // Test that context values are properly trimmed by using a unique secret name
-      await expect(
-        secretManager.getOptionalSecret("NONEXISTENT_TEST_SECRET", "default", context)
-      ).resolves.toBe("default");
+    it("honors INFISICAL_SITE_URL when set", async () => {
+      process.env.INFISICAL_SITE_URL = "https://infisical.example.com";
+      process.env.INFISICAL_CLIENT_ID = "id";
+      process.env.INFISICAL_CLIENT_SECRET = "secret";
+      const sm = new SecretManager();
+      // Force initialization by triggering a getSecret call (env fallback).
+      process.env.SOMEKEY = "value";
+      await sm.getSecret("SOMEKEY");
+      expect(ConstructorSpy).toHaveBeenCalledWith({ siteUrl: "https://infisical.example.com" });
     });
   });
 
-  describe("Secret Retrieval - Agent Operations", () => {
-    it("should retrieve secret from environment variables", async () => {
-      process.env.TEST_SECRET = "test-value";
-
-      const result = await secretManager.getSecret("TEST_SECRET");
-      expect(result).toBe("test-value");
+  describe("getSecret — environment-variable path", () => {
+    it("returns the env-var value when set", async () => {
+      process.env.MY_SECRET = "hello";
+      const sm = new SecretManager();
+      await expect(sm.getSecret("MY_SECRET")).resolves.toBe("hello");
     });
 
-    it("should throw error for missing required secret", async () => {
-      await expect(secretManager.getSecret("MISSING_REQUIRED_SECRET")).rejects.toThrow(
-        "Secret 'MISSING_REQUIRED_SECRET' not found"
+    it("trims surrounding whitespace from the value", async () => {
+      process.env.PADDED = "  padded-value  ";
+      const sm = new SecretManager();
+      await expect(sm.getSecret("PADDED")).resolves.toBe("padded-value");
+    });
+
+    it("throws when the env var is missing", async () => {
+      const sm = new SecretManager();
+      await expect(sm.getSecret("DEFINITELY_MISSING")).rejects.toThrow(
+        /Secret 'DEFINITELY_MISSING' not found/
       );
     });
 
-    it("should return default for missing optional secret", async () => {
-      const result = await secretManager.getOptionalSecret("MISSING_OPTIONAL", "default-value");
-      expect(result).toBe("default-value");
+    it("treats empty-string env vars as missing", async () => {
+      process.env.EMPTY = "";
+      const sm = new SecretManager();
+      await expect(sm.getSecret("EMPTY")).rejects.toThrow(/not found/);
     });
 
-    it("should handle boolean secret conversion", async () => {
-      process.env.BOOL_TRUE = "true";
-      process.env.BOOL_FALSE = "false";
-      process.env.BOOL_ONE = "1";
-      process.env.BOOL_ZERO = "0";
-      process.env.BOOL_YES = "yes";
-      process.env.BOOL_NO = "no";
-      process.env.BOOL_ON = "on";
-      process.env.BOOL_OFF = "off";
-
-      expect(await secretManager.getBooleanSecret("BOOL_TRUE")).toBe(true);
-      expect(await secretManager.getBooleanSecret("BOOL_FALSE")).toBe(false);
-      expect(await secretManager.getBooleanSecret("BOOL_ONE")).toBe(true);
-      expect(await secretManager.getBooleanSecret("BOOL_ZERO")).toBe(false);
-      expect(await secretManager.getBooleanSecret("BOOL_YES")).toBe(true);
-      expect(await secretManager.getBooleanSecret("BOOL_NO")).toBe(false);
-      expect(await secretManager.getBooleanSecret("BOOL_ON")).toBe(true);
-      expect(await secretManager.getBooleanSecret("BOOL_OFF")).toBe(false);
-    });
-
-    it("should return default for missing boolean secret", async () => {
-      const result = await secretManager.getBooleanSecret("MISSING_BOOL", true);
-      expect(result).toBe(true);
-    });
-
-    it("should handle case-insensitive boolean values", async () => {
-      process.env.BOOL_UPPER = "TRUE";
-      process.env.BOOL_MIXED = "True";
-
-      expect(await secretManager.getBooleanSecret("BOOL_UPPER")).toBe(true);
-      expect(await secretManager.getBooleanSecret("BOOL_MIXED")).toBe(true);
+    it("treats whitespace-only env vars as missing", async () => {
+      process.env.SPACES = "   \t  ";
+      const sm = new SecretManager();
+      await expect(sm.getSecret("SPACES")).rejects.toThrow(/not found/);
     });
   });
 
-  describe("AWS Account Management - Agent AWS Operations", () => {
-    it("should parse valid AWS accounts JSON", async () => {
-      const awsAccountsJson = JSON.stringify({
-        app: { id: "123456789012", profile: "worx-app-dev" },
-        vpc: { id: "123456789013", profile: "worx-vpc-dev" },
-        security: { id: "123456789014", profile: "worx-security" },
-      });
-
-      process.env.AWS_ACCOUNTS = awsAccountsJson;
-
-      const accounts = await secretManager.getAwsAccountsJson();
-      const appAccount = accounts.app;
-      expect(appAccount).toBeDefined();
-      if (appAccount === undefined) {
-        throw new Error("app account missing in test setup");
-      }
-      expect(appAccount.id).toBe("123456789012");
-      expect(appAccount.profile).toBe("worx-app-dev");
+  describe("getSecret — Infisical path", () => {
+    beforeEach(() => {
+      process.env.INFISICAL_CLIENT_ID = "id";
+      process.env.INFISICAL_CLIENT_SECRET = "secret";
+      process.env.INFISICAL_PROJECT_ID = "proj-1";
     });
 
-    it("should handle malformed AWS accounts JSON gracefully", async () => {
-      process.env.AWS_ACCOUNTS = "invalid-json{";
-
-      const accounts = await secretManager.getAwsAccountsJson();
-      expect(accounts).toEqual({});
-    });
-
-    it("should handle empty AWS accounts", async () => {
-      process.env.AWS_ACCOUNTS = "{}";
-
-      const accounts = await secretManager.getAwsAccountsJson();
-      expect(accounts).toEqual({});
-    });
-
-    it("should retrieve AWS account ID by purpose", async () => {
-      const awsAccountsJson = JSON.stringify({
-        "app-dev": { id: "123456789012", accountPurpose: "app", environment: "dev" },
-        "app-stg": { id: "123456789013", accountPurpose: "app", environment: "stg" },
-        "ops-sec": { id: "123456789014", accountPurpose: "ops", environment: "sec" },
-      });
-
-      process.env.AWS_ACCOUNTS = awsAccountsJson;
-
-      const appAccountId = await secretManager.getAwsAccountId("app", "dev");
-      const appStgAccountId = await secretManager.getAwsAccountId("app", "stg");
-      const missingAccountId = await secretManager.getAwsAccountId("missing", "dev");
-
-      expect(appAccountId).toBe("123456789012");
-      expect(appStgAccountId).toBe("123456789013");
-      expect(missingAccountId).toBeNull();
-    });
-
-    it("should return AWS profile names from configuration", async () => {
-      const awsAccountsJson = JSON.stringify({
-        "app-dev": { profile: "custom-app-profile", accountPurpose: "app", environment: "dev" },
-        "app-stg": { profile: "worx-app-stg", accountPurpose: "app", environment: "stg" },
-        "ops-sec": { profile: "worx-ops-sec", accountPurpose: "ops", environment: "sec" },
-      });
-
-      process.env.AWS_ACCOUNTS = awsAccountsJson;
-
-      const customProfile = await secretManager.getAwsProfile("app", "dev", "worx");
-      const stagingProfile = await secretManager.getAwsProfile("app", "stg", "worx");
-      const secopsProfile = await secretManager.getAwsProfile("ops", "sec", "worx");
-
-      expect(customProfile).toBe("custom-app-profile");
-      expect(stagingProfile).toBe("worx-app-stg");
-      expect(secopsProfile).toBe("worx-ops-sec");
-    });
-
-    it("should return null when profile not configured", async () => {
-      const awsAccountsJson = JSON.stringify({
-        "app-dev": { accountPurpose: "app", environment: "dev" }, // No profile field
-      });
-
-      process.env.AWS_ACCOUNTS = awsAccountsJson;
-
-      const profile = await secretManager.getAwsProfile("app", "dev", "worx");
-      expect(profile).toBeNull(); // No fallback generation - returns null
-    });
-
-    it("should return null when accounts unavailable", async () => {
-      // Don't set AWS_ACCOUNTS
-      const profile = await secretManager.getAwsProfile("app", "dev", "worx");
-      expect(profile).toBeNull(); // No fallback generation - returns null
-    });
-  });
-
-  describe("Caching - Agent Performance", () => {
-    it("should cache retrieved secrets", async () => {
-      process.env.CACHED_SECRET = "cached-value";
-
-      // First retrieval
-      const result1 = await secretManager.getSecret("CACHED_SECRET");
-      expect(result1).toBe("cached-value");
-
-      // Change environment value
-      process.env.CACHED_SECRET = "new-value";
-
-      // Second retrieval should return new value (no caching)
-      const result2 = await secretManager.getSecret("CACHED_SECRET");
-      expect(result2).toBe("new-value"); // Should get fresh value from environment
-    });
-
-    it("should fetch fresh values from environment", async () => {
-      process.env.TEST_SECRET = "test-value";
-
-      const first = await secretManager.getSecret("TEST_SECRET");
-      expect(first).toBe("test-value");
-
-      // Change value
-      process.env.TEST_SECRET = "new-value";
-      const second = await secretManager.getSecret("TEST_SECRET");
-      expect(second).toBe("new-value");
-
-      // Should get fresh values each time
-      expect(first).not.toBe(second);
-    });
-
-    it("should handle different contexts independently", async () => {
-      process.env.CONTEXT_SECRET = "base-value";
-
-      const context1 = { environment: "dev", cloud: "aws" };
-      const context2 = { environment: "prod", cloud: "aws" };
-
-      const result1 = await secretManager.getOptionalSecret("CONTEXT_SECRET", "default", context1);
-      const result2 = await secretManager.getOptionalSecret("CONTEXT_SECRET", "default", context2);
-
-      // Both should get the same environment value
-      expect(result1).toBe("base-value");
-      expect(result2).toBe("base-value");
-    });
-  });
-
-  describe("Deployment Configuration - Agent Deployment", () => {
-    it("should retrieve complete deployment configuration", async () => {
-      process.env.ORG_TENANT = "worx";
-      process.env.ORG_NAME = "WorkX Organization";
-      process.env.ORG_DOMAIN = "workx.dev";
-      process.env.ENABLE_MULTI_PURPOSE = "true";
-
-      const config = await secretManager.getDeploymentConfiguration();
-
-      expect(config.tenant).toBe("worx");
-      expect(config.orgName).toBe("WorkX Organization");
-      expect(config.orgDomain).toBe("workx.dev");
-      expect(config.enableMultiPurpose).toBe(true);
-      // Infisical availability depends on either GitHub Actions OIDC or local Universal Auth credentials
-      const hasInfisicalAuth =
-        process.env.GITHUB_ACTIONS === "true" ||
-        (process.env.INFISICAL_CLIENT_ID !== undefined &&
-          process.env.INFISICAL_CLIENT_SECRET !== undefined);
-      expect(config.useInfisical).toBe(hasInfisicalAuth);
-      expect(config.accountPurposes).toContain("app");
-      expect(config.accountPurposes).toContain("ops");
-      expect(config.accountEnvironments).toContain("dev");
-      expect(config.accountEnvironments).toContain("prd");
-    });
-
-    it("should handle missing deployment configuration gracefully", async () => {
-      // Don't set any required environment variables
-      await expect(secretManager.getDeploymentConfiguration()).rejects.toThrow(); // Should throw for missing required secrets
-    });
-  });
-
-  describe("Health Check - Agent Validation", () => {
-    it("should perform comprehensive health check", async () => {
-      process.env.ORG_TENANT = "worx";
-      process.env.ORG_NAME = "WorkX Organization";
-      process.env.ORG_DOMAIN = "workx.dev";
-      process.env.AWS_ACCOUNTS = "{}";
-
-      const health = await secretManager.healthCheck();
-
-      // Infisical availability depends on either GitHub Actions OIDC or local Universal Auth credentials
-      const hasInfisicalAuth =
-        process.env.GITHUB_ACTIONS === "true" ||
-        (process.env.INFISICAL_CLIENT_ID !== undefined &&
-          process.env.INFISICAL_CLIENT_SECRET !== undefined);
-      expect(health.infisicalAvailable).toBe(hasInfisicalAuth);
-      expect(health.environmentVariablesAvailable).toBe(true);
-      expect(health.recommendedSecrets).toContain("ORG_TENANT");
-      expect(health.recommendedSecrets).toContain("AWS_ACCOUNTS");
-      expect(health.missingSecrets).toHaveLength(0); // All required secrets present
-    });
-
-    it("should identify missing secrets in health check", async () => {
-      // Don't set any environment variables
-      const health = await secretManager.healthCheck();
-
-      expect(health.missingSecrets.length).toBeGreaterThan(0);
-      expect(health.missingSecrets).toContain("ORG_TENANT");
-      expect(health.missingSecrets).toContain("ORG_NAME");
-    });
-
-    it("should report available services correctly", async () => {
-      const health = await secretManager.healthCheck();
-
-      expect(health.environmentVariablesAvailable).toBe(true);
-      // Infisical availability depends on either GitHub Actions OIDC or local Universal Auth credentials
-      const hasInfisicalAuth =
-        process.env.GITHUB_ACTIONS === "true" ||
-        (process.env.INFISICAL_CLIENT_ID !== undefined &&
-          process.env.INFISICAL_CLIENT_SECRET !== undefined);
-      expect(health.infisicalAvailable).toBe(hasInfisicalAuth);
-    });
-  });
-
-  describe("Error Handling - Agent Resilience", () => {
-    it("should handle secret retrieval errors gracefully", async () => {
-      // Test with non-existent secret
-      await expect(secretManager.getSecret("NON_EXISTENT_SECRET")).rejects.toThrow("not found");
-    });
-
-    it("should propagate non-missing-secret errors", async () => {
-      // Mock a scenario where getSecret throws a non-missing error
-      const mockSecretManager = new SecretManager();
-      vi.spyOn(mockSecretManager, "getSecret").mockRejectedValue(new Error("Network error"));
-
-      await expect(mockSecretManager.getBooleanSecret("TEST_SECRET")).rejects.toThrow(
-        "Network error"
+    it("returns the value when Infisical resolves it", async () => {
+      mockGetSecret.mockResolvedValueOnce({ secretValue: "from-infisical" });
+      const sm = new SecretManager();
+      await expect(sm.getSecret("API_KEY")).resolves.toBe("from-infisical");
+      expect(mockGetSecret).toHaveBeenCalledWith(
+        expect.objectContaining({
+          secretName: "API_KEY",
+          projectId: "proj-1",
+          environment: "dev",
+          secretPath: "/aws",
+        })
       );
     });
 
-    it("should handle empty string secrets", async () => {
-      process.env.EMPTY_SECRET = "";
-
-      await expect(secretManager.getSecret("EMPTY_SECRET")).rejects.toThrow("not found"); // Empty strings should be treated as missing
+    it("walks the path list and falls back from /{cloud} to /", async () => {
+      mockGetSecret
+        .mockRejectedValueOnce(new Error("not found in /aws"))
+        .mockResolvedValueOnce({ secretValue: "from-root" });
+      const sm = new SecretManager();
+      await expect(sm.getSecret("ROOT_KEY")).resolves.toBe("from-root");
+      expect(mockGetSecret).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ secretPath: "/aws" })
+      );
+      expect(mockGetSecret).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ secretPath: "/" })
+      );
     });
 
-    it("should handle whitespace-only secrets", async () => {
-      process.env.WHITESPACE_SECRET = "   ";
+    it("falls through to env vars if every Infisical path misses", async () => {
+      mockGetSecret.mockRejectedValue(new Error("not found"));
+      process.env.FALLTHROUGH = "from-env";
+      const sm = new SecretManager();
+      await expect(sm.getSecret("FALLTHROUGH")).resolves.toBe("from-env");
+      // Both /aws and / were queried before the env fallback.
+      expect(mockGetSecret).toHaveBeenCalledTimes(2);
+    });
 
-      await expect(secretManager.getSecret("WHITESPACE_SECRET")).rejects.toThrow("not found"); // Whitespace-only should be treated as missing
+    it("falls through to env vars when login fails", async () => {
+      mockLogin.mockRejectedValueOnce(new Error("auth boom"));
+      process.env.AUTH_FAIL = "from-env";
+      const sm = new SecretManager();
+      await expect(sm.getSecret("AUTH_FAIL")).resolves.toBe("from-env");
+      expect(mockGetSecret).not.toHaveBeenCalled();
+    });
+
+    it("uses the resolved environment in the Infisical query", async () => {
+      mockGetSecret.mockResolvedValueOnce({ secretValue: "ok" });
+      const sm = new SecretManager();
+      await sm.getSecret("KEY", { environment: "prd" });
+      expect(mockGetSecret).toHaveBeenCalledWith(expect.objectContaining({ environment: "prd" }));
+    });
+
+    it("uses the resolved cloud in the path list", async () => {
+      mockGetSecret.mockResolvedValueOnce({ secretValue: "ok" });
+      const sm = new SecretManager();
+      await sm.getSecret("KEY", { cloud: "azure" });
+      expect(mockGetSecret).toHaveBeenCalledWith(expect.objectContaining({ secretPath: "/azure" }));
     });
   });
 
-  describe("Agent-Specific Scenarios", () => {
-    it("should handle rapid successive secret requests", async () => {
-      process.env.RAPID_SECRET = "rapid-value";
-
-      const promises = Array.from({ length: 10 }, () => secretManager.getSecret("RAPID_SECRET"));
-
-      const results = await Promise.all(promises);
-      for (const result of results) {
-        expect(result).toBe("rapid-value");
-      }
-
-      // All requests fetch fresh values from environment
-      expect(results.every(r => r === "rapid-value")).toBe(true);
+  describe("getOptionalSecret", () => {
+    it("returns the secret when present", async () => {
+      process.env.PRESENT = "value";
+      const sm = new SecretManager();
+      await expect(sm.getOptionalSecret("PRESENT", "fallback")).resolves.toBe("value");
     });
 
-    it("should handle concurrent context switches", async () => {
-      process.env.CONTEXT_SECRET = "base-value";
-
-      const contexts = [
-        { environment: "dev", cloud: "aws" },
-        { environment: "stg", cloud: "aws" },
-        { environment: "prd", cloud: "gcp" },
-      ];
-
-      const promises = contexts.map(context =>
-        secretManager.getOptionalSecret("CONTEXT_SECRET", "default", context)
-      );
-
-      const results = await Promise.all(promises);
-      for (const result of results) {
-        expect(result).toBe("base-value");
-      }
+    it("returns the default when missing", async () => {
+      const sm = new SecretManager();
+      await expect(sm.getOptionalSecret("MISSING", "fallback")).resolves.toBe("fallback");
     });
 
-    it("should handle multiple context requests", async () => {
-      process.env.ISOLATION_SECRET = "base-value";
-
-      const devContext = { environment: "dev", cloud: "aws" };
-      const prodContext = { environment: "prd", cloud: "aws" };
-
-      const devResult = await secretManager.getOptionalSecret(
-        "ISOLATION_SECRET",
-        "default",
-        devContext
-      );
-      const prodResult = await secretManager.getOptionalSecret(
-        "ISOLATION_SECRET",
-        "default",
-        prodContext
-      );
-
-      // Both contexts fetch fresh values from environment
-      expect(devResult).toBe("base-value");
-      expect(prodResult).toBe("base-value");
+    it("propagates non-'not found' errors", async () => {
+      const sm = new SecretManager();
+      vi.spyOn(sm, "getSecret").mockRejectedValueOnce(new Error("Network exploded"));
+      await expect(sm.getOptionalSecret("KEY", "fallback")).rejects.toThrow("Network exploded");
     });
+  });
 
+  describe("getBooleanSecret", () => {
     it.each([
-      ["dev", false],
-      ["stg", true],
-      ["prd", true],
-      ["sec", true],
-    ])("should handle malformed AWS_ACCOUNTS JSON in %s environment", async (env, shouldThrow) => {
-      process.env.IAC_ENV = env;
-      process.env.AWS_ACCOUNTS = '{"app": invalid}';
-
-      if (shouldThrow) {
-        await expect(secretManager.getAwsAccountsJson()).rejects.toThrow(
-          env === "stg"
-            ? "Staging environment requires valid AWS_ACCOUNTS configuration"
-            : "Production environment requires valid AWS_ACCOUNTS configuration"
-        );
-      } else {
-        const accounts = await secretManager.getAwsAccountsJson();
-        expect(accounts).toEqual({});
-      }
+      ["true", true],
+      ["1", true],
+      ["yes", true],
+      ["on", true],
+      ["TRUE", true],
+      ["True", true],
+      ["YES", true],
+      ["false", false],
+      ["0", false],
+      ["no", false],
+      ["off", false],
+      ["FALSE", false],
+      ["banana", false],
+      ["", false],
+    ])("coerces %s → %s", async (raw, expected) => {
+      process.env.FLAG = raw;
+      const sm = new SecretManager();
+      // Empty strings are treated as missing → uses default (false here)
+      await expect(sm.getBooleanSecret("FLAG", false)).resolves.toBe(expected);
     });
 
-    it.each([
-      ['{"app": invalid}'],
-      ['{"app": {"id": }}'],
-      ['{app: "missing-quotes"}'],
-      ["not-json-at-all"],
-      ['{"valid": "json", "but": {"nested": "improperly"'],
-    ])("should gracefully handle malformed JSON pattern: %s in dev", async malformedJson => {
-      process.env.IAC_ENV = "dev";
-      process.env.AWS_ACCOUNTS = malformedJson;
+    it("returns the default when the secret is missing", async () => {
+      const sm = new SecretManager();
+      await expect(sm.getBooleanSecret("MISSING_FLAG", true)).resolves.toBe(true);
+      await expect(sm.getBooleanSecret("MISSING_FLAG", false)).resolves.toBe(false);
+    });
 
-      const accounts = await secretManager.getAwsAccountsJson();
-      expect(accounts).toEqual({});
+    it("defaults to false when no default is provided", async () => {
+      const sm = new SecretManager();
+      await expect(sm.getBooleanSecret("MISSING_FLAG")).resolves.toBe(false);
+    });
+
+    it("propagates non-'not found' errors", async () => {
+      const sm = new SecretManager();
+      vi.spyOn(sm, "getSecret").mockRejectedValueOnce(new Error("Network exploded"));
+      await expect(sm.getBooleanSecret("FLAG")).rejects.toThrow("Network exploded");
     });
   });
 
-  describe("Tenant-Driven Configuration - Dynamic Account Purposes", () => {
-    it("should accept any valid account purpose format", async () => {
-      const testPurposes = ["app", "ops", "ucx", "agent", "data", "lake", "phi", "training"];
-
-      for (const purpose of testPurposes) {
-        process.env.AWS_ACCOUNTS = JSON.stringify({
-          [purpose]: {
-            id: "123456789012",
-            accountPurpose: purpose,
-            environmentClass: "development",
-          },
-        });
-
-        // Create new instance to avoid cache from previous iterations
-        const testSecretManager = new SecretManager();
-
-        const accountId = await testSecretManager.getAwsAccountId(purpose, "dev");
-        expect(accountId).toBe("123456789012");
-      }
+  describe("context resolution", () => {
+    it("uses defaults when nothing is provided", async () => {
+      // Default env=dev, cloud=aws — visible via Infisical query when creds are set.
+      process.env.INFISICAL_CLIENT_ID = "id";
+      process.env.INFISICAL_CLIENT_SECRET = "secret";
+      process.env.INFISICAL_PROJECT_ID = "proj";
+      mockGetSecret.mockResolvedValueOnce({ secretValue: "ok" });
+      const sm = new SecretManager();
+      await sm.getSecret("KEY");
+      expect(mockGetSecret).toHaveBeenCalledWith(
+        expect.objectContaining({ environment: "dev", secretPath: "/aws" })
+      );
     });
 
-    it("should filter out non-account keys from AWS_ACCOUNTS", async () => {
-      process.env.AWS_ACCOUNTS = JSON.stringify({
-        default: "app",
-        app: { id: "111222333444", accountPurpose: "app" },
-        ops: { id: "222333444555", accountPurpose: "ops" },
-        // default should be filtered out, not appear as account
-      });
-
-      const accounts = await secretManager.getAwsAccountsJson();
-      expect(accounts.app).toBeDefined();
-      expect(accounts.ops).toBeDefined();
-      expect(accounts.default).toBeUndefined(); // Filtered out
+    it("prefers IAC_* env vars over hardcoded defaults", async () => {
+      process.env.IAC_ENV = "stg";
+      process.env.IAC_CLOUD = "azure";
+      process.env.INFISICAL_CLIENT_ID = "id";
+      process.env.INFISICAL_CLIENT_SECRET = "secret";
+      process.env.INFISICAL_PROJECT_ID = "proj";
+      mockGetSecret.mockResolvedValueOnce({ secretValue: "ok" });
+      const sm = new SecretManager();
+      await sm.getSecret("KEY");
+      expect(mockGetSecret).toHaveBeenCalledWith(
+        expect.objectContaining({ environment: "stg", secretPath: "/azure" })
+      );
     });
 
-    it("should support healthcare tenant with compliance isolated accounts", async () => {
-      process.env.AWS_ACCOUNTS = JSON.stringify({
-        default: "app",
-        app: { id: "111222333444", accountPurpose: "app" },
-        ucx: {
-          id: "222333444555",
-          accountPurpose: "ucx",
-          complianceRequirements: ["pci-dss", "hipaa"],
-        },
-        phi: {
-          id: "333444555666",
-          accountPurpose: "phi",
-          complianceRequirements: ["hipaa"],
-        },
-      });
-
-      const ucxId = await secretManager.getAwsAccountId("ucx", "prd");
-      const phiId = await secretManager.getAwsAccountId("phi", "prd");
-
-      expect(ucxId).toBe("222333444555");
-      expect(phiId).toBe("333444555666");
+    it("prefers defaultContext over IAC_* env vars", async () => {
+      process.env.IAC_ENV = "stg";
+      process.env.IAC_CLOUD = "azure";
+      process.env.INFISICAL_CLIENT_ID = "id";
+      process.env.INFISICAL_CLIENT_SECRET = "secret";
+      process.env.INFISICAL_PROJECT_ID = "proj";
+      mockGetSecret.mockResolvedValueOnce({ secretValue: "ok" });
+      const sm = new SecretManager({ environment: "prd", cloud: "gcp" });
+      await sm.getSecret("KEY");
+      expect(mockGetSecret).toHaveBeenCalledWith(
+        expect.objectContaining({ environment: "prd", secretPath: "/gcp" })
+      );
     });
 
-    it("should support AI platform tenant with workload isolation", async () => {
-      process.env.AWS_ACCOUNTS = JSON.stringify({
-        default: "app",
-        app: { id: "111222333444", accountPurpose: "app" },
-        agent: { id: "222333444555", accountPurpose: "agent" },
-        training: { id: "333444555666", accountPurpose: "training" },
-        inference: { id: "444555666777", accountPurpose: "inference" },
-      });
-
-      expect(await secretManager.getAwsAccountId("agent", "dev")).toBe("222333444555");
-      expect(await secretManager.getAwsAccountId("training", "dev")).toBe("333444555666");
-      expect(await secretManager.getAwsAccountId("inference", "dev")).toBe("444555666777");
+    it("prefers explicit context over defaultContext", async () => {
+      process.env.INFISICAL_CLIENT_ID = "id";
+      process.env.INFISICAL_CLIENT_SECRET = "secret";
+      process.env.INFISICAL_PROJECT_ID = "proj";
+      mockGetSecret.mockResolvedValueOnce({ secretValue: "ok" });
+      const sm = new SecretManager({ environment: "prd", cloud: "gcp" });
+      await sm.getSecret("KEY", { environment: "sec", cloud: "aws" });
+      expect(mockGetSecret).toHaveBeenCalledWith(
+        expect.objectContaining({ environment: "sec", secretPath: "/aws" })
+      );
     });
 
-    it("should support arbitrary custom account purposes", async () => {
-      process.env.AWS_ACCOUNTS = JSON.stringify({
-        default: "app",
-        myservice: { id: "111222333444", accountPurpose: "myservice" },
-        customapp: { id: "222333444555", accountPurpose: "customapp" },
-        teama: { id: "333444555666", accountPurpose: "teama" },
-      });
+    it("trims whitespace from context values", async () => {
+      process.env.INFISICAL_CLIENT_ID = "id";
+      process.env.INFISICAL_CLIENT_SECRET = "secret";
+      process.env.INFISICAL_PROJECT_ID = "proj";
+      mockGetSecret.mockResolvedValueOnce({ secretValue: "ok" });
+      const sm = new SecretManager();
+      await sm.getSecret("KEY", { environment: "  stg  ", cloud: "  azure  " });
+      expect(mockGetSecret).toHaveBeenCalledWith(
+        expect.objectContaining({ environment: "stg", secretPath: "/azure" })
+      );
+    });
+  });
 
-      expect(await secretManager.getAwsAccountId("myservice", "dev")).toBe("111222333444");
-      expect(await secretManager.getAwsAccountId("customapp", "dev")).toBe("222333444555");
-      expect(await secretManager.getAwsAccountId("teama", "dev")).toBe("333444555666");
+  describe("healthCheck", () => {
+    it("reports infisicalAvailable=false when creds are absent", async () => {
+      const sm = new SecretManager();
+      const health = await sm.healthCheck();
+      expect(health.infisicalAvailable).toBe(false);
+      expect(health.environmentVariablesAvailable).toBe(true);
     });
 
-    it("should handle account purpose that doesn't exist", async () => {
-      process.env.AWS_ACCOUNTS = JSON.stringify({
-        default: "app",
-        app: { id: "111222333444", accountPurpose: "app" },
-        ops: { id: "222333444555", accountPurpose: "ops" },
-      });
-
-      const result = await secretManager.getAwsAccountId("nonexistent", "dev");
-      expect(result).toBeNull();
+    it("reports infisicalAvailable=true when creds are present and login succeeds", async () => {
+      process.env.INFISICAL_CLIENT_ID = "id";
+      process.env.INFISICAL_CLIENT_SECRET = "secret";
+      process.env.INFISICAL_PROJECT_ID = "proj";
+      mockGetSecret.mockRejectedValue(new Error("not found"));
+      const sm = new SecretManager();
+      const health = await sm.healthCheck();
+      expect(health.infisicalAvailable).toBe(true);
     });
 
-    it("should support compliance metadata on custom account purposes", async () => {
-      process.env.AWS_ACCOUNTS = JSON.stringify({
-        default: "app",
-        pci: {
-          id: "111222333444",
-          accountPurpose: "pci",
-          complianceRequirements: ["pci-dss"],
-          comment: "PCI-DSS Level 1 workloads",
-        },
-        sox: {
-          id: "222333444555",
-          accountPurpose: "sox",
-          complianceRequirements: ["sox"],
-          comment: "Financial reporting systems",
-        },
-      });
+    it("includes the canonical recommended-secrets list", async () => {
+      const sm = new SecretManager();
+      const health = await sm.healthCheck();
+      expect(health.recommendedSecrets).toEqual(["ORG_TENANT", "ORG_NAME", "ORG_DOMAIN"]);
+    });
 
-      const accounts = await secretManager.getAwsAccountsJson();
-      expect(accounts.pci).toBeDefined();
-      expect(accounts.pci?.id).toBe("111222333444");
-      expect(accounts.sox).toBeDefined();
-      expect(accounts.sox?.id).toBe("222333444555");
+    it("flags every recommended secret as missing when none are set", async () => {
+      const sm = new SecretManager();
+      const health = await sm.healthCheck();
+      expect(health.missingSecrets).toEqual(
+        expect.arrayContaining(["ORG_TENANT", "ORG_NAME", "ORG_DOMAIN"])
+      );
+      expect(health.missingSecrets).toHaveLength(3);
+    });
+
+    it("removes a recommended secret from the missing list once it's set", async () => {
+      process.env.ORG_TENANT = "worx";
+      const sm = new SecretManager();
+      const health = await sm.healthCheck();
+      expect(health.missingSecrets).not.toContain("ORG_TENANT");
+      expect(health.missingSecrets).toEqual(expect.arrayContaining(["ORG_NAME", "ORG_DOMAIN"]));
+    });
+
+    it("flags no secrets missing once all three are set", async () => {
+      process.env.ORG_TENANT = "worx";
+      process.env.ORG_NAME = "WorxCo";
+      process.env.ORG_DOMAIN = "worx.dev";
+      const sm = new SecretManager();
+      const health = await sm.healthCheck();
+      expect(health.missingSecrets).toHaveLength(0);
+    });
+  });
+
+  describe("module-level singleton", () => {
+    it("getSecretManager() returns the same instance as the exported singleton", () => {
+      expect(getSecretManager()).toBe(secretManager);
+    });
+
+    it("the singleton is a SecretManager", () => {
+      expect(secretManager).toBeInstanceOf(SecretManager);
     });
   });
 });
