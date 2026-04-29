@@ -115,23 +115,27 @@ jobs:
           npm --version
           pnpm --version
           echo "OIDC_REQUEST_TOKEN length: ${#OIDC_REQUEST_TOKEN}"
-          echo "OIDC_REQUEST_URL set: $([ -n "$OIDC_REQUEST_URL" ] && echo yes || echo no)"
-          echo "ACTIONS_ID_TOKEN_REQUEST_URL set: $([ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && echo yes || echo no)"
+          echo "OIDC_REQUEST_URL: ${OIDC_REQUEST_URL}"
+          echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN length: ${#ACTIONS_ID_TOKEN_REQUEST_TOKEN}"
+          echo "ACTIONS_ID_TOKEN_REQUEST_URL: ${ACTIONS_ID_TOKEN_REQUEST_URL}"
+          echo "--- npm config (sanitized) ---"
+          npm config list 2>&1 | grep -vE '_authToken|password|secret' || true
+          echo "--- relevant env ---"
+          env | grep -E '^(NPM_|NODE_|GITHUB_|RUNNER_|ACTIONS_ID|OIDC_)' | grep -vE '_TOKEN=|TOKEN_REQUEST_TOKEN=' || true
           echo "==================="
 
-          # Tag format: @adaptiveworx/<name>@<version>
           TAG="${GITHUB_REF#refs/tags/}"
           PROJECT_NAME="${TAG%@*}"
           UNSCOPED="${PROJECT_NAME#@adaptiveworx/}"
           PKG_DIR="packages/${UNSCOPED}"
           echo "Publishing ${PROJECT_NAME} from ${PKG_DIR}"
 
-          # Use npm publish directly — it has first-class TP support
-          # since 11.5.1 and reads OIDC_REQUEST_{TOKEN,URL}. pnpm 10.x
-          # forwards to npm under the hood for the actual HTTP call but
-          # has had OIDC quirks; bypass them by calling npm directly.
           cd "${PKG_DIR}"
-          npm publish --provenance --access public
+          npm publish --provenance --access public --loglevel=verbose 2>&1 | tee /tmp/publish.log
+          PUBLISH_EXIT=${PIPESTATUS[0]}
+          echo "--- last 60 lines of publish log ---"
+          tail -60 /tmp/publish.log
+          exit ${PUBLISH_EXIT}
 
       # ---------------------------------------------------------------
       # Path B: workflow_dispatch — version + publish from main in CI.
