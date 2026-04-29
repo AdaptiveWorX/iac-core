@@ -1,5 +1,5 @@
 {
-  "name": "@adaptiveworx/iac-components-azure",
+  "name": "@adaptiveworx/iac-azure",
   "version": "0.1.0",
   "type": "module",
   "description": "Reusable Pulumi infrastructure components for Microsoft Azure (Fabric, Storage, Key Vault, Networking). Empty skeleton — components extracted as Prosilio's first inline implementations stabilize.",
@@ -23,9 +23,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/AdaptiveWorX/flux-core.git",
-    "directory": "packages/iac-components-azure"
+    "directory": "packages/iac-azure"
   },
-  "homepage": "https://github.com/AdaptiveWorX/flux-core/tree/main/packages/iac-components-azure#readme",
+  "homepage": "https://github.com/AdaptiveWorX/flux-core/tree/main/packages/iac-azure#readme",
   "bugs": {
     "url": "https://github.com/AdaptiveWorX/flux-core/issues"
   },

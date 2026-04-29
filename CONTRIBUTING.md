@@ -119,7 +119,7 @@ Add `!` before the colon (or `BREAKING CHANGE:` in the footer) for a
 **major** bump:
 
 ```
-feat(iac-components-aws)!: rename SharedVpc.tiers to SharedVpc.subnetTiers
+feat(iac-aws)!: rename SharedVpc.tiers to SharedVpc.subnetTiers
 ```
 
 ### Scopes — the rule that keeps releases sane
@@ -145,17 +145,17 @@ To keep version bumps meaningful, follow these rules without exception:
 - `iac-core`
 - `iac-schemas`
 - `iac-policies`
-- `iac-components-aws`
-- `iac-components-azure`
+- `iac-aws`
+- `iac-azure`
 - `repo` — **only** with `chore` / `ci` / `build` / `docs` / `refactor` / `test` / `style`
 
 ### Good examples
 
 ```
-feat(iac-components-aws): add VPC peering support to SharedVpc
+feat(iac-aws): add VPC peering support to SharedVpc
 fix(iac-core): handle missing AWS_REGION env var in stack-utils
 perf(iac-core): cache CIDR allocations across calls
-feat(iac-components-azure)!: rename FabricCapacity.skuTier to skuName
+feat(iac-azure)!: rename FabricCapacity.skuTier to skuName
 
 docs(repo): clarify Nx Release flow in CONTRIBUTING.md
 chore(repo): upgrade pnpm to 10.30

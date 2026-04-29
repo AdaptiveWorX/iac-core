@@ -13,8 +13,8 @@ npm.
 ### Surface
 
 - **Cross-cloud primitives.** Cloud-agnostic only — AWS-Org-shaped
-  pieces live in `@adaptiveworx/iac-components-aws`, Azure pieces in
-  `@adaptiveworx/iac-components-azure`.
+  pieces live in `@adaptiveworx/iac-aws`, Azure pieces in
+  `@adaptiveworx/iac-azure`.
 - **`OrganizationConfig`** + adapter helpers (`loadOrganizationOptionsFromEnv`,
   `loadAdaptiveOrganizationDefaults`). Pure consumer of `OrganizationOptions`;
   reads from `process.env` are isolated to the adapters.

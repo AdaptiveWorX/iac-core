@@ -15,7 +15,7 @@ Prosilio Care (healthcare client, small surgical center, US-only,
 the ModMed Delta Share) is the first external commercial consumer of
 AdaptiveWorX's `@adaptiveworx/iac-*` npm packages. Prosilio builds its
 Azure infrastructure with Pulumi + TypeScript, consuming `iac-core` and
-`iac-schemas` directly, and eventually a new `iac-components-azure` once
+`iac-schemas` directly, and eventually a new `iac-azure` once
 patterns stabilize. This forces the packages to graduate from
 "AdaptiveWorX-internal reusable code" to "externally consumable Apache 2.0
 libraries," which is the catalyst for the **flux-core** OSS monorepo.
@@ -66,16 +66,16 @@ scope.
 | `@adaptiveworx/iac-core` | Cross-cloud primitives: `OrganizationConfig`, `SecretManager`, region utils, CIDR allocation, stack utils, validation, agent guardrails | Migrating from `iac-worx/libs/iac/core` |
 | `@adaptiveworx/iac-schemas` | Zod-derived JSON schemas (validation contracts) | Migrating from `iac-worx/libs/iac/schemas` |
 | `@adaptiveworx/iac-policies` | Pulumi policy packs (cross-cloud + cloud-specific) | Migrating from `iac-worx/libs/iac/policies` |
-| `@adaptiveworx/iac-components-aws` | AWS Pulumi components: `SharedVpc`, `CrossAccountIAMRoles`, `GitHubActionsOIDC`, IAM helpers, AWS-IAM naming helpers (formerly `src/shared/`) | **Renamed in-place from** `@adaptiveworx/iac-components` (deprecated post-rename) |
-| `@adaptiveworx/iac-components-azure` | Azure Pulumi components (Fabric, OneLake, secure storage, networking) | Empty skeleton |
+| `@adaptiveworx/iac-aws` | AWS Pulumi components: `SharedVpc`, `CrossAccountIAMRoles`, `GitHubActionsOIDC`, IAM helpers, AWS-IAM naming helpers (formerly `src/shared/`) | **Renamed in-place from** `@adaptiveworx/iac-components` (deprecated post-rename) |
+| `@adaptiveworx/iac-azure` | Azure Pulumi components (Fabric, OneLake, secure storage, networking) | Empty skeleton |
 
 The directory layout under `packages/` matches each unscoped package name
-1:1 (`packages/iac-core/`, `packages/iac-components-aws/`, …) so npm name
+1:1 (`packages/iac-core/`, `packages/iac-aws/`, …) so npm name
 and folder name are always grep-equivalent.
 
 There is **no `iac-shared` package**. The folder formerly at
 `flux-core/src/shared/` was AWS-IAM-specific naming helpers, not
-cross-cloud — those folded into `iac-components-aws`. Genuinely
+cross-cloud — those folded into `iac-aws`. Genuinely
 cross-cloud primitives live in `iac-core`; that's the right semantic name
 because it's the foundation everything else depends on.
 
@@ -83,12 +83,12 @@ because it's the foundation everything else depends on.
 
 - `iac-core` is **cloud-agnostic only.** AWS-Org-shaped pieces (account
   registry, AWS organization config, AWS region CIDR offsets) live in the
-  sibling `iac-components-aws` package; Azure pieces in
-  `iac-components-azure`; etc. This rule is documented at the top of
+  sibling `iac-aws` package; Azure pieces in
+  `iac-azure`; etc. This rule is documented at the top of
   `iac-core/src/index.ts` and is the test for "does this code belong in
   core."
 - Prosilio consumes `iac-core` + `iac-schemas` on day 1. Not
-  `iac-components-aws` (AWS-only). Not `iac-components-azure` (doesn't
+  `iac-aws` (AWS-only). Not `iac-azure` (doesn't
   exist yet — Prosilio writes Azure stacks inline first; we'll extract
   components once patterns stabilize). `iac-policies` consumable but
   no-op on Azure resources.
@@ -149,11 +149,11 @@ Migrate when Phase 1 has settled to keep PRs reviewable.
 
 ### Phase 3 — Rename publish of components (~1 hour)
 
-1. Publish `@adaptiveworx/iac-components-aws@0.7.0` from
-   `packages/iac-components-aws/` (already restructured).
+1. Publish `@adaptiveworx/iac-aws@0.7.0` from
+   `packages/iac-aws/` (already restructured).
 2. Publish `@adaptiveworx/iac-components@0.6.2` deprecated, with a rename
-   pointer to `iac-components-aws` in the README.
-3. Stub `@adaptiveworx/iac-components-azure@0.1.0` already in place; no
+   pointer to `iac-aws` in the README.
+3. Stub `@adaptiveworx/iac-azure@0.1.0` already in place; no
    first publish until first component lands.
 
 ## What can happen async (not blocking Prosilio)
@@ -171,7 +171,7 @@ Migrate when Phase 1 has settled to keep PRs reviewable.
 - **Schema URL** — `constants.ts` hardcodes `schemas.adaptiveworx.com`.
 - **CHANGELOG already migrated; README will need refresh** post-move.
 
-### `iac-components-aws` debt
+### `iac-aws` debt
 
 - **Hardcoded log archive account ID** (`539920679260`) in
   `cross-account-roles.ts`.
@@ -181,7 +181,7 @@ Migrate when Phase 1 has settled to keep PRs reviewable.
 ### Azure components (future — Fabric-targeted)
 
 When Prosilio's first few stacks have stabilized, extract these into
-`packages/iac-components-azure/src/`. See
+`packages/iac-azure/src/`. See
 [architecture.md](./architecture.md#azure-component-roadmap) for the full
 list and rationale.
 
@@ -196,8 +196,8 @@ general-purpose lakehouse.
 | 1 | SecretManager pluggable backend interface design | `flux-core` (`iac-core`) | Prosilio could live with Infisical short-term, but external clients will push on this |
 | 2 | OrganizationConfig parameterization strategy | `flux-core` (`iac-core`) | Needed before second external client |
 | 3 | Semver commitment — cut 1.0 for `iac-core` / `iac-schemas` / `iac-policies` or stay 0.x? | `flux-core` | Affects Prosilio's trust calculus on consuming. Recommend staying 0.x until OrgConfig + SecretManager pluggability land. |
-| 4 | `iac-components-aws` version strategy — bump to 0.7.0 at rename or cut 1.0? | `flux-core` | Rename is a natural moment to commit to semver. Recommend 0.7.0 — preserves continuity with 0.6.x history; 1.0 waits for Azure parity. |
-| 5 | Azure component conventions — mirror AWS shapes or let Azure primitives drive a different API? | `flux-core` (`iac-components-azure`) | Answer before first Azure component. Likely different given Fabric's distinct primitive set. |
+| 4 | `iac-aws` version strategy — bump to 0.7.0 at rename or cut 1.0? | `flux-core` | Rename is a natural moment to commit to semver. Recommend 0.7.0 — preserves continuity with 0.6.x history; 1.0 waits for Azure parity. |
+| 5 | Azure component conventions — mirror AWS shapes or let Azure primitives drive a different API? | `flux-core` (`iac-azure`) | Answer before first Azure component. Likely different given Fabric's distinct primitive set. |
 
 ## Pointers
 

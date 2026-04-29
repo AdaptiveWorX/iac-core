@@ -1,4 +1,4 @@
-# @adaptiveworx/iac-components-azure
+# @adaptiveworx/iac-azure
 
 Reusable Pulumi infrastructure components for Microsoft Azure, written in
 TypeScript.
@@ -28,7 +28,7 @@ roadmap.
 ## Install (when components ship)
 
 ```sh
-pnpm add @adaptiveworx/iac-components-azure @pulumi/azure-native @pulumi/pulumi
+pnpm add @adaptiveworx/iac-azure @pulumi/azure-native @pulumi/pulumi
 ```
 
 ## License

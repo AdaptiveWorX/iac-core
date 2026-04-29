@@ -2,7 +2,7 @@
   "extends": "./tsconfig.base.json",
   "files": [],
   "references": [
-    { "path": "./packages/iac-components-aws" },
-    { "path": "./packages/iac-components-azure" }
+    { "path": "./packages/iac-aws" },
+    { "path": "./packages/iac-azure" }
   ]
 }

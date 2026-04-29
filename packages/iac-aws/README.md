@@ -1,4 +1,4 @@
-# @adaptiveworx/iac-components-aws
+# @adaptiveworx/iac-aws
 
 Reusable Pulumi infrastructure components for AWS, written in TypeScript.
 
@@ -8,7 +8,7 @@ suite of open-source IaC libraries for multi-cloud Pulumi deployments.
 ## Install
 
 ```sh
-pnpm add @adaptiveworx/iac-components-aws @pulumi/aws @pulumi/pulumi
+pnpm add @adaptiveworx/iac-aws @pulumi/aws @pulumi/pulumi
 ```
 
 `@pulumi/aws` and `@pulumi/pulumi` are peer dependencies — bring your own
@@ -26,7 +26,7 @@ versions.
 ## Usage
 
 ```ts
-import { SharedVpc, CrossAccountIAMRoles, GitHubActionsOIDC } from "@adaptiveworx/iac-components-aws";
+import { SharedVpc, CrossAccountIAMRoles, GitHubActionsOIDC } from "@adaptiveworx/iac-aws";
 
 const vpc = new SharedVpc("dev-use1", {
   productLine: "worx",

@@ -1,5 +1,5 @@
 {
-  "name": "@adaptiveworx/iac-components-aws",
+  "name": "@adaptiveworx/iac-aws",
   "version": "0.1.0",
   "type": "module",
   "description": "Reusable Pulumi infrastructure components for AWS — VPC, IAM cross-account roles, GitHub Actions OIDC, and IAM policy helpers.",
@@ -23,9 +23,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/AdaptiveWorX/flux-core.git",
-    "directory": "packages/iac-components-aws"
+    "directory": "packages/iac-aws"
   },
-  "homepage": "https://github.com/AdaptiveWorX/flux-core/tree/main/packages/iac-components-aws#readme",
+  "homepage": "https://github.com/AdaptiveWorX/flux-core/tree/main/packages/iac-aws#readme",
   "bugs": {
     "url": "https://github.com/AdaptiveWorX/flux-core/issues"
   },

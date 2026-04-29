@@ -16,12 +16,12 @@ from conventional commits.
 | [`@adaptiveworx/iac-core`](./packages/iac-core) | Cross-cloud primitives: organization config, secret management, region utils, CIDR allocation, validation, schemas |
 | [`@adaptiveworx/iac-schemas`](./packages/iac-schemas) | Zod-derived JSON schemas for configuration contracts |
 | [`@adaptiveworx/iac-policies`](./packages/iac-policies) | Pulumi policy packs for security, compliance, cost |
-| [`@adaptiveworx/iac-components-aws`](./packages/iac-components-aws) | AWS Pulumi components: VPC, IAM, OIDC |
-| [`@adaptiveworx/iac-components-azure`](./packages/iac-components-azure) | Azure Pulumi components (Fabric, OneLake, secure storage, networking) |
+| [`@adaptiveworx/iac-aws`](./packages/iac-aws) | AWS Pulumi components: VPC, IAM, OIDC |
+| [`@adaptiveworx/iac-azure`](./packages/iac-azure) | Azure Pulumi components (Fabric, OneLake, secure storage, networking) |
 
-> **Status (2026-04):** `iac-components-aws` is restructured and tests
+> **Status (2026-04):** `iac-aws` is restructured and tests
 > passing. `iac-core`, `iac-schemas`, `iac-policies` migration from
-> `iac-worx` is in progress. `iac-components-azure` is an empty skeleton.
+> `iac-worx` is in progress. `iac-azure` is an empty skeleton.
 > See [docs/platform-coordination.md](./docs/platform-coordination.md) for
 > sequencing.
 
@@ -29,7 +29,7 @@ from conventional commits.
 
 ```bash
 # AWS-only
-pnpm add @adaptiveworx/iac-core @adaptiveworx/iac-components-aws \
+pnpm add @adaptiveworx/iac-core @adaptiveworx/iac-aws \
   @pulumi/aws @pulumi/pulumi
 
 # Azure-only
@@ -43,7 +43,7 @@ required.
 ## Quickstart (AWS)
 
 ```ts
-import { SharedVpc, GitHubActionsOIDC } from "@adaptiveworx/iac-components-aws";
+import { SharedVpc, GitHubActionsOIDC } from "@adaptiveworx/iac-aws";
 
 const vpc = new SharedVpc("dev-use1", {
   productLine: "worx",
@@ -92,8 +92,8 @@ pnpm test:affected
 pnpm lint:affected
 
 # Single package
-pnpm nx build @adaptiveworx/iac-components-aws
-pnpm nx test @adaptiveworx/iac-components-aws
+pnpm nx build @adaptiveworx/iac-aws
+pnpm nx test @adaptiveworx/iac-aws
 
 # Format
 pnpm format             # Write

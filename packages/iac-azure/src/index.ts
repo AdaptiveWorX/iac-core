@@ -5,7 +5,7 @@
  */
 
 /**
- * @adaptiveworx/iac-components-azure — public library entry point.
+ * @adaptiveworx/iac-azure — public library entry point.
  *
  * Reusable Pulumi components for Microsoft Azure. Empty skeleton —
  * components are extracted from inline Prosilio implementations as

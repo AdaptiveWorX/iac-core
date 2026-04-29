@@ -1,14 +1,14 @@
 {
-  "name": "@adaptiveworx/iac-components-aws",
+  "name": "@adaptiveworx/iac-azure",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "library",
-  "sourceRoot": "packages/iac-components-aws/src",
-  "tags": ["scope:aws", "type:library", "publish:public"],
+  "sourceRoot": "packages/iac-azure/src",
+  "tags": ["scope:azure", "type:library", "publish:public"],
   "targets": {
     "build": {
       "executor": "nx:run-commands",
       "options": {
-        "cwd": "packages/iac-components-aws",
+        "cwd": "packages/iac-azure",
         "command": "tsc -p tsconfig.lib.json"
       },
       "outputs": ["{projectRoot}/dist"],
@@ -18,28 +18,21 @@
     "test": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "vitest run packages/iac-components-aws --reporter=verbose"
-      },
-      "cache": true
-    },
-    "test:unit": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "vitest run 'packages/iac-components-aws/**/*.unit.test.ts' --reporter=verbose"
+        "command": "vitest run packages/iac-azure --reporter=verbose --passWithNoTests"
       },
       "cache": true
     },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "biome check packages/iac-components-aws"
+        "command": "biome check packages/iac-azure"
       },
       "cache": true
     },
     "typecheck": {
       "executor": "nx:run-commands",
       "options": {
-        "cwd": "packages/iac-components-aws",
+        "cwd": "packages/iac-azure",
         "command": "tsc --noEmit -p tsconfig.lib.json"
       },
       "cache": true

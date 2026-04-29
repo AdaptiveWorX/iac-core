@@ -45,7 +45,7 @@ importers:
         specifier: ^3.2.4
         version: 3.2.4(@types/node@24.12.2)(@vitest/ui@3.2.4)(tsx@4.21.0)(yaml@2.8.0)
 
-  packages/iac-components-aws:
+  packages/iac-aws:
     devDependencies:
       '@pulumi/aws':
         specifier: ^7.7.0
@@ -54,7 +54,7 @@ importers:
         specifier: ^3.200.0
         version: 3.232.0(typescript@6.0.3)
 
-  packages/iac-components-azure:
+  packages/iac-azure:
     dependencies:
       '@pulumi/azure-native':
         specifier: ^3.0.0

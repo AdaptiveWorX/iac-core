@@ -5,7 +5,7 @@
  */
 
 /**
- * @adaptiveworx/iac-components-aws — public library entry point.
+ * @adaptiveworx/iac-aws — public library entry point.
  *
  * Reusable Pulumi components for AWS:
  *   - SharedVpc                   (VPC with multi-tier subnets, NAT, flow logs, RAM)

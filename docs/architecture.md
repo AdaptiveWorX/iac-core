@@ -17,8 +17,8 @@ flux-core/
 │   ├── iac-core/                    # Cross-cloud primitives
 │   ├── iac-schemas/                 # Zod-derived JSON schemas
 │   ├── iac-policies/                # Pulumi policy packs
-│   ├── iac-components-aws/          # AWS Pulumi components
-│   └── iac-components-azure/        # Azure Pulumi components (skeleton)
+│   ├── iac-aws/          # AWS Pulumi components
+│   └── iac-azure/        # Azure Pulumi components (skeleton)
 ├── docs/
 │   ├── architecture.md              # ← you are here
 │   ├── platform-coordination.md     # Prosilio ↔ OSS coordination
@@ -45,7 +45,7 @@ Three forces pushed us out of single-package layout:
 2. **Independent release cadence.** `iac-core` rev-locking the AWS
    components (or Azure components) creates churn for consumers who
    touch only one surface.
-3. **Cross-package coordination.** `iac-components-aws` depends on
+3. **Cross-package coordination.** `iac-aws` depends on
    `iac-core`. Workspace path resolution + a single `pnpm install` lets
    us evolve them together while still publishing them apart.
 
@@ -75,8 +75,8 @@ package and every consumer depends on, so the bar for what gets in is
 
 The `core` name is deliberate: this is the **core** that everything
 builds on, not generic shared utilities. AWS-Org-shaped pieces (account
-registry, AWS region CIDR offsets) live in `iac-components-aws`, not
-here. Azure-Tenant-shaped pieces will live in `iac-components-azure`.
+registry, AWS region CIDR offsets) live in `iac-aws`, not
+here. Azure-Tenant-shaped pieces will live in `iac-azure`.
 
 ### `@adaptiveworx/iac-schemas`
 
@@ -98,7 +98,7 @@ Pulumi policy packs — security/compliance/cost policies that run during
 enforcement); cloud-specific where needed (e.g. AWS S3 public-access
 blocks).
 
-### `@adaptiveworx/iac-components-aws`
+### `@adaptiveworx/iac-aws`
 
 Production-tested Pulumi components for AWS:
 
@@ -114,7 +114,7 @@ Production-tested Pulumi components for AWS:
 multi-cloud restructure. The old package is published deprecated with a
 rename pointer.
 
-### `@adaptiveworx/iac-components-azure`
+### `@adaptiveworx/iac-azure`
 
 Azure components — currently an empty skeleton. Patterns are being
 captured inline in Prosilio's first Azure stacks; stable patterns will
@@ -123,7 +123,7 @@ be extracted here once they prove out.
 #### Azure component roadmap
 
 When Prosilio's first few stacks have stabilized, extract these into
-`packages/iac-components-azure/src/`:
+`packages/iac-azure/src/`:
 
 - **`FabricCapacity`** — F-series capacity, region, admin assignments
 - **`FabricWorkspace`** — workspace identity, capacity assignment, role grants
@@ -154,7 +154,7 @@ general-purpose lakehouse.
         ┌────────────┘     └────────────┐
         │                               │
 ┌───────▼─────────────┐    ┌────────────▼──────────┐
-│iac-components-aws   │    │iac-components-azure   │
+│iac-aws   │    │iac-azure   │
 │(deps: iac-core)     │    │(deps: iac-core)       │
 └─────────────────────┘    └───────────────────────┘
 
@@ -219,7 +219,7 @@ so we never publish a package whose build is broken.
 
 ```bash
 # AWS-only consumer
-pnpm add @adaptiveworx/iac-core @adaptiveworx/iac-components-aws \
+pnpm add @adaptiveworx/iac-core @adaptiveworx/iac-aws \
   @pulumi/aws @pulumi/pulumi
 
 # Azure-only consumer (Prosilio)
@@ -227,8 +227,8 @@ pnpm add @adaptiveworx/iac-core @adaptiveworx/iac-schemas \
   @pulumi/azure-native @pulumi/pulumi
 
 # Both
-pnpm add @adaptiveworx/iac-core @adaptiveworx/iac-components-aws \
-  @adaptiveworx/iac-components-azure @pulumi/aws @pulumi/azure-native \
+pnpm add @adaptiveworx/iac-core @adaptiveworx/iac-aws \
+  @adaptiveworx/iac-azure @pulumi/aws @pulumi/azure-native \
   @pulumi/pulumi
 ```
 
@@ -276,8 +276,8 @@ These are the rules that keep the package set coherent:
 | `iac-core` | Migration pending from iac-worx | — |
 | `iac-schemas` | Migration pending from iac-worx | — |
 | `iac-policies` | Migration pending from iac-worx | — |
-| `iac-components-aws` | Restructured + tests passing | `iac-components@0.6.1` (pre-rename) |
-| `iac-components-azure` | Empty skeleton | — |
+| `iac-aws` | Restructured + tests passing | `iac-components@0.6.1` (pre-rename) |
+| `iac-azure` | Empty skeleton | — |
 
 See [platform-coordination.md](./platform-coordination.md#whats-blocking-prosilio)
 for migration sequencing.
