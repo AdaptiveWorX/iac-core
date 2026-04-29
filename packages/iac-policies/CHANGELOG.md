@@ -5,50 +5,37 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/) once it
 reaches `1.0.0`. Until then, breaking changes may land in any `0.x` minor.
 
-## [Unreleased]
+## 0.1.0 (unreleased)
 
-## [0.2.0] - 2026-04-25
+Initial publish from the `flux-core` monorepo. First public version on
+npm.
 
-First externally consumable release. The package now ships the policy
-pack source as a clean tarball with full repository metadata and a clear
-peer-dependency declaration.
+### Ships
 
-### Added
+A Pulumi CrossGuard policy pack with four enforced policies:
 
-- **README.md** with install + usage instructions, per-tenant
-  configuration table, full enforced-rules matrix, and stability notes.
-- **CHANGELOG.md** (this file).
-- **`@pulumi/policy` and `@pulumi/pulumi` as peerDependencies** — the
-  policy pack uses both at runtime; consumers manage their own versions.
+- **Required tags** — every taggable resource must carry the canonical
+  governance tags (`Environment`, `AccountPurpose`, `StackPurpose`).
+- **Regional compliance** — resources are deployed only in approved
+  regions per environment + tenant.
+- **Security baseline** — secure-by-default enforcement (S3 ACL +
+  encryption rules; expand as VPC/RDS/IAM resources land).
+- **Deployment protection** — production/security stacks must deploy
+  through CI/CD with approval gates, not from a developer machine.
 
-### Changed
+The pack auto-detects context (tenant, environment, account purpose,
+stack purpose) from Pulumi project + stack names — no per-stack
+configuration required.
 
-- **`package.json`**:
-  - Added `types: ./src/index.ts`
-  - `exports` map: `.`, `./src/`, `./package.json`
-  - Added `files: [src, LICENSE, NOTICE, README.md, CHANGELOG.md]` —
-    only the policy pack source ships
-  - Added `repository`, `homepage`, `bugs`, `keywords`, `engines.node>=22`,
-    `publishConfig {access: public, provenance: true}`
-  - Version: `0.1.0` → `0.2.0`
+### Peer dependencies
 
-### Removed
+- `@pulumi/policy` (>= 1.18)
+- `@pulumi/pulumi` (>= 3.150)
 
-- **`@adaptiveworx/iac-core` runtime dependency**. The policy pack
-  source has zero `@adaptiveworx/iac-core` imports; it was a leftover
-  from earlier prototyping.
-- **`build` Nx target invoking `pulumi policy build`**. That subcommand
-  was a no-op; Pulumi's policy CLI doesn't have a `build` action. Policy
-  packs ship as TypeScript source and Pulumi compiles them at runtime.
-  The `typecheck` Nx target remains and validates the source.
+### Notes
 
-### Fixed
+The package ships as TypeScript source — Pulumi's policy runtime
+compiles it on load. No build step.
 
-- **Path resolution**: script paths in `package.json` updated from
-  `../../scripts/` (correct when this lived at `packages/iac-policies/`)
-  to `../../../scripts/` (correct at `libs/iac/policies/`).
-
-## [0.1.0] - 2025-10-11
-
-Initial pre-release. Internal AdaptiveWorX use only; not published to
-npm. Source available in the [iac-worx monorepo](https://github.com/AdaptiveWorX/iac-worx).
+Developed inside the private `iac-worx` workspace prior to publish; no
+artifacts shipped to npm before this version.

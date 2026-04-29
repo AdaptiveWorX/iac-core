@@ -1,6 +1,6 @@
 {
   "name": "@adaptiveworx/iac-policies",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "type": "module",
   "description": "Pulumi CrossGuard policy pack for AdaptiveWorX™ infrastructure governance: required-tag enforcement, environment-aware deployment gates, region allowlisting, and tenant-aware compliance frameworks.",
   "license": "Apache-2.0",

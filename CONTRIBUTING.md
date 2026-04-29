@@ -97,17 +97,23 @@ generation, so commit hygiene directly affects releases.
 
 ### Types we use
 
+The bump column reflects what's configured in
+[nx.json](./nx.json) under `release.version.conventionalCommitsConfig`.
+Only `feat`, `fix`, and `perf` move versions; everything else is
+maintenance and never bumps a published artifact.
+
 | Type | Bump | Use for |
 |---|---|---|
 | `feat` | minor | New feature, new export, new public API |
 | `fix` | patch | Bug fix that doesn't change public API |
 | `perf` | patch | Performance improvement |
-| `refactor` | patch | Internal refactor, no behavior change |
-| `docs` | (none) | Documentation only |
-| `test` | (none) | Test-only changes |
-| `build` | (none) | Build system, dependencies |
-| `ci` | (none) | CI configuration |
-| `chore` | (none) | Maintenance, no public effect |
+| `refactor` | **none** | Internal restructure, no behavior change |
+| `docs` | none | Documentation only |
+| `test` | none | Test-only changes |
+| `build` | none | Build system, dependencies, tsconfig |
+| `ci` | none | CI configuration |
+| `chore` | none | Maintenance, repo plumbing, no public effect |
+| `style` | none | Formatting only |
 
 Add `!` before the colon (or `BREAKING CHANGE:` in the footer) for a
 **major** bump:
@@ -116,26 +122,56 @@ Add `!` before the colon (or `BREAKING CHANGE:` in the footer) for a
 feat(iac-components-aws)!: rename SharedVpc.tiers to SharedVpc.subnetTiers
 ```
 
-### Scopes
+### Scopes — the rule that keeps releases sane
 
-Use the unscoped package name as the scope:
+Nx Release attributes commits to packages **first by scope match**, then
+falls back to file-touch attribution. File-touch attribution is noisy in
+a publish-focused monorepo, because cross-cutting changes (adding a
+workflow, bumping a tsconfig, editing a README in the docs/ tree) touch
+files inside multiple packages and would otherwise bump every package's
+version.
+
+To keep version bumps meaningful, follow these rules without exception:
+
+| Rule | Why |
+|---|---|
+| **`feat:` and `fix:` always carry a single package scope** (e.g. `feat(iac-core):`). | These commits *will* bump a package — the scope tells Nx Release exactly which one. |
+| **Cross-cutting work (tooling, monorepo plumbing, repo docs) uses scope `repo` AND a non-bumping type** (`chore(repo):`, `ci(repo):`, `build(repo):`, `docs(repo):`, `refactor(repo):`). | These shouldn't bump anything; the type config makes them no-ops, and `repo` signals "not a package change." |
+| **A single commit changes a single package surface.** If you have to touch two packages for one logical change, split it into two commits — one per scope. | Otherwise the second package gets attributed via file-touch and bumps for the wrong reason. |
+| **Never use `feat(repo):` or `fix(repo):`.** | These are version-bumping types attached to a non-package scope — they trigger file-touch fallback across every package. If you find yourself wanting to write this, the change either belongs to a specific package (use that scope) or isn't really a feat/fix (use `chore`/`refactor`/`build`). |
+
+### Allowed scopes
 
 - `iac-core`
 - `iac-schemas`
 - `iac-policies`
 - `iac-components-aws`
 - `iac-components-azure`
-- `repo` for cross-cutting changes (root tooling, docs that aren't
-  package-specific)
+- `repo` — **only** with `chore` / `ci` / `build` / `docs` / `refactor` / `test` / `style`
 
-Examples:
+### Good examples
 
 ```
 feat(iac-components-aws): add VPC peering support to SharedVpc
 fix(iac-core): handle missing AWS_REGION env var in stack-utils
-docs(repo): clarify Nx Release flow in CONTRIBUTING.md
-chore(iac-schemas): bump zod peer range
+perf(iac-core): cache CIDR allocations across calls
 feat(iac-components-azure)!: rename FabricCapacity.skuTier to skuName
+
+docs(repo): clarify Nx Release flow in CONTRIBUTING.md
+chore(repo): upgrade pnpm to 10.30
+ci(repo): cache pnpm store in release workflow
+refactor(repo): collapse tsconfig.lib.json files into one shared base
+build(repo): bump @types/node to 24.x
+```
+
+### Bad examples
+
+```
+feat(repo): convert to Nx monorepo               # never use feat(repo) — bumps every package
+fix(repo): formatting nits                       # not a fix; use chore
+feat: add VPC peering                            # missing scope — file-touch fallback
+feat(iac-core, iac-aws): touch both              # comma-scopes don't work — split commits
+chore(iac-core)!: drop deprecated method         # ! on chore is a contradiction; use feat!: or refactor!:
 ```
 
 ## Code style

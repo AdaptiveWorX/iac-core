@@ -52,6 +52,20 @@
     "releaseTagPattern": "{projectName}@{version}",
     "version": {
       "conventionalCommits": true,
+      "conventionalCommitsConfig": {
+        "types": {
+          "feat":     { "semverBump": "minor", "changelog": { "title": "🚀 Features" } },
+          "fix":      { "semverBump": "patch", "changelog": { "title": "🩹 Fixes" } },
+          "perf":     { "semverBump": "patch", "changelog": { "title": "🔥 Performance" } },
+          "refactor": { "semverBump": "none",  "changelog": false },
+          "chore":    { "semverBump": "none",  "changelog": false },
+          "ci":       { "semverBump": "none",  "changelog": false },
+          "build":    { "semverBump": "none",  "changelog": false },
+          "docs":     { "semverBump": "none",  "changelog": false },
+          "test":     { "semverBump": "none",  "changelog": false },
+          "style":    { "semverBump": "none",  "changelog": false }
+        }
+      },
       "preVersionCommand": "pnpm nx run-many -t build"
     },
     "changelog": {
