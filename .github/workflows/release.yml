@@ -97,7 +97,11 @@ jobs:
         if: github.ref_type == 'tag'
         env:
           NPM_CONFIG_PROVENANCE: 'true'
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # Authentication via npm Trusted Publishing (OIDC). Each
+          # @adaptiveworx/iac-* package has a Trusted Publisher rule on
+          # npmjs.com pinned to repo=AdaptiveWorX/flux-core,
+          # workflow=release.yml, environment=production. The id-token
+          # GH issues for this job is what authenticates `npm publish`.
         run: |
           # Tag format: @adaptiveworx/<name>@<version>
           # Strip the trailing @<version> to get the full project name.
@@ -113,7 +117,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         env:
           NPM_CONFIG_PROVENANCE: 'true'
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # Same TP/OIDC auth as the tag-driven path above.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ARGS=""
