@@ -36,6 +36,13 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # Binds this job to the `production` GitHub environment. Two effects:
+    #   1. Secrets defined under that environment (NPM_TOKEN until we
+    #      finish the TP migration) are scoped here, not repo-wide.
+    #   2. The OIDC token issued for npm provenance + Trusted Publishing
+    #      includes an `environment: production` claim, which we bind on
+    #      each package's npm Trusted Publisher rule.
+    environment: production
     if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
 
     steps:
