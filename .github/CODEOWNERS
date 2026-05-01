@@ -1,0 +1,38 @@
+# GitHub CODEOWNERS — review ownership for this repo.
+# https://docs.github.com/en/repositories/managing-your-repositories-settings-and-security/managing-rules/about-code-owners
+#
+# Single-owner mode for now (this is a young repo with one maintainer).
+# When AdaptiveWorX/* teams are formalised, this file gets restructured
+# along the lines below — the path map is already set up so the migration
+# is a sed-replace of `@lloydmangnall` for the appropriate team handle.
+#
+#   *                            @AdaptiveWorX/maintainers
+#   /packages/iac-core/          @AdaptiveWorX/core-maintainers
+#   /packages/iac-schemas/       @AdaptiveWorX/core-maintainers
+#   /packages/iac-policies/      @AdaptiveWorX/policy-maintainers
+#   /packages/iac-aws/           @AdaptiveWorX/aws-maintainers
+#   /packages/iac-azure/         @AdaptiveWorX/azure-maintainers
+#   /.github/                    @AdaptiveWorX/release-maintainers
+#   /nx.json                     @AdaptiveWorX/release-maintainers
+#   /package.json                @AdaptiveWorX/release-maintainers
+#   /pnpm-lock.yaml              @AdaptiveWorX/release-maintainers
+#
+# The branch + tag rulesets (configured separately via the GitHub API) do
+# not require code-owner review yet — they only require status checks
+# (CI) and PR + linear history. CODEOWNERS becomes load-bearing when the
+# ruleset adds `require_code_owner_review`.
+
+*                            @lloydmangnall
+
+# Sensitive paths — explicit listing makes the per-team migration trivial.
+/packages/iac-core/          @lloydmangnall
+/packages/iac-schemas/       @lloydmangnall
+/packages/iac-policies/      @lloydmangnall
+/packages/iac-aws/           @lloydmangnall
+/packages/iac-azure/         @lloydmangnall
+/.github/                    @lloydmangnall
+/nx.json                     @lloydmangnall
+/package.json                @lloydmangnall
+/pnpm-lock.yaml              @lloydmangnall
+/lefthook.yml                @lloydmangnall
+/commitlint.config.cjs       @lloydmangnall
