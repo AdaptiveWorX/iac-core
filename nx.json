@@ -85,7 +85,8 @@
     "git": {
       "commit": true,
       "commitMessage": "chore(release): publish\n\n{releaseGroupName} {version}",
-      "tag": true
+      "tag": true,
+      "push": false
     },
     "version-plans": false
   },

@@ -1,8 +1,14 @@
 name: Release
 
-# Tag-driven publish. Maintainers run `pnpm nx release ...` locally to
-# version + tag + push; this workflow picks up each per-package tag and
-# publishes the corresponding npm package via Trusted Publishing (OIDC).
+# Tag-driven publish. Maintainers run `pnpm nx release` locally to
+# version + tag, then `pnpm release:push-tags` to push them sequentially;
+# this workflow picks up each per-package tag push and publishes the
+# corresponding npm package via Trusted Publishing (OIDC).
+#
+# Recovery: if a tag-push event is dropped by GitHub's webhook layer,
+# fire workflow_dispatch with the tag name to replay the publish.
+# The dispatch path checks out the exact tag, never main, so the
+# published artifact always matches the version on the tag.
 #
 # Tag format: @adaptiveworx/<unscoped>@<version>  (e.g. iac-aws@0.2.0).
 on:
@@ -16,6 +22,12 @@ on:
       - '@adaptiveworx/iac-core@*'
       - '@adaptiveworx/iac-policies@*'
       - '@adaptiveworx/iac-schemas@*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish, e.g. @adaptiveworx/iac-aws@0.2.0'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -32,8 +44,35 @@ jobs:
     environment: production
 
     steps:
+      - name: Resolve release tag
+        id: release
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          # Allowlist of valid tag patterns. New packages must be added.
+          case "$TAG" in
+            @adaptiveworx/iac-aws@*|@adaptiveworx/iac-azure@*|@adaptiveworx/iac-core@*|@adaptiveworx/iac-policies@*|@adaptiveworx/iac-schemas@*)
+              ;;
+            *)
+              echo "error: invalid release tag: $TAG" >&2
+              exit 1
+              ;;
+          esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Publishing tag: $TAG"
+
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Always check out the exact tag, never main. For push.tags
+          # this matches GITHUB_REF; for workflow_dispatch this prevents
+          # publishing wrong contents under a real version number if
+          # main has moved past the tag.
+          ref: ${{ steps.release.outputs.tag }}
 
       - name: Enable Corepack
         run: corepack enable
@@ -72,10 +111,10 @@ jobs:
       - name: Publish
         env:
           NPM_CONFIG_PROVENANCE: 'true'
+          TAG: ${{ steps.release.outputs.tag }}
         run: |
           # Tag format: @adaptiveworx/<name>@<version>
           # Strip trailing @<version> to get the scoped project name.
-          TAG="${GITHUB_REF#refs/tags/}"
           PROJECT_NAME="${TAG%@*}"
           UNSCOPED="${PROJECT_NAME#@adaptiveworx/}"
           PKG_DIR="packages/${UNSCOPED}"
@@ -86,9 +125,10 @@ jobs:
 
       - name: Job summary
         if: always()
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
         run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          echo "### Release: \`${TAG}\`" >> $GITHUB_STEP_SUMMARY
+          echo "### Release: \`${TAG:-<unresolved>}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Trigger:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Conclusion:** \`${{ job.status }}\`" >> $GITHUB_STEP_SUMMARY
