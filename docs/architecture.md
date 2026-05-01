@@ -277,7 +277,10 @@ output paths).
 These are the rules that keep the package set coherent:
 
 1. **`iac-core` is cross-cloud only.** If it imports `@pulumi/aws` or
-   `@pulumi/azure-native`, it doesn't belong in core.
+   `@pulumi/azure-native` — even as `import type` — it doesn't belong
+   in core. Type-only imports leak into the emitted `.d.ts` and
+   require consumers to install the cloud SDK to typecheck, breaking
+   any single-cloud consumer that doesn't use that cloud.
 2. **`iac-schemas` has no internal deps.** It's the single source of
    truth for configuration contracts; depending on anything else would
    create a cycle.
@@ -289,6 +292,44 @@ These are the rules that keep the package set coherent:
 5. **Every package is independently publishable.** No package should
    require another to ship in lock-step except the ones in its
    transitive dep tree.
+
+## Dependency classification rules
+
+The package boundary rules above answer "what code goes where." These
+rules answer "for any package's `package.json`, where does each
+dependency belong?" Apply them on every new `import` and every new
+package addition.
+
+| # | Rule | Examples |
+|---|---|---|
+| **A** | **Pulumi cloud SDKs** (`@pulumi/aws`, `@pulumi/azure-native`, `@pulumi/policy`, `@pulumi/pulumi`) → `peerDependencies` (widest API-compatible range) **+** `devDependencies` (latest minor for our own build/test). **Never** in `dependencies` — that forces the chosen version into every consumer and risks dual-install (broken `instanceof` checks, type incompatibilities). | `iac-aws` declares `@pulumi/aws: ^7.0.0` as peer + `^7.7.0` as dev. |
+| **B** | **Cross-cloud `@adaptiveworx/iac-*` deps where types/instances flow through the public API** → `peerDependencies` with concrete range (e.g. `^0.1.0`) + `devDependencies` with `workspace:*`. Avoids dual-tree where consumer has its own iac-core and the component's iac-core would be a second copy. | `iac-aws → iac-core`: peer `^0.1.0` + dev `workspace:*`. |
+| **C** | **`@adaptiveworx/iac-*` deps that are pure-data, no class instances or shared types in the API surface** → `dependencies` with `workspace:^` (resolves to `^0.1.x` on publish via `pnpm pack`, picks up patches). | `iac-core → iac-schemas`: dep `workspace:^` (iac-schemas exports data + types only, no classes). |
+| **D** | **External libs that are part of the API surface** (consumer creates / passes instances) → `peerDependencies` + `devDependencies`. | `iac-core → zod`: peer `^3.22.0 \|\| ^4.0.0` + dev `^3` — consumers pass zod schemas through iac-core's public API. |
+| **E** | **External libs that are pure implementation detail** (consumer never sees them) → `dependencies`. Consider `optionalDependencies` once the implementation is plug-in shaped. | `iac-core → @infisical/sdk`: dep `^4.0.6` — backs `SecretManager`, but consumers only see the `SecretManager` interface. |
+| **F** | **Build / test / types tooling** → `devDependencies`. **Each package declares its own** — don't rely on workspace-root hoist. A hermetic build of any single package must not depend on root-level node_modules. | Every package with TypeScript source declares `@types/node` locally if it uses Node built-ins. |
+
+### Workspace protocol
+
+Use `workspace:^` (not `workspace:*`) for internal cross-package
+dependencies. `pnpm pack` rewrites:
+
+- `workspace:*` → `<exact-version>` (e.g. `0.1.3`) — consumers can't
+  pick up patch updates without a coordinated rebump
+- `workspace:^` → `^<version>` (e.g. `^0.1.3`) — consumers float
+  within the same minor, the right default for the iac-* family
+  where packages are released together but can patch independently
+
+### Type-only imports across the boundary
+
+`import type` does **not** opt the dependency out of the published
+`.d.ts`. The emitted declarations preserve the type reference, so
+consumers still need the dependency at typecheck time. If a package's
+emitted `.d.ts` references a third-party type, that third-party
+package must be a `peerDependencies` (Rule A or D) — `devDependencies`
+alone is not sufficient. This is the trap that took
+`resolveAwsRegion(): aws.Region` out of `iac-core` and into
+`iac-aws`.
 
 ## Status
 
