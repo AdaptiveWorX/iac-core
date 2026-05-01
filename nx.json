@@ -74,7 +74,6 @@
     "changelog": {
       "automaticFromRef": true,
       "projectChangelogs": {
-        "createRelease": "github",
         "renderOptions": {
           "authors": true,
           "commitReferences": true,
