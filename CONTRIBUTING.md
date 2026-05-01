@@ -126,6 +126,45 @@ the GitHub UI by repo policy.
 > hygiene is fully under maintainer control — rebase keeps the release
 > path clean.
 
+### Branch + tag protection
+
+`main` and the `@adaptiveworx/iac-*@*` tag namespace are protected by
+GitHub repository rulesets. Configured out-of-band (not in the repo
+source tree); the shape is documented here so PR reviewers and agents
+can reason about what they will and won't be allowed to do.
+
+**`main` ruleset:**
+
+- Pull request required (no direct pushes for non-bypass actors)
+- All status checks must pass (`validate` from [`ci.yml`](./.github/workflows/ci.yml))
+- Linear history required (pairs with the rebase-merge default — no
+  merge commits land on `main` unless explicitly authored)
+- Force-pushes blocked
+- Branch deletion blocked
+- Bypass: repository administrators (currently the sole maintainer).
+  Used for `chore(release): publish` commits that Nx Release writes
+  directly to `main` during the release flow.
+
+**`@adaptiveworx/iac-*@*` tag ruleset:**
+
+- Tag creation blocked for non-bypass actors (only maintainers/release
+  automation can create release tags — the workflow trigger surface)
+- Tag deletion blocked
+- Tag force-update blocked
+- Bypass: repository administrators
+
+The tag rules matter because [`release.yml`](./.github/workflows/release.yml)
+fires on tag push to `@adaptiveworx/iac-*@*` and grants the
+`production` environment + `id-token: write`. A contributor able to
+create a matching tag could trigger that workflow; npm Trusted
+Publishing rejects the publish at the npm side, but defense-in-depth
+keeps the GitHub Actions event from happening at all.
+
+[CODEOWNERS](./.github/CODEOWNERS) tracks ownership for the path map;
+`require_code_owner_review` is **not** currently enabled on the main
+ruleset (there's only one owner). It becomes load-bearing once the
+team-based ownership in CODEOWNERS materializes.
+
 ## Conventional commits
 
 Every commit on `main` (and ideally every commit in your branch) follows
