@@ -21,7 +21,7 @@ iac-core/
 │   └── iac-azure/        # Azure Pulumi components (skeleton)
 ├── docs/
 │   ├── architecture.md              # ← you are here
-│   ├── platform-coordination.md     # Prosilio ↔ OSS coordination
+│   ├── migration-plan.md            # transient: iac-worx → iac-core migration
 │   ├── compliance-framework.md
 │   ├── security-implementation.md
 │   └── testing-strategy.md
@@ -33,6 +33,27 @@ iac-core/
 ├── biome.json
 └── vitest.config.ts
 ```
+
+## Producer / consumer model
+
+`iac-core` is the **producer**. It does not deploy infrastructure itself —
+it ships libraries that consumers use to deploy infrastructure.
+
+| Role | Repo(s) | What they do |
+|---|---|---|
+| **Producer** | `iac-core` (this repo) | Hosts every reusable `@adaptiveworx/iac-*` package as an Nx-managed monorepo. Each package ships independent semver to public npm via Nx Release. Apache 2.0. |
+| **Internal consumer** | `iac-worx` | AdaptiveWorX's private deployment monorepo (BUSL-1.1). Pulumi stacks under `apps/aws/{dev,stg,prd,sec}` consume the published packages from npm. |
+| **External consumers** | Client repos (Prosilio, future clients) | `pnpm add @adaptiveworx/iac-core …`, write their own stacks in their own repos. |
+
+Separating producer from consumer lets the OSS packages have their own
+release cadence, public license, and consumer audience without dragging
+private deployment infrastructure along. Internal and external consumers
+are treated identically — `iac-worx` is a consumer like any other.
+
+A consumer **does not** add reusable code to its own repo. New reusable
+patterns get built inline first, then promoted into the appropriate
+`iac-core` package, published, and consumed back. This rule applies
+equally to `iac-worx` and to external client repos.
 
 ## Why a monorepo
 
@@ -279,5 +300,4 @@ These are the rules that keep the package set coherent:
 | `iac-aws` | Restructured + tests passing | `iac-components@0.6.1` (pre-rename) |
 | `iac-azure` | Empty skeleton | — |
 
-See [platform-coordination.md](./platform-coordination.md#whats-blocking-prosilio)
-for migration sequencing.
+See [migration-plan.md](./migration-plan.md) for migration sequencing.

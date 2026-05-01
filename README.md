@@ -22,7 +22,7 @@ from conventional commits.
 > **Status (2026-04):** `iac-aws` is restructured and tests
 > passing. `iac-core`, `iac-schemas`, `iac-policies` migration from
 > `iac-worx` is in progress. `iac-azure` is an empty skeleton.
-> See [docs/platform-coordination.md](./docs/platform-coordination.md) for
+> See [docs/migration-plan.md](./docs/migration-plan.md) for
 > sequencing.
 
 ## Install (consumers)
@@ -110,10 +110,10 @@ pnpm format:check       # Check only
 
 ## Architecture & docs
 
-- [docs/architecture.md](./docs/architecture.md) — package boundaries,
-  dependency graph, release model, tooling decisions
-- [docs/platform-coordination.md](./docs/platform-coordination.md) —
-  Prosilio ↔ OSS package coordination, migration sequencing, open questions
+- [docs/architecture.md](./docs/architecture.md) — producer/consumer
+  model, package boundaries, dependency graph, release model, tooling
+- [docs/migration-plan.md](./docs/migration-plan.md) — transient plan
+  for the `iac-worx` → `iac-core` package migration (delete on completion)
 - [docs/compliance-framework.md](./docs/compliance-framework.md)
 - [docs/security-implementation.md](./docs/security-implementation.md)
 - [docs/testing-strategy.md](./docs/testing-strategy.md)

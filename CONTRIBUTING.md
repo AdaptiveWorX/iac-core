@@ -32,11 +32,11 @@ issue.
 Read these in order on first contribution:
 
 1. [README.md](./README.md) — high-level overview + commands
-2. [docs/architecture.md](./docs/architecture.md) — package boundaries,
-   dependency graph, release model
-3. [docs/platform-coordination.md](./docs/platform-coordination.md) —
-   why the packages exist in their current shape (Prosilio ↔ OSS
-   coordination)
+2. [docs/architecture.md](./docs/architecture.md) — producer/consumer
+   model, package boundaries, dependency graph, release model
+3. [docs/migration-plan.md](./docs/migration-plan.md) — current
+   migration state (transient; only relevant while `iac-worx` libs are
+   still being moved into `packages/`)
 
 Then, if your change touches a specific package, read that package's own
 README and CHANGELOG.
