@@ -121,7 +121,21 @@ jobs:
 
           echo "Publishing ${PROJECT_NAME} from ${PKG_DIR}"
           cd "${PKG_DIR}"
-          npm publish --provenance --access public
+
+          # Use `pnpm pack` to produce a tarball with `workspace:` protocol
+          # rewritten to concrete semver ranges, then upload via `npm
+          # publish <tarball>` so OIDC Trusted Publishing works exactly as
+          # before. `pnpm publish` is deliberately NOT used here — its CLI
+          # wrapper has historically interfered with the OIDC ID-token
+          # plumbing in this workflow.
+          rm -f *.tgz
+          pnpm pack
+          TARBALL=$(ls -1 *.tgz | head -n1)
+          if [ -z "$TARBALL" ]; then
+            echo "error: pnpm pack produced no tarball" >&2
+            exit 1
+          fi
+          npm publish "$TARBALL" --provenance --access public
 
       - name: Job summary
         if: always()
