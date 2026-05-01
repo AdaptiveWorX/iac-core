@@ -1,0 +1,77 @@
+name: CI
+
+# Validation for PRs and pushes to main. Read-only — never publishes,
+# never holds id-token write. Uses `nx affected` on PRs to only check
+# what changed (fast contributor feedback); full `nx run-many` on main
+# as the authoritative backstop.
+#
+# This is the only workflow that runs on contributor branches/forks.
+# Anything privileged (npm publish, OIDC, environment secrets) lives
+# in release.yml and only fires on tag pushes / workflow_dispatch.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  # Cancel in-flight runs on PR updates so reviewers see the latest.
+  # On main, never cancel — those runs are the authoritative gate.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          # nx affected needs git history to compute the changed-project
+          # set against the merge base. fetch-depth: 0 fetches all
+          # history so origin/main is resolvable.
+          fetch-depth: 0
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate (PR — nx affected)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          echo "Running nx affected (base=$BASE_SHA head=$HEAD_SHA)"
+          pnpm nx affected -t lint typecheck test build --base="$BASE_SHA" --head="$HEAD_SHA"
+
+      - name: Validate (main — full)
+        if: github.event_name == 'push'
+        run: |
+          echo "Running nx run-many (full validation on main)"
+          pnpm nx run-many -t lint typecheck test build
