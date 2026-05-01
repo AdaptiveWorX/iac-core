@@ -66,7 +66,10 @@ hot-loop exit criteria.
 Tracked as GitHub issues in `AdaptiveWorX/iac-core` rather than inline
 here, so they survive the deletion of this file:
 
-- **`iac-core` debt** — `OrganizationConfig` parameterization,
+- **`iac-core` debt** — `OrganizationConfig` parameterization
+  (`PULUMI_ORG` env-var override for `detectStackContext` landed in
+  0.2.x; remaining: surface `pulumiOrg` as a first-class option on
+  `OrganizationConfig` so consumers don't have to set env vars),
   `SecretManager` pluggability, hardcoded email domain fallbacks in
   `aws-accounts.ts`, hardcoded schema URL in `constants.ts`, README
   refresh post-move.
