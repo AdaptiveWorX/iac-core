@@ -145,15 +145,21 @@ can reason about what they will and won't be allowed to do.
   Used for `chore(release): publish` commits that Nx Release writes
   directly to `main` during the release flow.
 
-**`@adaptiveworx/iac-*@*` tag ruleset:**
+**Tag ruleset (`~ALL` — every tag in the repo):**
 
-- Tag creation blocked for non-bypass actors (only maintainers/release
-  automation can create release tags — the workflow trigger surface)
+- Tag creation blocked for non-bypass actors
 - Tag deletion blocked
 - Tag force-update blocked
 - Bypass: repository administrators
 
-The tag rules matter because [`release.yml`](./.github/workflows/release.yml)
+We'd ideally narrow this to just `@adaptiveworx/iac-*@*` (the only
+tags that exist today and the trigger surface for `release.yml`), but
+GitHub's ruleset pattern syntax rejects `@` as a literal character in
+fnmatch globs. `~ALL` is strictly safer at the cost of covering tags
+we don't actually create — fine because the repo doesn't use other
+tag namespaces.
+
+The rule matters because [`release.yml`](./.github/workflows/release.yml)
 fires on tag push to `@adaptiveworx/iac-*@*` and grants the
 `production` environment + `id-token: write`. A contributor able to
 create a matching tag could trigger that workflow; npm Trusted
