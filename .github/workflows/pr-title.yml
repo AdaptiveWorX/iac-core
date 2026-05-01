@@ -1,0 +1,68 @@
+name: PR Title
+
+# Validates PR titles against Conventional Commits + the scope allowlist.
+#
+# Why this exists: Nx Release walks per-package conventional-commit
+# subjects to determine which packages bump and by how much. When a
+# maintainer chooses squash merge, the PR title becomes the subject of
+# the single commit that lands on `main` — so the title carries the
+# release-relevant signal. This action enforces that the title is a
+# valid conventional commit before the merge button works, making
+# squash a safe option alongside rebase and merge-commit.
+#
+# Mirrors the rules in `commitlint.config.cjs` so per-commit (local
+# commit-msg hook) and per-PR (this workflow) validation agree.
+#
+# `pull_request` (not `pull_request_target`) is sufficient while the
+# repo is internal-only. When external/fork PRs become a thing, switch
+# to `pull_request_target` so the action can write status checks for
+# fork PRs (which run with restricted GITHUB_TOKEN under `pull_request`).
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  validate-title:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Mirror commitlint.config.cjs `type-enum`.
+          types: |
+            feat
+            fix
+            perf
+            refactor
+            chore
+            ci
+            build
+            docs
+            test
+            style
+            revert
+          # Mirror commitlint.config.cjs `scope-enum`. Add new package
+          # scopes here AND in commitlint.config.cjs simultaneously.
+          scopes: |
+            iac-core
+            iac-schemas
+            iac-policies
+            iac-aws
+            iac-azure
+            repo
+          requireScope: true
+          # Subject must start with a letter and not end with a period.
+          # (Commitlint subject-case is `0` so we don't constrain case
+          # here either — proper nouns and class names are legitimate.)
+          subjectPattern: ^[A-Za-z].+[^.]$
+          subjectPatternError: |
+            The subject "{subject}" must start with a letter and not end with a period.
+          # Skip validation when the PR carries one of these labels.
+          ignoreLabels: |
+            bot
+            ignore-semantic-pull-request
