@@ -9,27 +9,33 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./config/*": {
       "types": "./dist/config/*.d.ts",
-      "import": "./dist/config/*.js"
+      "import": "./dist/config/*.js",
+      "default": "./dist/config/*.js"
     },
     "./utils/*": {
       "types": "./dist/utils/*.d.ts",
-      "import": "./dist/utils/*.js"
+      "import": "./dist/utils/*.js",
+      "default": "./dist/utils/*.js"
     },
     "./schemas/*": {
       "types": "./dist/schemas/*.d.ts",
-      "import": "./dist/schemas/*.js"
+      "import": "./dist/schemas/*.js",
+      "default": "./dist/schemas/*.js"
     },
     "./types/*": {
       "types": "./dist/types/*.d.ts",
-      "import": "./dist/types/*.js"
+      "import": "./dist/types/*.js",
+      "default": "./dist/types/*.js"
     },
     "./validation/*": {
       "types": "./dist/validation/*.d.ts",
-      "import": "./dist/validation/*.js"
+      "import": "./dist/validation/*.js",
+      "default": "./dist/validation/*.js"
     },
     "./package.json": "./package.json"
   },
