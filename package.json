@@ -30,6 +30,7 @@
     "release": "nx release",
     "release:dry": "nx release --dry-run",
     "release:publish": "nx release publish",
+    "release:push-tags": "bash scripts/release/push-tags-sequentially.sh",
     "compliance:report": "tsx scripts/compliance-report.ts"
   },
   "keywords": [
