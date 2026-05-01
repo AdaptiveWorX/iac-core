@@ -78,7 +78,7 @@ importers:
   packages/iac-core:
     dependencies:
       '@adaptiveworx/iac-schemas':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../iac-schemas
       '@infisical/sdk':
         specifier: ^4.0.6

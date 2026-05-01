@@ -72,7 +72,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "@adaptiveworx/iac-schemas": "workspace:*",
+    "@adaptiveworx/iac-schemas": "workspace:^",
     "@infisical/sdk": "^4.0.6"
   },
   "peerDependencies": {
