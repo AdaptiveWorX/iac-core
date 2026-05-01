@@ -94,37 +94,37 @@ Nx caches results, so the second run is near-instant.
 
 ### Merging
 
-This repo uses **rebase merge** as the default and only-recommended path
-to `main`. **Squash merge is disabled.**
+All three GitHub merge strategies are enabled. The right strategy
+depends on the shape of the PR — pick whichever gives `main` a
+properly-scoped Conventional Commit subject for every released change.
 
-The reason is mechanical: Nx Release attributes per-package version
-bumps by walking conventional-commit subjects since each package's last
-release tag. Squash collapses an entire PR's commits into one subject
-(the PR title), erasing scope and bump signals. A PR with a
-`feat(iac-aws):` and a `feat(iac-core)!:` commit, squashed under a
-`chore: cleanup` title, releases nothing — the bump information is
-gone. We've seen this fail in practice (PR #20).
+The hard requirement is that **every commit landing on `main` is a
+valid Conventional Commit with a scope from the package allowlist**.
+Two gates enforce this:
 
-What this means in practice:
+1. **commitlint** (commit-msg hook) — validates every commit subject
+   locally before it's even part of a PR.
+2. **`amannn/action-semantic-pull-request`**
+   ([`pr-title.yml`](./.github/workflows/pr-title.yml)) — validates the
+   PR title before merge is allowed, mirroring the same `types` and
+   `scopes` from [`commitlint.config.cjs`](./commitlint.config.cjs).
 
-- Each commit on your branch will land on `main` exactly as you wrote
-  it — same SHA-stable subject, same scope, same body.
-- Every commit subject must be a properly-scoped conventional commit
-  (e.g. `feat(iac-aws): add SharedVpc endpoint support`). The
-  commit-msg hook enforces this locally.
-- If a PR has multiple commits across multiple packages, **don't fold
-  them**. The split is what gives Nx Release the per-package signal.
-- The PR title is a reviewer-facing summary, not a commit subject.
+With both gates wired, the maintainer can pick whichever merge
+strategy fits the PR:
 
-**Merge commit** (with the `Merge pull request #N from …` boilerplate)
-is allowed as a fallback for unusual cases. Squash is unavailable in
-the GitHub UI by repo policy.
+| PR shape | Recommended merge | Why |
+|---|---|---|
+| Single commit, clean conventional subject | **Rebase** or **squash** (rebase = less ceremony) | Either works. PR title and the commit subject usually match anyway. |
+| Multiple commits, each scoped/conventional, multi-package | **Rebase** | Preserves per-commit attribution. Nx Release sees each scoped commit and bumps each package correctly. **Don't squash** — collapsing erases the per-package signal (PR #20 hit this). |
+| Messy / WIP / non-conventional commits, single logical change | **Squash** | The validated PR title becomes the single Conventional Commit on `main`. PR-title validation guarantees the squash subject is well-formed. |
+| External contributor PR with messy history | **Squash** | Same as above. The squash subject is normalised to the validated PR title; contributors don't need to learn conventional-commit hygiene. |
+| Unusual cases (dependency mass-merge, vendor sync) | **Merge commit** | Preserves history without forcing rebase resolution. Rare. |
 
-> When the repo opens to external contributor PRs, we may re-enable
-> squash, gated by a semantic-pull-request action that validates the
-> squash subject before merge is allowed. For now — while contributor
-> hygiene is fully under maintainer control — rebase keeps the release
-> path clean.
+**The PR title MUST be a valid Conventional Commit** with a scope from
+the allowlist — even when you intend to rebase merge. The title is the
+reviewer-facing summary AND it's what a future "oops, squashed by
+mistake" survives. Catching a bad title at PR-open time is much cheaper
+than fixing main after a botched merge.
 
 ### Branch + tag protection
 
