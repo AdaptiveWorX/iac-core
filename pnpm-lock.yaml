@@ -106,7 +106,11 @@ importers:
         specifier: ^3.200.0
         version: 3.232.0(typescript@6.0.3)
 
-  packages/iac-schemas: {}
+  packages/iac-schemas:
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.12.2
 
 packages:
 
