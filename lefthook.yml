@@ -27,14 +27,20 @@ commit-msg:
 # Affected-only on pre-push so contributor branches stay fast;
 # CI runs the authoritative check on PRs and main.
 #
-# `CI=true` suppresses Nx's first-run usage-data prompt, which is
-# interactive and would hang the (non-interactive) hook subprocess
-# on a fresh clone. `NX_DAEMON=false` keeps the hook self-contained
-# — no daemon to leave behind on push.
+# - `CI=true` suppresses Nx's first-run usage-data prompt, which is
+#   interactive and would hang the (non-interactive) hook subprocess.
+# - `NX_DAEMON=false` keeps the hook self-contained — no long-running
+#   daemon process left behind by a push.
+# - `unset NX_WORKSPACE_ROOT_PATH` defends against agent-harness
+#   environments that point Nx at a parent dir; without this, Nx
+#   resolves projects from the parent and `.nxignore` is read from
+#   the wrong location, producing MultipleProjectsWithSameNameError.
 pre-push:
   commands:
     nx-affected:
       env:
         CI: "true"
         NX_DAEMON: "false"
-      run: pnpm exec nx affected -t lint typecheck test build --base=origin/main --head=HEAD
+      run: |
+        unset NX_WORKSPACE_ROOT_PATH
+        pnpm exec nx affected -t lint typecheck test build --base=origin/main --head=HEAD
