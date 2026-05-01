@@ -26,7 +26,15 @@ commit-msg:
 # Heavier checks deferred to push.
 # Affected-only on pre-push so contributor branches stay fast;
 # CI runs the authoritative check on PRs and main.
+#
+# `CI=true` suppresses Nx's first-run usage-data prompt, which is
+# interactive and would hang the (non-interactive) hook subprocess
+# on a fresh clone. `NX_DAEMON=false` keeps the hook self-contained
+# — no daemon to leave behind on push.
 pre-push:
   commands:
     nx-affected:
+      env:
+        CI: "true"
+        NX_DAEMON: "false"
       run: pnpm exec nx affected -t lint typecheck test build --base=origin/main --head=HEAD
