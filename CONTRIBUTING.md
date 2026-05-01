@@ -53,11 +53,13 @@ README and CHANGELOG.
 ### Making changes
 
 1. Create a topic branch off `main`.
-2. Make your changes. Keep commits focused; one logical change per commit
-   makes review (and conventional-commits-driven releases) cleaner.
+2. Make your changes. Keep commits focused; one logical change per commit.
+   Each commit subject lands on `main` as-is (rebase merge — see
+   [Merging](#merging) below), so each subject must be a properly-scoped
+   conventional commit.
 3. Run the local quality gates (see below).
-4. Push and open a PR. Use a conventional-commits-style PR title — it
-   becomes the merge commit subject and feeds Nx Release.
+4. Push and open a PR. The PR title is a reviewer summary; the
+   release-relevant signal comes from per-commit subjects.
 
 ### Local quality gates
 
@@ -89,6 +91,40 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ```
 
 Nx caches results, so the second run is near-instant.
+
+### Merging
+
+This repo uses **rebase merge** as the default and only-recommended path
+to `main`. **Squash merge is disabled.**
+
+The reason is mechanical: Nx Release attributes per-package version
+bumps by walking conventional-commit subjects since each package's last
+release tag. Squash collapses an entire PR's commits into one subject
+(the PR title), erasing scope and bump signals. A PR with a
+`feat(iac-aws):` and a `feat(iac-core)!:` commit, squashed under a
+`chore: cleanup` title, releases nothing — the bump information is
+gone. We've seen this fail in practice (PR #20).
+
+What this means in practice:
+
+- Each commit on your branch will land on `main` exactly as you wrote
+  it — same SHA-stable subject, same scope, same body.
+- Every commit subject must be a properly-scoped conventional commit
+  (e.g. `feat(iac-aws): add SharedVpc endpoint support`). The
+  commit-msg hook enforces this locally.
+- If a PR has multiple commits across multiple packages, **don't fold
+  them**. The split is what gives Nx Release the per-package signal.
+- The PR title is a reviewer-facing summary, not a commit subject.
+
+**Merge commit** (with the `Merge pull request #N from …` boilerplate)
+is allowed as a fallback for unusual cases. Squash is unavailable in
+the GitHub UI by repo policy.
+
+> When the repo opens to external contributor PRs, we may re-enable
+> squash, gated by a semantic-pull-request action that validates the
+> squash subject before merge is allowed. For now — while contributor
+> hygiene is fully under maintainer control — rebase keeps the release
+> path clean.
 
 ## Conventional commits
 
