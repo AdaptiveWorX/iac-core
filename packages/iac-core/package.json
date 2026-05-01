@@ -85,7 +85,6 @@
     }
   },
   "devDependencies": {
-    "@pulumi/aws": "^7.7.0",
     "@pulumi/pulumi": "^3.200.0",
     "zod": "^3",
     "zod-to-json-schema": "^3.24.6"

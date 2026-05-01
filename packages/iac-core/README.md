@@ -393,9 +393,12 @@ function isValidStackName(stackName: string): boolean;
 function getEnvironmentConfig(env: Environment): EnvironmentConfig;
 function getComplianceRequirements(env: Environment): ComplianceRequirement[];
 function validateCrossAccountOperation(source: string, target: string): ValidationResult;
-
-function resolveAwsRegion(regionOrAlias: string): string;
 ```
+
+> AWS-typed region resolution (`resolveAwsRegion(regionCode): aws.Region`)
+> lives in [`@adaptiveworx/iac-aws`](../iac-aws) — `iac-core`'s
+> cloud-agnostic boundary forbids `@pulumi/aws` references in its
+> emitted types.
 
 ### Utilities — `cidr-allocation`
 
