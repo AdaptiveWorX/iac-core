@@ -41,6 +41,7 @@
       "cache": true
     },
     "typecheck": {
+      "dependsOn": ["^build"],
       "inputs": ["default", "^production"],
       "cache": true
     },
@@ -85,6 +86,7 @@
     "git": {
       "commit": true,
       "commitMessage": "chore(release): publish\n\n{releaseGroupName} {version}",
+      "commitArgs": "--no-verify",
       "tag": true,
       "push": false
     },

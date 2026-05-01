@@ -56,5 +56,8 @@
     "access": "public",
     "provenance": true,
     "registry": "https://registry.npmjs.org/"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0"
   }
 }

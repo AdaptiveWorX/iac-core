@@ -1,0 +1,46 @@
+# Lefthook — git hooks for iac-core
+# https://github.com/evilmartians/lefthook
+#
+# Installed automatically via the package.json `prepare` script.
+# Bypass: `LEFTHOOK=0 git commit ...` — discouraged for normal work,
+# acceptable for WIP branches. CI is the authoritative trust boundary;
+# hooks are local feedback for agents and humans.
+
+pre-commit:
+  parallel: true
+  commands:
+    biome:
+      glob: "*.{ts,tsx,js,jsx,json,jsonc,md,yml,yaml}"
+      run: pnpm exec biome check --write --no-errors-on-unmatched {staged_files}
+      stage_fixed: true
+
+    no-version-hand-edits:
+      glob: "packages/*/package.json"
+      run: pnpm exec tsx scripts/hooks/no-version-hand-edits.ts {staged_files}
+
+commit-msg:
+  commands:
+    commitlint:
+      run: pnpm exec commitlint --edit {1}
+
+# Heavier checks deferred to push.
+# Affected-only on pre-push so contributor branches stay fast;
+# CI runs the authoritative check on PRs and main.
+#
+# - `CI=true` suppresses Nx's first-run usage-data prompt, which is
+#   interactive and would hang the (non-interactive) hook subprocess.
+# - `NX_DAEMON=false` keeps the hook self-contained — no long-running
+#   daemon process left behind by a push.
+# - `unset NX_WORKSPACE_ROOT_PATH` defends against agent-harness
+#   environments that point Nx at a parent dir; without this, Nx
+#   resolves projects from the parent and `.nxignore` is read from
+#   the wrong location, producing MultipleProjectsWithSameNameError.
+pre-push:
+  commands:
+    nx-affected:
+      env:
+        CI: "true"
+        NX_DAEMON: "false"
+      run: |
+        unset NX_WORKSPACE_ROOT_PATH
+        pnpm exec nx affected -t lint typecheck test build --base=origin/main --head=HEAD

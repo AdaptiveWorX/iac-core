@@ -61,7 +61,19 @@ README and CHANGELOG.
 
 ### Local quality gates
 
-Before pushing, run:
+Hooks run most of this automatically (installed by `pnpm install` via
+the `prepare` script):
+
+| Hook | Tool | Scope |
+|---|---|---|
+| pre-commit | Biome on staged files; `version` field guard on `packages/*/package.json` | staged-file hygiene |
+| commit-msg | commitlint (Conventional Commits + scope allowlist) | message format |
+| pre-push | `nx affected -t lint typecheck test build --base=origin/main --head=HEAD` | code-level checks |
+
+Bypass (rare, discouraged): `LEFTHOOK=0 git commit ...`. CI is the
+authoritative trust boundary; hooks are local feedback.
+
+To run the gates manually:
 
 ```bash
 pnpm lint:affected       # Biome
@@ -70,7 +82,7 @@ pnpm test:affected       # vitest
 pnpm build:affected      # tsc -p tsconfig.lib.json
 ```
 
-Or just run the full suite if affected detection feels off:
+Or the full suite when you want it:
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test && pnpm build

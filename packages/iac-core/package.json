@@ -72,7 +72,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "@adaptiveworx/iac-schemas": "workspace:*",
+    "@adaptiveworx/iac-schemas": "workspace:^",
     "@infisical/sdk": "^4.0.6"
   },
   "peerDependencies": {
@@ -85,7 +85,6 @@
     }
   },
   "devDependencies": {
-    "@pulumi/aws": "^7.7.0",
     "@pulumi/pulumi": "^3.200.0",
     "zod": "^3",
     "zod-to-json-schema": "^3.24.6"

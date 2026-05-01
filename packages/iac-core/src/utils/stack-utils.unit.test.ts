@@ -54,7 +54,6 @@ import {
   isValidStackName,
   parseProjectName,
   parseStackName,
-  resolveAwsRegion,
   validateCrossAccountOperation,
   validateStackContext,
 } from "./stack-utils.js";
@@ -62,27 +61,6 @@ import {
 describe("Stack Utils - Comprehensive Coverage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  describe("resolveAwsRegion", () => {
-    it("should resolve shorthand region codes to full AWS region names", () => {
-      expect(resolveAwsRegion("use1")).toBe("us-east-1");
-      expect(resolveAwsRegion("use2")).toBe("us-east-2");
-      expect(resolveAwsRegion("usw1")).toBe("us-west-1");
-      expect(resolveAwsRegion("usw2")).toBe("us-west-2");
-      expect(resolveAwsRegion("euw1")).toBe("eu-west-1");
-      expect(resolveAwsRegion("euc1")).toBe("eu-central-1");
-      expect(resolveAwsRegion("apne1")).toBe("ap-northeast-1");
-    });
-
-    it("should pass through full region names unchanged", () => {
-      expect(resolveAwsRegion("us-east-1")).toBe("us-east-1");
-      expect(resolveAwsRegion("eu-west-1")).toBe("eu-west-1");
-    });
-
-    it("should pass through unknown region codes unchanged", () => {
-      expect(resolveAwsRegion("unknown-region")).toBe("unknown-region");
-    });
   });
 
   describe("parseProjectName", () => {

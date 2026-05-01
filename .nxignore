@@ -1,0 +1,8 @@
+# Paths Nx should never scan for projects.
+#
+# `.claude/` holds Claude Code session artifacts (worktree checkouts,
+# settings). Each worktree is itself a copy of the repo with its own
+# `packages/*`, so without this exclusion an Nx run from the parent
+# repo would discover packages in BOTH locations and fail with
+# "MultipleProjectsWithSameNameError".
+.claude/

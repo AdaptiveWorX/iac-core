@@ -9,18 +9,9 @@
  * Agent-optimized with comprehensive error handling and validation
  */
 
-import type * as aws from "@pulumi/aws";
 import * as pulumi from "@pulumi/pulumi";
 import { StackContextSchema } from "../schemas/core/core-schemas.js";
 import type { AccountPurpose, StackContext } from "../types/core.js";
-import { resolveRegion } from "./region-utils.js";
-
-/**
- * Resolve AWS region from shorthand code or return as-is if already full name
- */
-export function resolveAwsRegion(regionCode: string): aws.Region {
-  return resolveRegion("aws", regionCode) as aws.Region;
-}
 
 /**
  * Detect stack context from current Pulumi project and stack
