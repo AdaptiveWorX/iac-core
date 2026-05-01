@@ -27,6 +27,11 @@ permissions:
 
 jobs:
   validate-title:
+    # Skip 'edited' runs unless the title actually changed. GitHub
+    # propagates many non-title PR mutations as `edited` events
+    # (e.g. ruleset / repo-settings changes affecting mergeability),
+    # which would re-fire this job pointlessly without this guard.
+    if: github.event.action != 'edited' || github.event.changes.title != null
     runs-on: ubuntu-latest
     steps:
       - uses: amannn/action-semantic-pull-request@v6
