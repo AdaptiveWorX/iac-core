@@ -1,3 +1,7 @@
+## 0.2.0 (2026-05-01)
+
+This was a version bump only for @adaptiveworx/iac-core to align it with other projects, there were no code changes.
+
 ## 0.1.2 (2026-04-29)
 
 ### 🧱 Updated Dependencies

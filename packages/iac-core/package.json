@@ -1,6 +1,6 @@
 {
   "name": "@adaptiveworx/iac-core",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "type": "module",
   "description": "Core utilities for AdaptiveWorX™ infrastructure-as-code: secret management, stack context detection, region resolution, CIDR allocation, and Zod-validated configuration schemas.",
   "license": "Apache-2.0",

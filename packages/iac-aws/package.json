@@ -1,6 +1,6 @@
 {
   "name": "@adaptiveworx/iac-aws",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "Reusable Pulumi infrastructure components for AWS — VPC, IAM cross-account roles, GitHub Actions OIDC, and IAM policy helpers.",
   "license": "Apache-2.0",
