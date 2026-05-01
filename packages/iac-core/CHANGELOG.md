@@ -1,3 +1,19 @@
+## 0.2.1 (2026-05-01)
+
+### 🩹 Fixes
+
+- **iac-core:** add default condition to exports for CJS resolution ([1e19af6](https://github.com/AdaptiveWorX/iac-core/commit/1e19af6))
+- **iac-core:** make detectStackContext org env-overridable + tighten pr-title workflow ([#24](https://github.com/AdaptiveWorX/iac-core/pull/24), [#23](https://github.com/AdaptiveWorX/iac-core/issues/23))
+
+### 🧱 Updated Dependencies
+
+- Updated @adaptiveworx/iac-schemas to 0.1.3
+
+### ❤️ Thank You
+
+- Claude Opus 4.7 (1M context)
+- Lloyd Mangnall @lloydmangnall
+
 ## 0.2.0 (2026-05-01)
 
 This was a version bump only for @adaptiveworx/iac-core to align it with other projects, there were no code changes.

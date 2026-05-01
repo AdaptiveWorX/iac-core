@@ -1,3 +1,18 @@
+## 0.2.2 (2026-05-01)
+
+### 🩹 Fixes
+
+- **iac-aws:** add default condition to exports for CJS resolution ([b465101](https://github.com/AdaptiveWorX/iac-core/commit/b465101))
+
+### 🧱 Updated Dependencies
+
+- Updated @adaptiveworx/iac-core to 0.2.1
+
+### ❤️ Thank You
+
+- Claude Opus 4.7 (1M context)
+- Lloyd Mangnall @lloydmangnall
+
 ## 0.2.1 (2026-05-01)
 
 ### 🧱 Updated Dependencies

@@ -1,3 +1,14 @@
+## 0.1.3 (2026-05-01)
+
+### 🩹 Fixes
+
+- **iac-schemas:** add default condition to exports for CJS resolution ([bbe7086](https://github.com/AdaptiveWorX/iac-core/commit/bbe7086))
+
+### ❤️ Thank You
+
+- Claude Opus 4.7 (1M context)
+- Lloyd Mangnall @lloydmangnall
+
 ## 0.1.2 (2026-04-29)
 
 This was a version bump only for @adaptiveworx/iac-schemas to align it with other projects, there were no code changes.
