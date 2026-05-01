@@ -75,7 +75,14 @@ here, so they survive the deletion of this file:
   refresh post-move.
 - **`iac-aws` debt** — hardcoded log archive account ID in
   `cross-account-roles.ts`, per-component README expansion.
-- **`iac-policies` debt** — move `iac-core` dep to `devDep`.
+- **`iac-policies` debt** — move `iac-core` dep to `devDep`. Also:
+  unlike the other 4 packages, `iac-policies` ships TypeScript source
+  (`main: ./src/index.ts`, no `tsconfig.lib.json`, no `dist/` build
+  pipeline) — a Pulumi-policy-pack pattern that breaks general npm
+  consumers. Standardising it to the iac-core/iac-aws/iac-azure
+  layout (build pipeline + compiled dist + conditioned exports map)
+  is its own refactor; tracked here so it doesn't get lost behind
+  the cross-package CJS-resolution fix.
 - **Open questions** — `SecretManager` pluggable backend interface
   design, `OrganizationConfig` parameterization strategy, semver
   commitment (1.0 or stay 0.x), `iac-aws` version strategy at rename,
