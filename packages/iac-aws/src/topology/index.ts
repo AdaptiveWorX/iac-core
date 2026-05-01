@@ -43,4 +43,8 @@ export {
   loadAwsOrganizationOptionsFromEnv,
 } from "./organization.js";
 // AWS region metadata + CIDR
-export { AWS_REGION_CIDR_OFFSETS, getAwsRegionCidrOffset } from "./regions.js";
+export {
+  AWS_REGION_CIDR_OFFSETS,
+  getAwsRegionCidrOffset,
+  resolveAwsRegion,
+} from "./regions.js";

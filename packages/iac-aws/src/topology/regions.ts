@@ -5,14 +5,29 @@
  */
 
 /**
- * AWS region metadata — CIDR offsets used by `getAwsVpcCidr` to allocate
- * non-overlapping VPC CIDRs across regions, anchored to a per-environment
- * base block.
+ * AWS region metadata: shorthand-to-canonical resolution and CIDR offsets
+ * used by `getAwsVpcCidr` to allocate non-overlapping VPC CIDRs across
+ * regions, anchored to a per-environment base block.
  *
  * The offsets are stable: never re-number an existing region (it would
  * collide with already-deployed VPCs). New regions append at the next
  * unused index.
  */
+
+import { resolveRegion } from "@adaptiveworx/iac-core";
+import type * as aws from "@pulumi/aws";
+
+/**
+ * Resolve an AWS region from a shorthand alias (e.g. `use1`) or a
+ * canonical region name (e.g. `us-east-1`). Returns the input unchanged
+ * if it doesn't match any known alias.
+ *
+ * The return type is `aws.Region` so consumers get type-safe
+ * inter-operation with `@pulumi/aws` resource arguments.
+ */
+export function resolveAwsRegion(regionCode: string): aws.Region {
+  return resolveRegion("aws", regionCode) as aws.Region;
+}
 
 export const AWS_REGION_CIDR_OFFSETS: Readonly<Record<string, number>> = {
   "us-east-1": 0,
