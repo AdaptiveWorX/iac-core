@@ -1,0 +1,10 @@
+{
+  "releases": [
+    {
+      "package": "@adaptiveworx/iac-policies",
+      "version": "0.2.1",
+      "tag": "@adaptiveworx/iac-policies@0.2.1",
+      "directory": "packages/iac-policies"
+    }
+  ]
+}
