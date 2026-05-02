@@ -65,6 +65,9 @@ importers:
       '@pulumi/pulumi':
         specifier: ^3.200.0
         version: 3.232.0(typescript@6.0.3)
+      typescript:
+        specifier: ^6.0.0
+        version: 6.0.3
 
   packages/iac-azure:
     dependencies:
@@ -74,6 +77,10 @@ importers:
       '@pulumi/pulumi':
         specifier: ^3.0.0
         version: 3.232.0(typescript@6.0.3)
+    devDependencies:
+      typescript:
+        specifier: ^6.0.0
+        version: 6.0.3
 
   packages/iac-core:
     dependencies:
@@ -87,6 +94,9 @@ importers:
       '@pulumi/pulumi':
         specifier: ^3.200.0
         version: 3.232.0(typescript@6.0.3)
+      typescript:
+        specifier: ^6.0.0
+        version: 6.0.3
       zod:
         specifier: ^3
         version: 3.25.76
@@ -102,12 +112,18 @@ importers:
       '@pulumi/pulumi':
         specifier: ^3.200.0
         version: 3.232.0(typescript@6.0.3)
+      typescript:
+        specifier: ^6.0.0
+        version: 6.0.3
 
   packages/iac-schemas:
     devDependencies:
       '@types/node':
         specifier: ^24.0.0
         version: 24.12.2
+      typescript:
+        specifier: ^6.0.0
+        version: 6.0.3
 
 packages:
 

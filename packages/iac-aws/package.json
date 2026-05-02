@@ -53,11 +53,18 @@
   "peerDependencies": {
     "@adaptiveworx/iac-core": "^0.2.0",
     "@pulumi/aws": "^7.0.0",
-    "@pulumi/pulumi": "^3.0.0"
+    "@pulumi/pulumi": "^3.0.0",
+    "typescript": "^6.0.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@adaptiveworx/iac-core": "workspace:*",
     "@pulumi/aws": "^7.7.0",
-    "@pulumi/pulumi": "^3.200.0"
+    "@pulumi/pulumi": "^3.200.0",
+    "typescript": "^6.0.0"
   }
 }
