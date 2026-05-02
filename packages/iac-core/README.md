@@ -95,15 +95,9 @@ The package follows a "config-in, behavior-out" pattern. Classes consume validat
 | `ORG_TENANT` | Short tenant identifier (kebab-case) |
 | `ORG_DOMAIN` | Primary DNS domain (e.g. `example.com`) |
 
-### Optional cloud-provider overrides
+### AWS-organization specifics
 
-| Variable | Purpose | Default |
-|---|---|---|
-| `IAC_AWS_ORG_ID` | AWS Organization ID | (none) |
-| `IAC_AWS_MASTER_ACCOUNT` | Master account name | (none) |
-| `IAC_AWS_SECURITY_ACCOUNT` | Security account name | (none) |
-| `IAC_AWS_PRIMARY_REGIONS` | Comma-separated primary regions | `[]` |
-| `IAC_AWS_DR_REGIONS` | Comma-separated DR regions | `[]` |
+`iac-core` is cloud-agnostic — AWS-organization config (org ID, master/security accounts, primary/DR region lists) lives in [`@adaptiveworx/iac-aws`](../iac-aws) as `AwsOrganizationConfig`, with its own `IAC_AWS_*` env-var loaders. See the [AWS quick start](./docs/quickstart-aws.md) for the two-class composition pattern.
 
 ### Schema metadata overrides
 
@@ -130,7 +124,7 @@ When Infisical credentials are absent, `SecretManager` falls back to `.env.{IAC_
 
 ### 1. AdaptiveWorX-internal — convenience helper
 
-For deployments inside the AdaptiveWorX AWS organization. Uses canonical defaults (org ID `289507152988`, accounts `adaptive-master` / `worx-secops`, regions `us-east-1` + `us-west-2`) with env-var overrides on top.
+For deployments inside AdaptiveWorX. Uses canonical defaults with env-var overrides on top.
 
 ```ts
 import {
@@ -140,13 +134,15 @@ import {
 
 const orgConfig = new OrganizationConfig(loadAdaptiveOrganizationDefaults());
 // orgName: "AdaptiveWorX" (or process.env.ORG_NAME)
-// cloudProviders.aws.organizationId: "289507152988"
-// cloudProviders.aws.primaryRegions: ["us-east-1", "us-west-2"]
+// tenant:  "worx"          (or process.env.ORG_TENANT)
+// orgDomain: "adaptiveworx.com" (or process.env.ORG_DOMAIN)
 ```
+
+For the AWS-organization specifics (org ID, accounts, regions), compose with `AwsOrganizationConfig` from [`@adaptiveworx/iac-aws`](../iac-aws).
 
 ### 2. External consumer (Azure) — explicit construction
 
-For an Azure-only consumer. AWS provider stays disabled, no AdaptiveWorX defaults leak in.
+For an Azure-only consumer. No AdaptiveWorX defaults leak in.
 
 ```ts
 import { OrganizationConfig } from "@adaptiveworx/iac-core";
@@ -155,28 +151,24 @@ const orgConfig = new OrganizationConfig({
   orgName: "Acme Health",
   tenant: "care",
   orgDomain: "acme.example",
-  cloudProviders: {
-    azure: {
-      enabled: true,
-      primaryRegions: ["eastus2"],
-      drRegions: ["westus3"],
-    },
-  },
 });
-
-orgConfig.cloudProviders.azure?.enabled;       // true
-orgConfig.cloudProviders.aws?.enabled;         // false (DEFAULT_CLOUD_PROVIDERS)
 ```
 
-### 3. External consumer (AWS) — env-var-driven
+`OrganizationConfig` carries cloud-agnostic identity, environments, stack naming, and network strategy. Cloud-specific organization config (Management Groups, Tenants, Subscriptions) is not yet modeled — apply Azure-shaped values directly to your Pulumi resources for now.
 
-For an external AWS-based consumer. Set `ORG_*` + `IAC_AWS_*` env vars at deploy time; class is constructed with `loadOrganizationOptionsFromEnv()`. No AdaptiveWorX defaults applied — every value comes from the environment.
+### 3. External consumer (AWS) — env-var-driven, two-class composition
+
+For an external AWS-based consumer. `iac-core` loads org identity from `ORG_*`; [`@adaptiveworx/iac-aws`](../iac-aws) loads AWS-org specifics from `IAC_AWS_*`. No AdaptiveWorX defaults applied — every value comes from the environment.
 
 ```ts
 import {
   OrganizationConfig,
   loadOrganizationOptionsFromEnv,
 } from "@adaptiveworx/iac-core";
+import {
+  AwsOrganizationConfig,
+  loadAwsOrganizationOptionsFromEnv,
+} from "@adaptiveworx/iac-aws";
 
 // Acme Co's deploy environment:
 //   ORG_NAME="Acme Co"
@@ -184,13 +176,16 @@ import {
 //   ORG_DOMAIN="acme.example"
 //   IAC_AWS_ORG_ID="123456789012"
 //   IAC_AWS_MASTER_ACCOUNT="acme-master"
+//   IAC_AWS_SECURITY_ACCOUNT="acme-secops"
 //   IAC_AWS_PRIMARY_REGIONS="us-east-2,us-west-1"
 //   IAC_AWS_DR_REGIONS="eu-west-1"
 
 const orgConfig = new OrganizationConfig(loadOrganizationOptionsFromEnv());
-orgConfig.orgName;                                    // "Acme Co"
-orgConfig.cloudProviders.aws?.organizationId;         // "123456789012"
-orgConfig.cloudProviders.aws?.primaryRegions;         // ["us-east-2", "us-west-1"]
+const awsConfig = new AwsOrganizationConfig(loadAwsOrganizationOptionsFromEnv());
+
+orgConfig.orgName;                  // "Acme Co"
+awsConfig.awsOrganizationId;        // "123456789012"
+awsConfig.primaryRegions;           // ["us-east-2", "us-west-1"]
 ```
 
 ### Picking your loader
@@ -262,7 +257,6 @@ class OrganizationConfig {
   readonly orgName: string;
   readonly tenant: string;
   readonly orgDomain: string;
-  readonly cloudProviders: Record<string, CloudProviderConfig>;
   readonly environments: Record<string, EnvironmentConfig>;
   readonly stackNaming: StackNaming;
   readonly network: NetworkConfig;
@@ -270,11 +264,6 @@ class OrganizationConfig {
   constructor(opts: OrganizationOptions);
 
   getEnvironmentConfig(environment: string): EnvironmentConfig | undefined;
-  getCloudConfig(provider: string): CloudProviderConfig | undefined;
-
-  // Compute non-overlapping CIDR for an env+region combo using the
-  // network.allocationStrategy + per-region offset table
-  getCidrForEnvironment(environment: string, region: string): string | null;
 
   // Build a stack name from components — applies stackNaming.separator
   // and compresses the region per regionFormat
@@ -293,7 +282,7 @@ class OrganizationConfig {
 }
 ```
 
-The `DEFAULT_ENVIRONMENTS`, `DEFAULT_STACK_NAMING`, `DEFAULT_NETWORK`, and `DEFAULT_CLOUD_PROVIDERS` constants are exported so consumers can compose their own options on top of the canonical layout without restating it:
+The `DEFAULT_ENVIRONMENTS`, `DEFAULT_STACK_NAMING`, and `DEFAULT_NETWORK` constants are exported so consumers can compose their own options on top of the canonical layout without restating it:
 
 ```ts
 import { OrganizationConfig, DEFAULT_ENVIRONMENTS } from "@adaptiveworx/iac-core";
@@ -459,4 +448,4 @@ This is a `0.x` release. The API may change in backwards-incompatible ways befor
 
 ## Repository + contributing
 
-This package is developed in the [AdaptiveWorX/iac-worx](https://github.com/AdaptiveWorX/iac-worx) monorepo at `libs/iac/core/`. See [CONTRIBUTING.md](https://github.com/AdaptiveWorX/iac-worx/blob/main/CONTRIBUTING.md) for setup, workflow conventions, and the release process. File issues at <https://github.com/AdaptiveWorX/iac-worx/issues>.
+This package is developed in the [AdaptiveWorX/iac-core](https://github.com/AdaptiveWorX/iac-core) monorepo at `packages/iac-core/`. See [CONTRIBUTING.md](https://github.com/AdaptiveWorX/iac-core/blob/main/CONTRIBUTING.md) for setup, workflow conventions, and the release process. File issues at <https://github.com/AdaptiveWorX/iac-core/issues>.
