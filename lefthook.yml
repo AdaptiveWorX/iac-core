@@ -27,6 +27,11 @@ commit-msg:
 # Affected-only on pre-push so contributor branches stay fast;
 # CI runs the authoritative check on PRs and main.
 #
+# Skipped on `release/*` branches: release prep only mutates version
+# metadata (package.json + CHANGELOG.md), and every package shows as
+# affected, so running the full nx-affected gate is slow and
+# redundant — the release PR's CI runs the same checks anyway.
+#
 # - `CI=true` suppresses Nx's first-run usage-data prompt, which is
 #   interactive and would hang the (non-interactive) hook subprocess.
 # - `NX_DAEMON=false` keeps the hook self-contained — no long-running
@@ -38,6 +43,8 @@ commit-msg:
 pre-push:
   commands:
     nx-affected:
+      skip:
+        - ref: release/*
       env:
         CI: "true"
         NX_DAEMON: "false"

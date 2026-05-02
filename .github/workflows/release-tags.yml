@@ -1,0 +1,77 @@
+name: Release Tags
+
+# Auto-create per-package release tags from `.release/manifest.json`
+# after a release PR merges to main.
+#
+# Flow:
+#   maintainer runs `pnpm release:prepare` → chore(release) commit on a release branch
+#   → `pnpm release:pr` → release PR
+#   → maintainer merges via rebase
+#   → THIS workflow fires on push to main, validates manifest, creates tags
+#   → each tag push triggers `release.yml` → npm publish via Trusted Publishing
+#
+# Tag pushes need a non-default token because GitHub's anti-recursion
+# safeguard prevents the default GITHUB_TOKEN from triggering downstream
+# workflows. We use a dedicated GitHub App (RELEASE_APP_*) which is
+# registered as a bypass actor on the tag protection ruleset.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  # Serialize per main-push so two release commits (rare) don't race.
+  group: release-tags-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  create-tags:
+    if: "${{ startsWith(github.event.head_commit.message, 'chore(release): publish') }}"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Checkout (with App token so subsequent pushes are App-authored)
+        uses: actions/checkout@v6
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate release manifest
+        run: pnpm exec tsx scripts/release/validate-release-manifest.ts
+
+      - name: Create release tags (idempotent)
+        run: pnpm exec tsx scripts/release/create-release-tags.ts
+
+      - name: Job summary
+        if: always()
+        run: |
+          echo "### Release tags for $(git rev-parse --short HEAD)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f .release/manifest.json ]; then
+            jq -r '.releases[] | "- \(.tag)"' .release/manifest.json >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "(no manifest)" >> "$GITHUB_STEP_SUMMARY"
+          fi
