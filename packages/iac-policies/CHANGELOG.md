@@ -11,8 +11,8 @@
   (loadPolicyConfig, getConfig, parseProjectName, parseStackName,
   inferEnvironmentClass, getStackPurposeClass, getTenantFrameworks,
   AgentPolicyConfig) are removed. Consumers must construct their own
-  PolicyPack from the new factory exports — see README for iac-worx
-  and gc-analytics examples.
+  PolicyPack from the new factory exports — see README for
+  AWS-consumer and Azure-consumer examples.
   Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 
 ### ❤️ Thank You
