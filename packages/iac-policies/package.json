@@ -53,10 +53,17 @@
   },
   "peerDependencies": {
     "@pulumi/policy": "^1.18.0",
-    "@pulumi/pulumi": "^3.150.0"
+    "@pulumi/pulumi": "^3.150.0",
+    "typescript": "^6.0.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@pulumi/policy": "^1.18.1",
-    "@pulumi/pulumi": "^3.200.0"
+    "@pulumi/pulumi": "^3.200.0",
+    "typescript": "^6.0.0"
   }
 }
