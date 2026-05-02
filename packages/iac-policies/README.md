@@ -1,85 +1,166 @@
-# @adaptiveworx/iac-policies
+# `@adaptiveworx/iac-policies`
 
-Pulumi CrossGuard policy pack for [AdaptiveWorX™ Flow](https://adaptiveworx.com) infrastructure governance:
+Composable Pulumi CrossGuard policy primitives. **A library, not a complete pack** — consumers compose primitives into their own `PolicyPack` with the configuration that fits their org.
 
-- **Required-tag enforcement** — every taggable resource must declare ownership, environment, and project tags
-- **Environment-aware deployment gates** — production stacks demand stricter compliance than dev
-- **Region allowlisting** — prevents accidental deployment to unauthorized regions
-- **Tenant-aware compliance frameworks** — picks the right policy bundle (ISO27001, HIPAA, PCI-DSS, etc.) per tenant
-- **Component-resource policy filtering** — `adaptiveworx:*` AdaptiveWorX components are exempt from raw-resource rules (their internals are governed at the component level)
+Three cross-cloud policies + one AWS-specific:
 
-The pack is **cloud-agnostic at the framework level** but currently ships AWS-specific resource rules. Non-AWS resources pass through unchanged.
+| Factory | Cloud | What it does |
+|---|---|---|
+| [`requireTagsPolicy`](./src/policies/require-tags.ts) | cross-cloud | Reject resources missing required tags (or with mismatched expected values) |
+| [`regionalCompliancePolicy`](./src/policies/regional-compliance.ts) | cross-cloud (AWS-default; configurable for Azure/GCP) | Reject resources outside an allowed region list |
+| [`deploymentProtectionPolicy`](./src/policies/deployment-protection.ts) | cross-cloud | Block production deploys that aren't running in CI/CD |
+| [`awsSecurityBaselinePolicy`](./src/policies/aws-security-baseline.ts) | AWS | S3 public-ACL rejection + S3 encryption-config presence |
+
+Plus type exports for compliance annotation: [`FrameworkControls`](./src/types.ts), [`ComplianceEvidence`](./src/types.ts), and a future-use [`emitEvidence`](./src/evidence.ts) stub.
 
 ## Install
 
 ```bash
-pnpm add -D @adaptiveworx/iac-policies @pulumi/policy @pulumi/pulumi
-# or
-yarn add -D @adaptiveworx/iac-policies @pulumi/policy @pulumi/pulumi
-# or
-npm install -D @adaptiveworx/iac-policies @pulumi/policy @pulumi/pulumi
+pnpm add @adaptiveworx/iac-policies @pulumi/policy @pulumi/pulumi
 ```
 
-`@pulumi/policy` and `@pulumi/pulumi` are peer dependencies — your project should already have them.
+`@pulumi/policy` and `@pulumi/pulumi` are peer dependencies.
 
-## Usage
+## How a consumer composes a pack
 
-### Apply during preview / deploy
+Each consumer maintains their own policy-pack directory in their repo:
 
-Point the Pulumi CLI at the installed package's `src/` directory:
-
-```bash
-pulumi preview --policy-pack node_modules/@adaptiveworx/iac-policies/src
-pulumi up --yes --policy-pack node_modules/@adaptiveworx/iac-policies/src
+```
+my-repo/
+└── policies/
+    ├── PulumiPolicy.yaml     # pack manifest
+    ├── package.json          # depends on @adaptiveworx/iac-policies + @pulumi/policy + @pulumi/pulumi
+    └── index.ts              # imports primitives + constructs PolicyPack
 ```
 
-### Apply via `Pulumi.<stack>.yaml`
+`PulumiPolicy.yaml`:
 
 ```yaml
-policyPacks:
-  - node_modules/@adaptiveworx/iac-policies/src
+name: my-org-policies
+runtime: nodejs
+description: My org's policy pack composed from @adaptiveworx/iac-policies primitives
 ```
 
-### Per-tenant configuration
+`index.ts` examples below.
 
-Set the `IAC_TENANT` environment variable (or pass `tenant` in the policy-pack config) to pick a compliance framework bundle:
+### Example: AdaptiveWorX (iac-worx, AWS)
 
-| `IAC_TENANT` | Compliance frameworks applied |
-|---|---|
-| `worx` | ISO27001, SOC2 |
-| `care` | ISO27001, HIPAA |
-| `pci` | ISO27001, PCI-DSS |
-| (other / unset) | ISO27001 (baseline) |
+```ts
+import { PolicyPack } from "@pulumi/policy";
+import { detectStackContext } from "@adaptiveworx/iac-core";
+import {
+  requireTagsPolicy,
+  regionalCompliancePolicy,
+  awsSecurityBaselinePolicy,
+  deploymentProtectionPolicy,
+  AWS_NON_TAGGABLE_RESOURCES,
+} from "@adaptiveworx/iac-policies";
 
-Add a tenant in the `tenantFrameworks` map at the top of `src/index.ts` if you need a new bundle.
+const ctx = detectStackContext();
 
-### Skip the pack for non-governed resources
+new PolicyPack("adaptiveworx-worx", {
+  policies: [
+    requireTagsPolicy({
+      requiredTags: ["Environment", "AccountPurpose", "StackPurpose"],
+      expectedTagValues: () => ({
+        Environment: ctx.targetEnvironment ?? ctx.environment,
+        AccountPurpose: ctx.accountPurpose,
+        StackPurpose: ctx.stackPurpose,
+      }),
+      skipResourceTypes: AWS_NON_TAGGABLE_RESOURCES,
+      skipResourceTypePrefixes: ["pulumi:", "adaptiveworx:"],
+    }),
 
-The pack only enforces rules on resources whose `args.type` starts with `aws:`. Non-AWS resources pass through unconditionally. AdaptiveWorX-internal component resources (whose type starts with `adaptiveworx:`) are also exempted — those are governed at the component-author level.
+    regionalCompliancePolicy({
+      allowedRegions:
+        ctx.environment === "prd" ? ["us-east-1", "us-west-2"] : ["us-east-1"],
+    }),
 
-## What's enforced
+    awsSecurityBaselinePolicy(),
 
-| Policy | Severity | Notes |
-|---|---|---|
-| Required tags (`environment`, `owner`, `project`) | `mandatory` | Tagged AWS resource types only |
-| Allowed regions per environment | `mandatory` | Defaults: dev→`us-east-1`; prd→`us-east-1`+`us-west-2` |
-| Encryption-at-rest for storage | `mandatory` | S3, EBS, RDS, etc. |
-| Public-internet exposure gate | `advisory` | Warn on internet-facing LBs in non-prod |
-| Naming conventions | `advisory` | Resources should match `<env>-<purpose>-<region>` shape |
+    deploymentProtectionPolicy({
+      productionEnvironments: ["prd", "sec"],
+      environmentResolver: () => ctx.targetEnvironment ?? ctx.environment,
+    }),
+  ],
+});
+```
 
-The full rule set is in [`src/index.ts`](./src/index.ts).
+Then deploy with the pack:
+
+```bash
+pulumi preview --policy-pack ./policies
+pulumi up      --policy-pack ./policies
+```
+
+### Example: Prosilio (gc-analytics, Azure)
+
+```ts
+import { PolicyPack } from "@pulumi/policy";
+import {
+  requireTagsPolicy,
+  regionalCompliancePolicy,
+  deploymentProtectionPolicy,
+} from "@adaptiveworx/iac-policies";
+
+new PolicyPack("prosilio", {
+  policies: [
+    requireTagsPolicy({
+      requiredTags: ["Environment", "Owner"],
+    }),
+
+    regionalCompliancePolicy({
+      allowedRegions: ["westus3", "eastus2"],
+      resourceTypeMatcher: t => t.startsWith("azure-native:"),
+      regionExtractor: args => args.props.location as string | undefined,
+    }),
+
+    deploymentProtectionPolicy({
+      productionEnvironments: ["prod"],
+      environmentResolver: () => process.env.PULUMI_STACK ?? "dev",
+    }),
+
+    // (No AWS baseline — Prosilio writes Azure-specific baseline policies as
+    //  needed and adds them to this pack.)
+  ],
+});
+```
+
+## Why no built-in pack?
+
+Most policy concerns are consumer-specific:
+
+- **Required tags vary** — `Environment`, `Owner`, `CostCenter`, `Compliance`, …
+- **Allowed regions vary** — by tenant, by data-residency, by environment
+- **Compliance frameworks vary** — HIPAA for healthcare; PCI-DSS for payments; ISO27001 baseline for everyone
+- **Production gates vary** — `prd`, `prod`, `production`, sometimes also `sec`/`mgmt`
+- **Cloud surface varies** — AWS-only consumers don't want Azure-specific checks and vice versa
+
+Shipping a pre-built pack would either be too generic to be useful or too AdaptiveWorX-specific to share. A library of primitives is composable, configurable, and lets each consumer match their own conventions.
+
+## Compliance annotations
+
+Use [`FrameworkControls`](./src/types.ts) to document which compliance framework requirements a given policy satisfies:
+
+```ts
+import type { FrameworkControls } from "@adaptiveworx/iac-policies";
+
+const tagControls: FrameworkControls = {
+  "NIST-800-53": ["CM-2", "CM-8"],
+  ISO27001: ["A.8.1.1"],
+};
+```
+
+These are annotation types — they don't drive runtime behavior, but they're what compliance reporting and audit-evidence pipelines hook into.
 
 ## Stability
 
-This is a `0.x` release. Policy rules and severities may change in
-backwards-incompatible ways before `1.0`. Once `1.0` ships, additions are
-non-breaking; rule severity bumps and new mandatory rules will be major
-versions.
+`0.x` while the primitive surfaces stabilize. Backwards-incompatible API changes will be major bumps; minor versions add new primitives or non-breaking option fields.
 
 ## License
 
 [Apache 2.0](./LICENSE). See [NOTICE](./NOTICE).
 
-## Repository + contributing
+## Repository
 
-This package is developed in the [AdaptiveWorX/iac-worx](https://github.com/AdaptiveWorX/iac-worx) monorepo at `libs/iac/policies/`. See [CONTRIBUTING.md](https://github.com/AdaptiveWorX/iac-worx/blob/main/CONTRIBUTING.md) for setup, workflow conventions, and the release process. File issues at <https://github.com/AdaptiveWorX/iac-worx/issues>.
+[github.com/AdaptiveWorX/iac-core/tree/main/packages/iac-policies](https://github.com/AdaptiveWorX/iac-core/tree/main/packages/iac-policies). Issues: [iac-core/issues](https://github.com/AdaptiveWorX/iac-core/issues).
