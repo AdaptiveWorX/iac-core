@@ -28,10 +28,9 @@
     "graph": "nx graph",
     "affected": "nx affected",
     "clean": "nx reset && rm -rf node_modules/.cache .nx/cache packages/*/dist",
-    "release": "nx release",
-    "release:dry": "nx release --dry-run",
-    "release:publish": "nx release publish",
-    "release:push-tags": "bash scripts/release/push-tags-sequentially.sh",
+    "release:prepare": "bash scripts/release/prepare.sh",
+    "release:pr": "bash scripts/release/open-pr.sh",
+    "release:dry": "nx release --dry-run --skip-publish",
     "compliance:report": "tsx scripts/compliance-report.ts"
   },
   "keywords": [

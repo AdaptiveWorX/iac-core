@@ -198,41 +198,48 @@ parallel, not stacked.
 
 ## How releases work
 
-Versioning is **independent per package** via `nx release`:
+Versioning is **independent per package** via `nx release`. Releases
+land on `main` via PR (not direct push), and tag creation +
+publishing are fully automated downstream of the PR merge:
 
-```bash
-# Cut versions across packages whose dep graph changed
-pnpm nx release
-
-# Dry run to preview what would happen
-pnpm nx release --dry-run
-
-# Just publish (after a version was cut by `nx release` already)
-pnpm nx release publish
+```
+release branch
+  └─ pnpm release:prepare    nx release + manifest + amend + tags-locally
+  └─ pnpm release:pr         push branch + open release PR
+       ↓
+release PR  →  rebase merge  →  main
+       ↓
+release-tags.yml     validates .release/manifest.json
+                     creates + pushes per-package tags via GitHub App token
+       ↓
+release.yml          per tag: builds + publishes via npm OIDC
 ```
 
-Nx Release reads conventional commits and:
+Three workflow files cooperate:
 
-1. Bumps each affected package's `version` field according to commit type
-   (`fix:` → patch, `feat:` → minor, `feat!:` / `BREAKING CHANGE:` →
-   major).
-2. Generates per-package `CHANGELOG.md` entries.
-3. Creates per-package git tags (`{projectName}@{version}`).
-4. Creates a single GitHub release linking the changelog entries.
-5. Publishes to npm (with provenance, scoped to public access — see each
-   package's `publishConfig`).
+| Workflow | Trigger | Role |
+|---|---|---|
+| `ci.yml` | PR + push to main | Validates the release PR (lint, typecheck, test, build) |
+| `release-tags.yml` | push to main with `chore(release): publish` head-commit subject | Validates the manifest + creates/pushes per-package tags via a dedicated GitHub App |
+| `release.yml` | tag push matching `@adaptiveworx/iac-*@*` | Builds + publishes the package via npm OIDC Trusted Publishing |
 
-The `preVersionCommand` in `nx.json` runs `nx run-many -t build` first,
-so we never publish a package whose build is broken.
+The maintainer never pushes directly to main, never holds publish
+authority, never bypasses status checks. The dedicated GitHub App is
+the only privileged automation; it's added as a bypass actor on the
+tag protection ruleset (it can create release tags) and nothing else.
 
 ### What this means for contributors
 
 - **Use conventional commits** (`feat:`, `fix:`, `chore:`, `docs:`, etc.)
   — they directly drive version bumps and changelog entries.
-- **Never edit a `version` field by hand.** `nx release` is the source of
-  truth.
+- **Never edit a `version` field by hand.** `nx release` is the source
+  of truth; the `no-version-hand-edits` pre-commit hook will reject
+  attempts.
 - **Breaking changes land at major bumps**, signaled with `!:` or
   `BREAKING CHANGE:` in the commit body.
+- **Release commits go via PR like every other change.** No bypass
+  configured for direct main pushes. If the release PR's CI fails,
+  fix the underlying issue and re-push the release branch.
 - See [CONTRIBUTING.md](../CONTRIBUTING.md#releases) for the end-to-end
   release walkthrough.
 

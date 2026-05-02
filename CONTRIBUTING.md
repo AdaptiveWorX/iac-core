@@ -317,57 +317,115 @@ chore(iac-core)!: drop deprecated method         # ! on chore is a contradiction
 ## Releases
 
 This repo uses [Nx Release](https://nx.dev/features/manage-releases)
-with **independent versioning per package**. The configuration lives in
+with **independent versioning per package**. Configuration lives in
 the `release` block of [nx.json](./nx.json).
 
-### How it works
+Releases land on `main` **via PR**, not via direct push. This keeps
+release commits subject to the same governance as every other change
+(rebase merge, status checks must pass, no bypass) and avoids relying
+on bypass behaviors that vary between GitHub UI and CLI contexts. The
+only privileged automation is a dedicated GitHub App that creates the
+package tags after the release PR merges.
 
-1. Maintainers run `pnpm nx release` on `main` (locally or in CI).
-2. Nx Release walks the conventional-commit history since each
-   package's last tag.
-3. For each package whose graph saw changes, Nx:
-   - bumps `package.json` `version` according to commit types,
-   - regenerates `packages/<name>/CHANGELOG.md`,
-   - creates a git tag `<unscoped-name>@<version>`,
-   - commits the version + changelog changes.
-4. `nx release publish` runs `pnpm publish` per package against
-   `https://registry.npmjs.org/` with [npm
-   provenance](https://docs.npmjs.com/generating-provenance-statements)
-   enabled.
-5. A single GitHub release is created linking the per-package changelog
-   entries.
+### Release flow
 
-### Try it locally
-
-```bash
-pnpm nx release --dry-run
+```
+maintainer
+  └─ git checkout -b release/<id>
+  └─ pnpm release:prepare
+        ├─ nx release --skip-publish
+        │     ├─ bumps packages/*/package.json versions
+        │     ├─ generates packages/*/CHANGELOG.md entries
+        │     ├─ creates chore(release) commit (--no-verify)
+        │     └─ creates per-package tags locally (not pushed)
+        └─ generate .release/manifest.json
+        └─ amend chore(release) commit to include manifest
+        └─ re-tag at amended commit
+  └─ pnpm release:pr
+        ├─ git push -u origin <release/<id>>
+        └─ gh pr create
+                ↓
+        REVIEW + REBASE MERGE
+                ↓
+GitHub Actions (release-tags.yml)
+  └─ fires on push to main, head_commit subject startsWith "chore(release): publish"
+  └─ mints GitHub App token (RELEASE_APP_*)
+  └─ validates .release/manifest.json against repo state
+  └─ creates + pushes per-package tags (idempotent)
+                ↓
+GitHub Actions (release.yml)
+  └─ fires on tag push @adaptiveworx/iac-*@*
+  └─ builds + publishes via npm OIDC Trusted Publishing
 ```
 
-This previews exactly what would happen without touching git, npm, or
-GitHub. Always dry-run first when you're not sure.
-
-### Manual override (rare)
-
-If you need to force a specific version (e.g. correcting a botched
-release), pass `--version` to `nx release`:
+### Step 1 — `pnpm release:prepare` (locally, on a release branch)
 
 ```bash
-pnpm nx release version --projects=@adaptiveworx/iac-core --specifier=0.3.0
+git checkout -b release/$(date +%Y%m%d-%H%M)
+
+# Auto-mode (Nx walks conventional commits to choose specifiers):
+pnpm release:prepare
+
+# Manual override (forced version for one project):
+pnpm release:prepare -- --projects=@adaptiveworx/iac-policies --specifier=0.2.0
 ```
 
-Don't do this without a maintainer's blessing.
+The script refuses to run on `main`. After it succeeds you'll have a
+single `chore(release): publish` commit on the release branch with
+package versions bumped, CHANGELOGs generated, `.release/manifest.json`
+recording the package@version pairs, and per-package git tags pointing
+at HEAD locally (not pushed yet).
+
+To preview without committing:
+
+```bash
+pnpm release:dry          # `nx release --dry-run --skip-publish`
+```
+
+### Step 2 — `pnpm release:pr`
+
+```bash
+pnpm release:pr
+```
+
+Pushes the release branch to `origin` and opens a PR with title
+`chore(release): publish <pkg>@<ver>, <pkg>@<ver>` and a body listing
+the manifest. CI runs the same `validate` + `validate-title` gate as
+any other PR.
+
+### Step 3 — Review + rebase merge
+
+The PR title is a properly-scoped conventional commit (`chore(release):
+publish ...`); merge it via **rebase**. The chore(release) commit lands
+on `main` exactly as written, including `.release/manifest.json`.
+
+### Step 4 — Tags and publish (automated)
+
+`release-tags.yml` fires on the push to main, mints a GitHub App
+token, validates the manifest, and creates+pushes per-package git tags
+at the merged commit. Each tag push triggers `release.yml`, which
+publishes the corresponding npm package via OIDC Trusted Publishing.
 
 ### Pre-release & alpha tags
 
-For breaking changes that need bake time, tag with `--pre-id`:
+For breaking changes that need bake time, pass `--pre-id` through:
 
 ```bash
-pnpm nx release --pre-id=alpha
+pnpm release:prepare -- --pre-id=alpha
 # Publishes 1.0.0-alpha.0 etc.
 ```
 
-These publish under the `alpha` dist-tag on npm, leaving `latest`
-pointing at the stable release.
+Pre-release tags publish under the `alpha` dist-tag on npm, leaving
+`latest` pointing at the stable release.
+
+### Recovery
+
+If `release-tags.yml` fails partway (e.g. one tag created but workflow
+crashed before pushing), the script is idempotent: re-running it (via
+`gh workflow run release-tags.yml` or by re-pushing the release commit)
+will skip already-correct tags and create the missing ones. If a tag
+exists at the WRONG commit, the script fails loudly rather than
+silently moving it — investigate manually.
 
 ## Pull request checklist
 
