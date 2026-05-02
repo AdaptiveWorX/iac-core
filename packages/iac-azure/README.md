@@ -3,9 +3,9 @@
 Reusable Pulumi infrastructure components for Microsoft Azure, written in
 TypeScript.
 
-> **Status: skeleton.** No components yet. Patterns are being captured inline
-> in the [Prosilio](https://github.com/AdaptiveWorX) Azure stacks first;
-> stable patterns will be extracted here.
+> **Status: skeleton.** No components yet. Patterns are first captured
+> inline in real Azure deployments; once a pattern has stabilized
+> across multiple uses it gets extracted into this library.
 
 Part of [AdaptiveWorX `iac-core`](https://github.com/AdaptiveWorX/iac-core) —
 a suite of open-source IaC libraries for multi-cloud Pulumi deployments.
