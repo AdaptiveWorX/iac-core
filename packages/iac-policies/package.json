@@ -1,6 +1,6 @@
 {
   "name": "@adaptiveworx/iac-policies",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "type": "module",
   "description": "Composable Pulumi CrossGuard policy primitives for cross-cloud infrastructure governance: tag enforcement, regional compliance, deployment gates, and AWS security baseline. Consumers compose primitives into their own PolicyPack.",
   "license": "Apache-2.0",

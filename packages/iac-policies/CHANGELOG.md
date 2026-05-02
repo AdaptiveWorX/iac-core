@@ -1,3 +1,25 @@
+## 0.2.0 (2026-05-02)
+
+### 🚀 Features
+
+- ⚠️  **iac-policies:** refactor to library of factory primitives ([42b3bbc](https://github.com/AdaptiveWorX/iac-core/commit/42b3bbc))
+
+### ⚠️  Breaking Changes
+
+- **iac-policies:** refactor to library of factory primitives  ([42b3bbc](https://github.com/AdaptiveWorX/iac-core/commit/42b3bbc))
+  the policyPack export and all internal helpers
+  (loadPolicyConfig, getConfig, parseProjectName, parseStackName,
+  inferEnvironmentClass, getStackPurposeClass, getTenantFrameworks,
+  AgentPolicyConfig) are removed. Consumers must construct their own
+  PolicyPack from the new factory exports — see README for iac-worx
+  and gc-analytics examples.
+  Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
+### ❤️ Thank You
+
+- Claude Opus 4.7 (1M context)
+- Lloyd Mangnall @lloydmangnall
+
 ## 0.1.2 (2026-04-29)
 
 This was a version bump only for @adaptiveworx/iac-policies to align it with other projects, there were no code changes.
