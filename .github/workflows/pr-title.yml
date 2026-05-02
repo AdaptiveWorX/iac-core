@@ -60,6 +60,7 @@ jobs:
             iac-aws
             iac-azure
             repo
+            release
           requireScope: true
           # Subject must start with a letter and not end with a period.
           # (Commitlint subject-case is `0` so we don't constrain case

@@ -24,6 +24,14 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
+# nx's workspace-root detection looks for a `.git` directory and walks
+# up otherwise. Inside a git worktree, `.git` is a FILE pointing at the
+# main repo's `.git/worktrees/<name>`, which nx doesn't recognize as a
+# workspace root marker — so it walks past the worktree's nx.json and
+# reads the main repo's nx.json instead. Pin the env var to the
+# worktree's tree.
+export NX_WORKSPACE_ROOT_PATH="$(pwd)"
+
 # 1. Branch guard.
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 if [ "$BRANCH" = "main" ]; then
@@ -35,12 +43,42 @@ if [ "$BRANCH" = "main" ]; then
   exit 1
 fi
 
+# Accept release/<id> (manual) and worktree-release+<id> /
+# worktree-release/<id> (agent-driven via `claude --worktree`).
 case "$BRANCH" in
   release/*) ;;
+  worktree-release/*) ;;
+  worktree-release+*) ;;
   *)
-    echo "warning: branch '$BRANCH' is not named release/<id>. Continuing anyway." >&2
+    echo "warning: branch '$BRANCH' is not a release branch. Continuing anyway." >&2
     ;;
 esac
+
+# Cleanup-on-failure: nx tags HEAD even if the commit step fails,
+# leaving stray local tags pointing at the previous main commit, which
+# then poisons the next attempt (nx reads the stray tag as the
+# project's "current version" and bumps from there). Track tags before
+# the run; on non-zero exit, delete any tag created during the run.
+PRE_RUN_TAGS=$(mktemp)
+git tag --list >"$PRE_RUN_TAGS"
+cleanup_failed_run() {
+  local exit_code=$?
+  if [ $exit_code -ne 0 ]; then
+    echo >&2
+    echo "→ release:prepare failed (exit $exit_code). Cleaning up stray tags created during this run." >&2
+    local current_tags
+    current_tags=$(mktemp)
+    git tag --list >"$current_tags"
+    while IFS= read -r tag; do
+      [ -z "$tag" ] && continue
+      git tag -d "$tag" >/dev/null 2>&1 || true
+      echo "  deleted local tag: $tag" >&2
+    done < <(comm -23 <(sort "$current_tags") <(sort "$PRE_RUN_TAGS"))
+    rm -f "$current_tags"
+  fi
+  rm -f "$PRE_RUN_TAGS"
+}
+trap cleanup_failed_run EXIT
 
 # 2. Run nx release. Pass through any extra args (after `--`) for manual specifiers.
 echo "→ nx release --skip-publish $*"

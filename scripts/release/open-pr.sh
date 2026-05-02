@@ -59,5 +59,17 @@ the workflow can detect it via the head-commit message subject.
 EOF
 )
 
-echo "→ opening PR"
-gh pr create --title "$TITLE" --body "$BODY"
+# Use REST directly. `gh pr create` uses GraphQL (5000 points/hour, easy
+# to exhaust during an active release/debug session); REST shares the
+# 5000-req/hour core bucket and is rarely the bottleneck.
+REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+echo "→ opening PR via REST against $REPO"
+PR_URL=$(jq -n \
+  --arg title "$TITLE" \
+  --arg head "$BRANCH" \
+  --arg base "main" \
+  --arg body "$BODY" \
+  '{title: $title, head: $head, base: $base, body: $body}' \
+  | gh api -X POST "/repos/$REPO/pulls" --input - --jq '.html_url')
+
+echo "$PR_URL"
