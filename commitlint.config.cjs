@@ -35,6 +35,7 @@ module.exports = {
         "iac-aws",
         "iac-azure",
         "repo",
+        "release",
       ],
     ],
     "scope-empty": [2, "never"],

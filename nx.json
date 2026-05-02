@@ -69,7 +69,7 @@
           "style":    { "semverBump": "none",  "changelog": false }
         }
       },
-      "preVersionCommand": "pnpm nx run-many -t build"
+      "preVersionCommand": "pnpm nx affected -t build"
     },
     "changelog": {
       "automaticFromRef": true,
@@ -84,7 +84,7 @@
     },
     "git": {
       "commit": true,
-      "commitMessage": "chore(release): publish\n\n{releaseGroupName} {version}",
+      "commitMessage": "chore(release): publish",
       "commitArgs": "--no-verify",
       "tag": true,
       "push": false
