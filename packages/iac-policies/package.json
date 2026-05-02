@@ -2,17 +2,20 @@
   "name": "@adaptiveworx/iac-policies",
   "version": "0.1.2",
   "type": "module",
-  "description": "Pulumi CrossGuard policy pack for AdaptiveWorX™ infrastructure governance: required-tag enforcement, environment-aware deployment gates, region allowlisting, and tenant-aware compliance frameworks.",
+  "description": "Composable Pulumi CrossGuard policy primitives for cross-cloud infrastructure governance: tag enforcement, regional compliance, deployment gates, and AWS security baseline. Consumers compose primitives into their own PolicyPack.",
   "license": "Apache-2.0",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./src": "./src/",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
-    "src",
+    "dist",
     "LICENSE",
     "NOTICE",
     "README.md",
@@ -36,6 +39,7 @@
     "governance",
     "compliance",
     "aws",
+    "azure",
     "multi-cloud",
     "adaptiveworx"
   ],

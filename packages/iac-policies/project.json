@@ -5,6 +5,30 @@
   "sourceRoot": "packages/iac-policies/src",
   "tags": ["scope:policies", "type:library", "publish:public"],
   "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/iac-policies",
+        "command": "tsc -p tsconfig.lib.json"
+      },
+      "outputs": ["{projectRoot}/dist"],
+      "dependsOn": ["^build"],
+      "cache": true
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vitest run packages/iac-policies --reporter=verbose"
+      },
+      "cache": true
+    },
+    "test:unit": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vitest run 'packages/iac-policies/**/*.unit.test.ts' --reporter=verbose"
+      },
+      "cache": true
+    },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
@@ -15,8 +39,10 @@
     "typecheck": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "tsc --noEmit -p packages/iac-policies/tsconfig.json"
+        "cwd": "packages/iac-policies",
+        "command": "tsc --noEmit -p tsconfig.lib.json"
       },
+      "dependsOn": ["^build"],
       "cache": true
     }
   }
