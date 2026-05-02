@@ -30,7 +30,7 @@
  *       ],
  *     });
  *
- * See README for full iac-worx and Prosilio (gc-analytics) examples.
+ * See README for full AWS-consumer and Azure-consumer examples.
  */
 
 export { emitEvidence } from "./evidence.js";

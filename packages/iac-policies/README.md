@@ -43,7 +43,11 @@ description: My org's policy pack composed from @adaptiveworx/iac-policies primi
 
 `index.ts` examples below.
 
-### Example: AdaptiveWorX (iac-worx, AWS)
+### Example: AWS consumer
+
+Uses all four primitives. Pulls stack context from
+`@adaptiveworx/iac-core` so tag values stay in sync with the Pulumi
+stack the pack runs against.
 
 ```ts
 import { PolicyPack } from "@pulumi/policy";
@@ -58,7 +62,7 @@ import {
 
 const ctx = detectStackContext();
 
-new PolicyPack("adaptiveworx-worx", {
+new PolicyPack("my-aws-policies", {
   policies: [
     requireTagsPolicy({
       requiredTags: ["Environment", "AccountPurpose", "StackPurpose"],
@@ -68,7 +72,7 @@ new PolicyPack("adaptiveworx-worx", {
         StackPurpose: ctx.stackPurpose,
       }),
       skipResourceTypes: AWS_NON_TAGGABLE_RESOURCES,
-      skipResourceTypePrefixes: ["pulumi:", "adaptiveworx:"],
+      skipResourceTypePrefixes: ["pulumi:"],
     }),
 
     regionalCompliancePolicy({
@@ -93,7 +97,11 @@ pulumi preview --policy-pack ./policies
 pulumi up      --policy-pack ./policies
 ```
 
-### Example: Prosilio (gc-analytics, Azure)
+### Example: Azure consumer
+
+Cross-cloud primitives only. The consumer adds their own Azure-specific
+baseline (storage, key vault, etc.) as additional policies in the same
+pack when needed.
 
 ```ts
 import { PolicyPack } from "@pulumi/policy";
@@ -103,7 +111,7 @@ import {
   deploymentProtectionPolicy,
 } from "@adaptiveworx/iac-policies";
 
-new PolicyPack("prosilio", {
+new PolicyPack("my-azure-policies", {
   policies: [
     requireTagsPolicy({
       requiredTags: ["Environment", "Owner"],
@@ -120,8 +128,8 @@ new PolicyPack("prosilio", {
       environmentResolver: () => process.env.PULUMI_STACK ?? "dev",
     }),
 
-    // (No AWS baseline — Prosilio writes Azure-specific baseline policies as
-    //  needed and adds them to this pack.)
+    // (No AWS baseline — write Azure-specific baseline policies as
+    //  needed and add them to this pack.)
   ],
 });
 ```

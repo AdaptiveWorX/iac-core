@@ -2,7 +2,7 @@
   "name": "@adaptiveworx/iac-azure",
   "version": "0.1.3",
   "type": "module",
-  "description": "Reusable Pulumi infrastructure components for Microsoft Azure (Fabric, Storage, Key Vault, Networking). Empty skeleton — components extracted as Prosilio's first inline implementations stabilize.",
+  "description": "Reusable Pulumi infrastructure components for Microsoft Azure (Fabric, Storage, Key Vault, Networking). Empty skeleton — components are extracted into this library after they have stabilized through inline use in real Azure deployments.",
   "license": "Apache-2.0",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
