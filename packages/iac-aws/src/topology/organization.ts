@@ -5,13 +5,13 @@
  */
 
 /**
- * AWS Organization model — the AWS-Org-shaped pieces that used to live
- * inside `@adaptiveworx/iac-core`'s `OrganizationConfig.cloudProviders.aws`
- * field.
+ * AWS Organization model — composes with `OrganizationConfig` from
+ * `@adaptiveworx/iac-core` for full deployment context.
  *
- * `iac-core` keeps the cloud-agnostic pieces (orgName, tenant, env config,
- * naming convention, network strategy). This module owns the AWS-Org bits:
- * org ID, master/security accounts, AWS-specific region lists.
+ * `iac-core`'s `OrganizationConfig` keeps cloud-agnostic pieces (orgName,
+ * tenant, env config, naming convention, network strategy). This module
+ * owns the AWS-Org bits: org ID, master/security accounts, AWS-specific
+ * region lists.
  */
 
 /**

@@ -15,7 +15,9 @@ pnpm add @adaptiveworx/iac-core @adaptiveworx/iac-schemas zod
 pnpm add @pulumi/pulumi @pulumi/gcp
 ```
 
-## 1. Construct your `OrganizationConfig` — GCP shape
+## 1. Construct your `OrganizationConfig`
+
+`OrganizationConfig` is cloud-agnostic. Keep GCP-specific values (organization ID, project IDs, region lists) alongside in your own constants — there's no `GcpOrganizationConfig` sibling type yet.
 
 ```ts
 // libs/orgConfig.ts
@@ -25,18 +27,14 @@ export const orgConfig = new OrganizationConfig({
   orgName: "Acme Co",
   tenant: "acme",
   orgDomain: "acme.example",
-  cloudProviders: {
-    gcp: {
-      enabled: true,
-      organizationId: "123456789012",   // your GCP organization numeric ID
-      primaryRegions: ["us-central1", "us-west1"],
-      drRegions: ["us-east1"],
-    },
-  },
 });
+
+export const gcpOrganizationId = "123456789012";
+export const gcpPrimaryRegions = ["us-central1", "us-west1"];
+export const gcpDrRegions = ["us-east1"];
 ```
 
-`organizationId` on the GCP cloudProvider is just a string — `OrganizationConfig` doesn't interpret it. Use it however your code needs.
+When GCP deployments stabilize a shape, a `GcpOrganizationConfig` will land in `@adaptiveworx/iac-gcp` (analogous to `AwsOrganizationConfig` in [`@adaptiveworx/iac-aws`](https://github.com/AdaptiveWorX/iac-core/tree/main/packages/iac-aws)).
 
 ## 2. Detect the stack context
 

@@ -14,9 +14,9 @@ pnpm add @adaptiveworx/iac-core @adaptiveworx/iac-schemas zod
 pnpm add @pulumi/pulumi @pulumi/aws
 ```
 
-## 1. Construct your `OrganizationConfig`
+## 1. Construct your `OrganizationConfig` + `AwsOrganizationConfig`
 
-Pick a loader that matches how you want to source values. For an external AWS consumer, env-var-driven is the simplest:
+`iac-core`'s `OrganizationConfig` is cloud-agnostic — org identity, environments, stack naming, network strategy. AWS-organization specifics (org ID, master/security accounts, primary/DR regions) live in `AwsOrganizationConfig` from [`@adaptiveworx/iac-aws`](https://github.com/AdaptiveWorX/iac-core/tree/main/packages/iac-aws). For an external AWS consumer, env-var-driven is the simplest:
 
 ```ts
 // Pulumi.<env>.yaml or shell:
@@ -24,6 +24,8 @@ Pick a loader that matches how you want to source values. For an external AWS co
 //   ORG_TENANT="acme"
 //   ORG_DOMAIN="acme.example"
 //   IAC_AWS_ORG_ID="123456789012"
+//   IAC_AWS_MASTER_ACCOUNT="acme-master"
+//   IAC_AWS_SECURITY_ACCOUNT="acme-secops"
 //   IAC_AWS_PRIMARY_REGIONS="us-east-1,us-west-2"
 //   IAC_AWS_DR_REGIONS="us-east-2"
 
@@ -32,11 +34,16 @@ import {
   OrganizationConfig,
   loadOrganizationOptionsFromEnv,
 } from "@adaptiveworx/iac-core";
+import {
+  AwsOrganizationConfig,
+  loadAwsOrganizationOptionsFromEnv,
+} from "@adaptiveworx/iac-aws";
 
 export const orgConfig = new OrganizationConfig(loadOrganizationOptionsFromEnv());
+export const awsConfig = new AwsOrganizationConfig(loadAwsOrganizationOptionsFromEnv());
 ```
 
-The class is purely a container of validated options — no I/O at construction time, safe to import from any module.
+Both classes are pure containers of validated options — no I/O at construction time, safe to import from any module.
 
 ## 2. Detect the stack context
 
@@ -110,19 +117,51 @@ const vpc = new aws.ec2.Vpc("primary", {
 
 ## 7. Add the policy pack (optional)
 
-If you also installed `@adaptiveworx/iac-policies`, point Pulumi at its source directory. The pack enforces required tags, region allowlists, and per-tenant compliance frameworks on AWS resources.
+`@adaptiveworx/iac-policies@0.2+` is a **library of factory primitives**, not a runnable pack. Each consumer maintains a small policy-pack directory in their repo and composes the primitives:
+
+```
+my-repo/
+└── policies/
+    ├── PulumiPolicy.yaml     # pack manifest
+    ├── package.json          # depends on @adaptiveworx/iac-policies + @pulumi/policy
+    └── index.ts              # imports primitives + constructs PolicyPack
+```
+
+```ts
+// policies/index.ts
+import { PolicyPack } from "@pulumi/policy";
+import {
+  requireTagsPolicy,
+  regionalCompliancePolicy,
+  awsSecurityBaselinePolicy,
+  deploymentProtectionPolicy,
+  AWS_NON_TAGGABLE_RESOURCES,
+} from "@adaptiveworx/iac-policies";
+
+new PolicyPack("my-aws-policies", {
+  policies: [
+    requireTagsPolicy({
+      requiredTags: ["Environment", "AccountPurpose", "StackPurpose"],
+      skipResourceTypes: AWS_NON_TAGGABLE_RESOURCES,
+    }),
+    regionalCompliancePolicy({ allowedRegions: ["us-east-1", "us-west-2"] }),
+    awsSecurityBaselinePolicy(),
+    deploymentProtectionPolicy({
+      productionEnvironments: ["prd"],
+      environmentResolver: () => ctx.environment,
+    }),
+  ],
+});
+```
+
+Then deploy with the pack:
 
 ```bash
-pulumi preview --policy-pack node_modules/@adaptiveworx/iac-policies/src
-pulumi up      --policy-pack node_modules/@adaptiveworx/iac-policies/src
+pulumi preview --policy-pack ./policies
+pulumi up      --policy-pack ./policies
 ```
 
-Or in `Pulumi.<stack>.yaml`:
-
-```yaml
-policyPacks:
-  - node_modules/@adaptiveworx/iac-policies/src
-```
+See [`@adaptiveworx/iac-policies` README](https://github.com/AdaptiveWorX/iac-core/tree/main/packages/iac-policies#readme) for the full primitive surface and Azure-consumer example.
 
 ## What you get
 

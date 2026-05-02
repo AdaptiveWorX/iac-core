@@ -15,9 +15,9 @@ pnpm add @adaptiveworx/iac-core @adaptiveworx/iac-schemas zod
 pnpm add @pulumi/pulumi @pulumi/azure-native
 ```
 
-## 1. Construct your `OrganizationConfig` — Azure shape
+## 1. Construct your `OrganizationConfig`
 
-Disable AWS, enable Azure. The class doesn't model Management Groups today, but the `cloudProviders.azure` block carries enough for region-aware deploys.
+`OrganizationConfig` is cloud-agnostic — it carries org identity, environments, stack naming, and network strategy. The class doesn't model Azure Management Groups today; apply Azure-shaped values (regions, subscription IDs) directly to your Pulumi resources for now.
 
 ```ts
 // libs/orgConfig.ts
@@ -27,15 +27,11 @@ export const orgConfig = new OrganizationConfig({
   orgName: "Acme Health",
   tenant: "care",
   orgDomain: "acme.example",
-  cloudProviders: {
-    azure: {
-      enabled: true,
-      primaryRegions: ["eastus2"],
-      drRegions: ["westus3"],
-    },
-    // aws stays at DEFAULT_CLOUD_PROVIDERS.aws (enabled: false)
-  },
 });
+
+// Azure-specific values — keep alongside in your own constants:
+export const azurePrimaryRegions = ["eastus2"];
+export const azureDrRegions = ["westus3"];
 ```
 
 If you don't need a typed organization config at all, skip this — the rest of the package works fine without it.
@@ -125,8 +121,8 @@ const cidr = calculateVpcCidr(cidrBase, azureCidrOffsets[region] ?? 0);
 ## What's NOT covered today
 
 - **`AWSAccountRegistry`** — AWS-only. No Azure equivalent yet (no `AzureSubscriptionRegistry`).
-- **`OrganizationConfig.cloudProviders.azure.organizationId` / `masterAccount`** — these fields exist on the type but Azure has different concepts (Management Groups, Tenants, Subscriptions). Treat them as opaque strings if you set them.
-- **`@adaptiveworx/iac-policies`** — the CrossGuard pack only enforces rules on `aws:*` resources. Azure resources pass through unchanged. A future Azure-specific policy pack is on the roadmap.
+- **Azure organization model** — there's no `AzureTenantConfig` sibling type yet (analogous to `AwsOrganizationConfig` in [`@adaptiveworx/iac-aws`](https://github.com/AdaptiveWorX/iac-core/tree/main/packages/iac-aws)). Carry Azure-shaped values in your own consts for now; the type will land once Azure deployments stabilize a stable shape.
+- **`@adaptiveworx/iac-policies` AWS baseline** — `awsSecurityBaselinePolicy()` only checks `aws:*` resources. Other primitives (`requireTagsPolicy`, `regionalCompliancePolicy`, `deploymentProtectionPolicy`) are cross-cloud and apply equally to Azure resources.
 
 ## When to NOT use this package
 
