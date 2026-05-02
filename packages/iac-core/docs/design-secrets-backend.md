@@ -9,7 +9,7 @@
 
 `SecretManager` today is welded to Infisical's SDK. It auto-detects credentials, walks Infisical-specific folder paths, and falls back to `process.env` when Infisical isn't available. That's fine for AdaptiveWorX-internal use — Infisical is our standard. But the package is now consumed externally:
 
-- **Prosilio Care** is willing to use Infisical short-term, so they're not pushing on this yet.
+- The current external consumer is willing to use Infisical short-term, so they're not pushing on this yet.
 - The next external consumer (TBD) may have a strong preference for **Azure Key Vault** (Microsoft shop), **AWS Secrets Manager** (AWS-only shop), **HashiCorp Vault** (regulated industry shop), or **1Password Connect** (small-team shop). Forcing them to install Infisical to use `iac-core` is a real adoption barrier.
 - Internally, **tests would benefit** from an in-memory backend that doesn't require the Infisical SDK at all.
 

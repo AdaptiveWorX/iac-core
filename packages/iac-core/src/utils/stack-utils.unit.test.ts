@@ -442,13 +442,13 @@ describe("Stack Utils - Comprehensive Coverage", () => {
     });
 
     it("honors PULUMI_ORG env override for non-AdaptiveWorX consumers", () => {
-      vi.stubEnv("PULUMI_ORG", "prosilio");
+      vi.stubEnv("PULUMI_ORG", "acme");
       vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-dev");
       vi.mocked(pulumi.getStack).mockReturnValue("app-web-use1");
 
       const context = detectStackContext();
 
-      expect(context.org).toBe("prosilio");
+      expect(context.org).toBe("acme");
       vi.unstubAllEnvs();
     });
 

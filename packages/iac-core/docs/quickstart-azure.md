@@ -24,9 +24,9 @@ Disable AWS, enable Azure. The class doesn't model Management Groups today, but 
 import { OrganizationConfig } from "@adaptiveworx/iac-core";
 
 export const orgConfig = new OrganizationConfig({
-  orgName: "Prosilio Care",
+  orgName: "Acme Health",
   tenant: "care",
-  orgDomain: "prosilio.care",
+  orgDomain: "acme.example",
   cloudProviders: {
     azure: {
       enabled: true,
@@ -84,7 +84,7 @@ import * as azure from "@pulumi/azure-native";
 
 const region = resolveRegion("azure", ctx.region);
 
-const rg = new azure.resources.ResourceGroup("rg-prosilio-prd-data-eus2", {
+const rg = new azure.resources.ResourceGroup("rg-acme-prd-data-eus2", {
   resourceGroupName: orgConfig.formatStackName(
     orgConfig.orgName.toLowerCase(), "azure", "data", ctx.environment, region
   ),
@@ -105,7 +105,7 @@ import { calculateVpcCidr } from "@adaptiveworx/iac-core";
 const cidr = calculateVpcCidr("10.96.0.0/11", 0);  // "10.96.0.0/16" — eastus2
 const drCidr = calculateVpcCidr("10.96.0.0/11", 1); // "10.97.0.0/16" — westus3
 
-const vnet = new azure.network.VirtualNetwork("vnet-prosilio-prd-data-eus2", {
+const vnet = new azure.network.VirtualNetwork("vnet-acme-prd-data-eus2", {
   resourceGroupName: rg.name,
   addressSpace: { addressPrefixes: [cidr] },
 });
@@ -132,4 +132,4 @@ const cidr = calculateVpcCidr(cidrBase, azureCidrOffsets[region] ?? 0);
 
 If your project is Azure-only and never touches AWS, the AWS-specific surface (`AWSAccountRegistry`, AWS-shaped `OrganizationConfig`, the AWS-only policy pack) is dead code. The remaining pieces — `SecretManager`, `resolveRegion`, `calculateVpcCidr`, `detectStackContext`, the Zod schemas — are useful but small enough to inline if you'd rather not pull in the dependency.
 
-For a healthcare client like Prosilio Care that's deploying first to Azure but anticipates an AWS workload later, the package is worth keeping in place.
+For an Azure-only consumer that anticipates an AWS workload later, the package is worth keeping in place.

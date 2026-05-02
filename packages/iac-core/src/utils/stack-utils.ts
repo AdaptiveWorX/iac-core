@@ -34,11 +34,10 @@ export function detectStackContext(): StackContext {
     // Build and validate context
     const contextInput = {
       // Pulumi Cloud organization. Override via PULUMI_ORG env var when
-      // deploying under a non-AdaptiveWorX Pulumi Cloud org (e.g.
-      // external consumers like Prosilio). Default preserves backwards
-      // compatibility for AdaptiveWorX-internal callers. Full
-      // OrganizationConfig parameterization is tracked in
-      // docs/migration-plan.md.
+      // deploying under a non-AdaptiveWorX Pulumi Cloud org (i.e.
+      // external consumers). Default preserves backwards compatibility
+      // for AdaptiveWorX-internal callers. Full OrganizationConfig
+      // parameterization is tracked in docs/migration-plan.md.
       org: process.env.PULUMI_ORG ?? "adaptiveworx",
       tenant, // Multi-tenant identifier (worx, care, etc.)
       cloud,

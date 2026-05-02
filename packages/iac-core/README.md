@@ -146,15 +146,15 @@ const orgConfig = new OrganizationConfig(loadAdaptiveOrganizationDefaults());
 
 ### 2. External consumer (Azure) — explicit construction
 
-For a healthcare client like Prosilio Care deploying to Azure. AWS provider stays disabled, no AdaptiveWorX defaults leak in.
+For an Azure-only consumer. AWS provider stays disabled, no AdaptiveWorX defaults leak in.
 
 ```ts
 import { OrganizationConfig } from "@adaptiveworx/iac-core";
 
 const orgConfig = new OrganizationConfig({
-  orgName: "Prosilio Care",
+  orgName: "Acme Health",
   tenant: "care",
-  orgDomain: "prosilio.care",
+  orgDomain: "acme.example",
   cloudProviders: {
     azure: {
       enabled: true,
