@@ -1,3 +1,9 @@
+## 0.2.3 (2026-05-06)
+
+### 🧱 Updated Dependencies
+
+- Updated @adaptiveworx/iac-core to 0.3.0
+
 ## 0.2.2 (2026-05-01)
 
 ### 🩹 Fixes

@@ -1,3 +1,20 @@
+## 0.3.0 (2026-05-06)
+
+### 🚀 Features
+
+- ⚠️  **iac-core:** require PULUMI_ORG in detectStackContext ([#26](https://github.com/AdaptiveWorX/iac-core/issues/26))
+
+### ⚠️  Breaking Changes
+
+- **iac-core:** require PULUMI_ORG in detectStackContext  ([#26](https://github.com/AdaptiveWorX/iac-core/issues/26))
+  `detectStackContext()` no longer defaults to
+  "adaptiveworx" when PULUMI_ORG is unset — it throws. Consumers must
+  export PULUMI_ORG (CI: workflow/job env; locally: shell or .env).
+
+### ❤️ Thank You
+
+- Lloyd Mangnall @lloydmangnall
+
 ## 0.2.1 (2026-05-01)
 
 ### 🩹 Fixes
