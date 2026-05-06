@@ -14,6 +14,23 @@ import { StackContextSchema } from "../schemas/core/core-schemas.js";
 import type { AccountPurpose, StackContext } from "../types/core.js";
 
 /**
+ * Read PULUMI_ORG from the environment, trim it, and throw if missing or empty.
+ * iac-core is org-agnostic: every consumer must declare its Pulumi Cloud org.
+ */
+function requirePulumiOrg(): string {
+  const value = process.env.PULUMI_ORG?.trim();
+  if (value === undefined || value === "") {
+    throw new Error(
+      "PULUMI_ORG environment variable is required for detectStackContext(). " +
+        "Set it to your Pulumi Cloud organization (e.g. PULUMI_ORG=mycompany). " +
+        "In CI workflows, set it at the job/workflow level; locally, export it " +
+        "from your shell or .env."
+    );
+  }
+  return value;
+}
+
+/**
  * Detect stack context from current Pulumi project and stack
  * Agent guardrail: Comprehensive validation with structured error handling
  * Uses hierarchical naming: {org}/{tenant}-{cloud}-{env}/{account-purpose}-{stack-purpose}-{concern}-{region}
@@ -33,12 +50,7 @@ export function detectStackContext(): StackContext {
 
     // Build and validate context
     const contextInput = {
-      // Pulumi Cloud organization. Override via PULUMI_ORG env var when
-      // deploying under a non-AdaptiveWorX Pulumi Cloud org (i.e.
-      // external consumers). Default preserves backwards compatibility
-      // for AdaptiveWorX-internal callers. Full OrganizationConfig
-      // parameterization is tracked in docs/migration-plan.md.
-      org: process.env.PULUMI_ORG ?? "adaptiveworx",
+      org: requirePulumiOrg(),
       tenant, // Multi-tenant identifier (worx, care, etc.)
       cloud,
       accountPurpose,
