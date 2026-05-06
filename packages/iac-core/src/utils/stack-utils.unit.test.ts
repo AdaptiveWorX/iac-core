@@ -10,7 +10,7 @@
  * Agent-optimized with exhaustive branch coverage
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { StackContext } from "../types/core.js";
 
 // Mock Pulumi before importing stack-utils
@@ -422,6 +422,14 @@ describe("Stack Utils - Comprehensive Coverage", () => {
   });
 
   describe("detectStackContext", () => {
+    beforeEach(() => {
+      vi.stubEnv("PULUMI_ORG", "adaptiveworx");
+    });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
     it("should detect context from Pulumi project and stack (3-part)", () => {
       vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-dev");
       vi.mocked(pulumi.getStack).mockReturnValue("app-web-use1");
@@ -441,7 +449,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       expect(context.targetEnvironment).toBeUndefined();
     });
 
-    it("honors PULUMI_ORG env override for non-AdaptiveWorX consumers", () => {
+    it("uses PULUMI_ORG from the environment", () => {
       vi.stubEnv("PULUMI_ORG", "acme");
       vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-dev");
       vi.mocked(pulumi.getStack).mockReturnValue("app-web-use1");
@@ -449,7 +457,32 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       const context = detectStackContext();
 
       expect(context.org).toBe("acme");
-      vi.unstubAllEnvs();
+    });
+
+    it("trims surrounding whitespace from PULUMI_ORG", () => {
+      vi.stubEnv("PULUMI_ORG", "  acme  ");
+      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-dev");
+      vi.mocked(pulumi.getStack).mockReturnValue("app-web-use1");
+
+      const context = detectStackContext();
+
+      expect(context.org).toBe("acme");
+    });
+
+    it("throws when PULUMI_ORG is not set", () => {
+      vi.stubEnv("PULUMI_ORG", undefined);
+      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-dev");
+      vi.mocked(pulumi.getStack).mockReturnValue("app-web-use1");
+
+      expect(() => detectStackContext()).toThrow(/PULUMI_ORG environment variable is required/);
+    });
+
+    it("throws when PULUMI_ORG is empty or whitespace", () => {
+      vi.stubEnv("PULUMI_ORG", "   ");
+      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-dev");
+      vi.mocked(pulumi.getStack).mockReturnValue("app-web-use1");
+
+      expect(() => detectStackContext()).toThrow(/PULUMI_ORG environment variable is required/);
     });
 
     it("should detect context with concern (4-part)", () => {
