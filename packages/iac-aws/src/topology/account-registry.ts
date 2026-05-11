@@ -30,20 +30,20 @@ export interface AwsAccountRecord {
 }
 
 /**
- * Parsed shape of the IAC_AWS_ACCOUNTS JSON blob. Keys are
+ * Parsed shape of the AWS_ACCOUNTS JSON blob. Keys are
  * `<purpose>` or `<purpose>-<environment>`, values are account records.
- * `parseIacAwsAccountsJson` flattens nested-by-environment structures
+ * `parseAwsAccountsJson` flattens nested-by-environment structures
  * automatically.
  */
 export type AwsAccountsMap = Partial<Record<string, AwsAccountRecord>>;
 
 /**
- * Parses the IAC_AWS_ACCOUNTS JSON blob with environment-aware error
+ * Parses the AWS_ACCOUNTS JSON blob with environment-aware error
  * severity (dev/test → warn-and-empty; staging/prod → throw) and
  * flattens nested-by-environment structures (e.g. `{ app: { dev: {...},
  * stg: {...} } }` → `{ "app-dev": {...}, "app-stg": {...} }`).
  */
-export function parseIacAwsAccountsJson(rawJson: string, env: string): AwsAccountsMap {
+export function parseAwsAccountsJson(rawJson: string, env: string): AwsAccountsMap {
   try {
     const parsed = JSON.parse(rawJson) as unknown;
     if (typeof parsed !== "object" || parsed === null) {
@@ -95,7 +95,7 @@ export function parseIacAwsAccountsJson(rawJson: string, env: string): AwsAccoun
 
     if (isDevelopment || isTesting) {
       void pulumi.log.warn(
-        `⚠️ [${env.toUpperCase()}] Failed to parse IAC_AWS_ACCOUNTS: ${errorMessage}\n` +
+        `⚠️ [${env.toUpperCase()}] Failed to parse AWS_ACCOUNTS: ${errorMessage}\n` +
           "💡 This would fail in staging/production. Please fix the JSON configuration."
       );
       return {};
@@ -103,14 +103,14 @@ export function parseIacAwsAccountsJson(rawJson: string, env: string): AwsAccoun
     if (isStaging || isProduction) {
       const tag = isStaging ? "STAGING" : "PRODUCTION";
       void pulumi.log.error(
-        `🛑 [${tag}] Critical configuration error in IAC_AWS_ACCOUNTS: ${errorMessage}`
+        `🛑 [${tag}] Critical configuration error in AWS_ACCOUNTS: ${errorMessage}`
       );
       throw new Error(
-        `${env} environment requires valid IAC_AWS_ACCOUNTS configuration: ${errorMessage}`
+        `${env} environment requires valid AWS_ACCOUNTS configuration: ${errorMessage}`
       );
     }
     void pulumi.log.warn(
-      `⚠️ [${env.toUpperCase()}] Failed to parse IAC_AWS_ACCOUNTS: ${errorMessage}\n` +
+      `⚠️ [${env.toUpperCase()}] Failed to parse AWS_ACCOUNTS: ${errorMessage}\n` +
         `💡 Unknown environment '${env}' - treating as development.`
     );
     return {};
@@ -182,7 +182,7 @@ export class AwsAccountRegistry {
   }
 
   /**
-   * Fetch and parse the IAC_AWS_ACCOUNTS JSON blob from the underlying
+   * Fetch and parse the AWS_ACCOUNTS JSON blob from the underlying
    * SecretManager. Cached per-environment after first read.
    */
   async getAwsAccountsJson(environment?: Environment): Promise<AwsAccountsMap> {
@@ -192,11 +192,11 @@ export class AwsAccountRegistry {
       return cached;
     }
 
-    const accountsJson = await this.secretManager.getOptionalSecret("IAC_AWS_ACCOUNTS", "{}", {
+    const accountsJson = await this.secretManager.getOptionalSecret("AWS_ACCOUNTS", "{}", {
       cloud: "aws",
       environment: env,
     });
-    const accounts = parseIacAwsAccountsJson(accountsJson, env);
+    const accounts = parseAwsAccountsJson(accountsJson, env);
     this.accountsJsonCache.set(env, accounts);
     return accounts;
   }
@@ -215,7 +215,7 @@ export class AwsAccountRegistry {
 
   /**
    * Look up the AWS account ID for a given purpose+environment from the
-   * IAC_AWS_ACCOUNTS configuration.
+   * AWS_ACCOUNTS configuration.
    */
   async getAwsAccountId(purpose: string, environment: string): Promise<string | null> {
     const accounts = await this.getAwsAccountsJson(environment as Environment);
@@ -250,14 +250,14 @@ export class AwsAccountRegistry {
   }
 
   /**
-   * Returns the `default` value at the top level of the IAC_AWS_ACCOUNTS
+   * Returns the `default` value at the top level of the AWS_ACCOUNTS
    * JSON if set. Indicates which account purpose to assume when one isn't
    * specified by the caller.
    */
   async getDefaultAccountPurpose(environment?: Environment): Promise<string | null> {
     try {
       // Re-read the raw JSON; the parsed accounts map strips `default`.
-      const rawJson = await this.secretManager.getOptionalSecret("IAC_AWS_ACCOUNTS", "{}", {
+      const rawJson = await this.secretManager.getOptionalSecret("AWS_ACCOUNTS", "{}", {
         cloud: "aws",
         environment: environment ?? "dev",
       });
@@ -609,7 +609,7 @@ export class AwsAccountRegistry {
 
   /**
    * Clear both the normalised per-environment cache and the raw
-   * `IAC_AWS_ACCOUNTS` JSON cache. Useful for tests; in long-running
+   * `AWS_ACCOUNTS` JSON cache. Useful for tests; in long-running
    * processes only call this if the underlying secret has actually
    * changed.
    */

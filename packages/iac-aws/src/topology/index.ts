@@ -31,7 +31,7 @@ export {
   getHubAccount,
   getSpokeAccounts,
   loadAdaptiveFoundationAccounts,
-  parseIacAwsAccountsJson,
+  parseAwsAccountsJson,
   setAwsAccountRegistry,
 } from "./account-registry.js";
 export { getAwsVpcCidr } from "./cidr.js";

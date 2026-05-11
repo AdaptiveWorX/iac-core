@@ -85,26 +85,26 @@ const parseList = (raw: string | undefined): string[] | undefined =>
  * Load `AwsOrganizationOptions` from environment variables.
  *
  * Required env vars:
- *   IAC_AWS_ORG_ID, IAC_AWS_MASTER_ACCOUNT, IAC_AWS_SECURITY_ACCOUNT
+ *   AWS_ORG_ID, AWS_MASTER_ACCOUNT, AWS_SECURITY_ACCOUNT
  *
  * Optional (default to empty arrays):
- *   IAC_AWS_PRIMARY_REGIONS (comma-separated)
- *   IAC_AWS_DR_REGIONS (comma-separated)
+ *   AWS_PRIMARY_REGIONS (comma-separated)
+ *   AWS_DR_REGIONS (comma-separated)
  *
  * Throws if any required var is missing. Does not apply any
  * AdaptiveWorX-specific defaults — see `loadAdaptiveAwsDefaults()`.
  */
 export function loadAwsOrganizationOptionsFromEnv(): AwsOrganizationOptions {
-  const awsOrganizationId = process.env.IAC_AWS_ORG_ID;
-  const masterAccount = process.env.IAC_AWS_MASTER_ACCOUNT;
-  const securityAccount = process.env.IAC_AWS_SECURITY_ACCOUNT;
+  const awsOrganizationId = process.env.AWS_ORG_ID;
+  const masterAccount = process.env.AWS_MASTER_ACCOUNT;
+  const securityAccount = process.env.AWS_SECURITY_ACCOUNT;
 
   if (!(awsOrganizationId && masterAccount && securityAccount)) {
     throw new Error(
       "loadAwsOrganizationOptionsFromEnv requires:\n" +
-        "  IAC_AWS_ORG_ID\n" +
-        "  IAC_AWS_MASTER_ACCOUNT\n" +
-        "  IAC_AWS_SECURITY_ACCOUNT\n"
+        "  AWS_ORG_ID\n" +
+        "  AWS_MASTER_ACCOUNT\n" +
+        "  AWS_SECURITY_ACCOUNT\n"
     );
   }
 
@@ -112,8 +112,8 @@ export function loadAwsOrganizationOptionsFromEnv(): AwsOrganizationOptions {
     awsOrganizationId,
     masterAccount,
     securityAccount,
-    primaryRegions: parseList(process.env.IAC_AWS_PRIMARY_REGIONS) ?? [],
-    drRegions: parseList(process.env.IAC_AWS_DR_REGIONS) ?? [],
+    primaryRegions: parseList(process.env.AWS_PRIMARY_REGIONS) ?? [],
+    drRegions: parseList(process.env.AWS_DR_REGIONS) ?? [],
   };
 }
 
@@ -127,10 +127,10 @@ export function loadAwsOrganizationOptionsFromEnv(): AwsOrganizationOptions {
  */
 export function loadAdaptiveAwsDefaults(): AwsOrganizationOptions {
   return {
-    awsOrganizationId: process.env.IAC_AWS_ORG_ID ?? "289507152988",
-    masterAccount: process.env.IAC_AWS_MASTER_ACCOUNT ?? "adaptive-master",
-    securityAccount: process.env.IAC_AWS_SECURITY_ACCOUNT ?? "worx-secops",
-    primaryRegions: parseList(process.env.IAC_AWS_PRIMARY_REGIONS) ?? ["us-east-1", "us-west-2"],
-    drRegions: parseList(process.env.IAC_AWS_DR_REGIONS) ?? ["us-east-2", "eu-west-1"],
+    awsOrganizationId: process.env.AWS_ORG_ID ?? "289507152988",
+    masterAccount: process.env.AWS_MASTER_ACCOUNT ?? "adaptive-master",
+    securityAccount: process.env.AWS_SECURITY_ACCOUNT ?? "worx-secops",
+    primaryRegions: parseList(process.env.AWS_PRIMARY_REGIONS) ?? ["us-east-1", "us-west-2"],
+    drRegions: parseList(process.env.AWS_DR_REGIONS) ?? ["us-east-2", "eu-west-1"],
   };
 }

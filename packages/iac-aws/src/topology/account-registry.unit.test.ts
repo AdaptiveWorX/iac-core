@@ -10,13 +10,13 @@ import { AwsAccountRegistry } from "./account-registry.js";
 
 /**
  * Builds a minimally-shaped `SecretManager` mock that returns a fixed
- * `IAC_AWS_ACCOUNTS` JSON blob and stubs the bag of helpers
+ * `AWS_ACCOUNTS` JSON blob and stubs the bag of helpers
  * `getAwsDeploymentConfiguration` reads.
  */
 function makeMockSecretManager(accountsJson: object): SecretManager {
   return {
     getOptionalSecret: vi.fn((key: string, fallback: string) =>
-      Promise.resolve(key === "IAC_AWS_ACCOUNTS" ? JSON.stringify(accountsJson) : fallback)
+      Promise.resolve(key === "AWS_ACCOUNTS" ? JSON.stringify(accountsJson) : fallback)
     ),
     getSecret: vi.fn((key: string) => {
       switch (key) {

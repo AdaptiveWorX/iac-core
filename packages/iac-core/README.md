@@ -97,7 +97,7 @@ The package follows a "config-in, behavior-out" pattern. Classes consume validat
 
 ### AWS-organization specifics
 
-`iac-core` is cloud-agnostic — AWS-organization config (org ID, master/security accounts, primary/DR region lists) lives in [`@adaptiveworx/iac-aws`](../iac-aws) as `AwsOrganizationConfig`, with its own `IAC_AWS_*` env-var loaders. See the [AWS quick start](./docs/quickstart-aws.md) for the two-class composition pattern.
+`iac-core` is cloud-agnostic — AWS-organization config (org ID, master/security accounts, primary/DR region lists) lives in [`@adaptiveworx/iac-aws`](../iac-aws) as `AwsOrganizationConfig`, with its own `AWS_*` env-var loaders. See the [AWS quick start](./docs/quickstart-aws.md) for the two-class composition pattern.
 
 ### Schema metadata overrides
 
@@ -158,7 +158,7 @@ const orgConfig = new OrganizationConfig({
 
 ### 3. External consumer (AWS) — env-var-driven, two-class composition
 
-For an external AWS-based consumer. `iac-core` loads org identity from `ORG_*`; [`@adaptiveworx/iac-aws`](../iac-aws) loads AWS-org specifics from `IAC_AWS_*`. No AdaptiveWorX defaults applied — every value comes from the environment.
+For an external AWS-based consumer. `iac-core` loads org identity from `ORG_*`; [`@adaptiveworx/iac-aws`](../iac-aws) loads AWS-org specifics from `AWS_*`. No AdaptiveWorX defaults applied — every value comes from the environment.
 
 ```ts
 import {
@@ -174,11 +174,11 @@ import {
 //   ORG_NAME="Acme Co"
 //   ORG_TENANT="acme"
 //   ORG_DOMAIN="acme.example"
-//   IAC_AWS_ORG_ID="123456789012"
-//   IAC_AWS_MASTER_ACCOUNT="acme-master"
-//   IAC_AWS_SECURITY_ACCOUNT="acme-secops"
-//   IAC_AWS_PRIMARY_REGIONS="us-east-2,us-west-1"
-//   IAC_AWS_DR_REGIONS="eu-west-1"
+//   AWS_ORG_ID="123456789012"
+//   AWS_MASTER_ACCOUNT="acme-master"
+//   AWS_SECURITY_ACCOUNT="acme-secops"
+//   AWS_PRIMARY_REGIONS="us-east-2,us-west-1"
+//   AWS_DR_REGIONS="eu-west-1"
 
 const orgConfig = new OrganizationConfig(loadOrganizationOptionsFromEnv());
 const awsConfig = new AwsOrganizationConfig(loadAwsOrganizationOptionsFromEnv());

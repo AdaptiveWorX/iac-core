@@ -23,11 +23,11 @@ pnpm add @pulumi/pulumi @pulumi/aws
 //   ORG_NAME="Acme Co"
 //   ORG_TENANT="acme"
 //   ORG_DOMAIN="acme.example"
-//   IAC_AWS_ORG_ID="123456789012"
-//   IAC_AWS_MASTER_ACCOUNT="acme-master"
-//   IAC_AWS_SECURITY_ACCOUNT="acme-secops"
-//   IAC_AWS_PRIMARY_REGIONS="us-east-1,us-west-2"
-//   IAC_AWS_DR_REGIONS="us-east-2"
+//   AWS_ORG_ID="123456789012"
+//   AWS_MASTER_ACCOUNT="acme-master"
+//   AWS_SECURITY_ACCOUNT="acme-secops"
+//   AWS_PRIMARY_REGIONS="us-east-1,us-west-2"
+//   AWS_DR_REGIONS="us-east-2"
 
 // libs/orgConfig.ts
 import {
