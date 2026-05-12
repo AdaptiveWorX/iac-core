@@ -54,6 +54,20 @@ case "$BRANCH" in
     ;;
 esac
 
+# Resync tags from origin (force-overwrite local). `git fetch` does NOT
+# update existing local tags by default — if a previous session created
+# a tag locally that later got recreated on origin (e.g. an agent
+# prepared a release on a branch, merge produced a different SHA, the
+# release-tags workflow created the tag on origin at the new SHA), the
+# stale local tag persists. nx resolves "current version" via local
+# tags, so a stale tag pointing at an orphan commit makes nx fall back
+# to an earlier version and propose backwards bumps. `--force` makes
+# local match origin.
+echo "→ resyncing tags from origin"
+git fetch --tags --force origin >/dev/null 2>&1 || {
+  echo "warning: tag resync failed (offline?); continuing with local tag state" >&2
+}
+
 # Cleanup-on-failure: nx tags HEAD even if the commit step fails,
 # leaving stray local tags pointing at the previous main commit, which
 # then poisons the next attempt (nx reads the stray tag as the
