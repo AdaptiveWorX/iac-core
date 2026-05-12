@@ -1,3 +1,18 @@
+## 0.3.0 (2026-05-11)
+
+### 🚀 Features
+
+- **iac-aws:** drop IAC_ prefix from AWS_* env vars + parser function ([fc60693](https://github.com/AdaptiveWorX/iac-core/commit/fc60693))
+
+### 🧱 Updated Dependencies
+
+- Updated @adaptiveworx/iac-core to 0.3.1
+
+### ❤️ Thank You
+
+- Claude Opus 4.7 (1M context)
+- Lloyd Mangnall @lloydmangnall
+
 ## 0.2.3 (2026-05-06)
 
 ### 🧱 Updated Dependencies
