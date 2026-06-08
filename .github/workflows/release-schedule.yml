@@ -1,0 +1,172 @@
+name: Scheduled Release
+
+# Batches a week of releasable changes into a single release PR, then lets a
+# human merge it (the existing release-tags.yml -> release.yml pipeline does
+# the rest). This is the "auto-trigger" half of the release flow; it just runs
+# `pnpm release:prepare` + `pnpm release:pr` on a cadence instead of by hand.
+#
+# Sizing is NOT fixed to "patch": Nx Release computes each package's bump from
+# its conventional commits since its last tag (fix -> patch, feat -> minor,
+# breaking -> major), independently per package. Renovate's dependency PRs use
+# the `chore(repo)` scope, so they never bump anything here — only real
+# fix:/feat: code changes produce a release.
+#
+# Triggers:
+#   - schedule: weekly, Monday morning (America/Denver).
+#   - workflow_dispatch: on-demand / urgent (e.g. a security fix that
+#     shouldn't wait for Monday), with an optional explicit specifier.
+#
+# Why a GitHub App token (not GITHUB_TOKEN): events created with the repo's
+# GITHUB_TOKEN do not trigger other workflows (GitHub's anti-recursion rule),
+# so a release PR opened with it would never run CI (`validate`) and could
+# never satisfy the required status checks. The RELEASE_APP token is a separate
+# identity, so the PR runs CI normally — same reason release-tags.yml uses it.
+
+on:
+  schedule:
+    # Mondays 14:00 UTC (~07:00 America/Denver, after the Renovate window).
+    - cron: '0 14 * * 1'
+  workflow_dispatch:
+    inputs:
+      specifier:
+        description: 'Optional nx release specifier for an on-demand release (e.g. patch, minor, major, or an exact version). Leave blank for conventional-commit auto mode.'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never run two release-preps at once; never cancel one mid-flight.
+  group: scheduled-release
+  cancel-in-progress: false
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Mint App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          # App token so the branch push + PR are App-authored (App-authored
+          # events DO trigger CI). fetch-depth: 0 so Nx can walk history +
+          # tags to compute conventional-commit bumps.
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+
+      - name: Skip if a release PR is already open
+        id: guard
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          OPEN=$(gh pr list --state open --json headRefName \
+            --jq '[.[] | select(.headRefName | startswith("release/"))] | length')
+          if [ "$OPEN" -gt 0 ]; then
+            echo "An open release PR already exists — skipping this run." >&2
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Enable Corepack
+        if: steps.guard.outputs.skip == 'false'
+        run: corepack enable
+
+      - uses: actions/setup-node@v6
+        if: steps.guard.outputs.skip == 'false'
+        with:
+          node-version: '24'
+
+      - uses: pnpm/action-setup@v6
+        if: steps.guard.outputs.skip == 'false'
+        with:
+          run_install: false
+
+      - name: Get pnpm store directory
+        if: steps.guard.outputs.skip == 'false'
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Cache pnpm store
+        if: steps.guard.outputs.skip == 'false'
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        if: steps.guard.outputs.skip == 'false'
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure git identity
+        if: steps.guard.outputs.skip == 'false'
+        run: |
+          git config user.name  "adaptiveworx-release[bot]"
+          git config user.email "adaptiveworx-release[bot]@users.noreply.github.com"
+
+      - name: Create release branch
+        if: steps.guard.outputs.skip == 'false'
+        run: git switch -c "release/$(date -u +%Y%m%d-%H%M)"
+
+      - name: Prepare release
+        id: prepare
+        if: steps.guard.outputs.skip == 'false'
+        env:
+          # GitHub Actions sets CI=true (Nx runs non-interactively); pin the
+          # daemon off so nothing is left running on the ephemeral runner.
+          NX_DAEMON: 'false'
+          SPECIFIER: ${{ inputs.specifier }}
+        run: |
+          rm -f .release/manifest.json
+          BEFORE=$(git rev-parse HEAD)
+          set +e
+          if [ -n "$SPECIFIER" ]; then
+            pnpm release:prepare -- --specifier="$SPECIFIER"
+          else
+            pnpm release:prepare
+          fi
+          RC=$?
+          set -e
+          # Three outcomes, distinguished without parsing Nx/script output:
+          #   1. a non-empty manifest exists  -> a release was prepared
+          #   2. no manifest AND HEAD unmoved -> nothing releasable since last
+          #      tag (release:prepare exits non-zero from the manifest gen by
+          #      design); a clean no-op
+          #   3. anything else                -> a real failure
+          if [ -f .release/manifest.json ] && [ "$(jq '.releases | length' .release/manifest.json)" -gt 0 ]; then
+            echo "has_release=true" >> "$GITHUB_OUTPUT"
+          elif [ "$(git rev-parse HEAD)" = "$BEFORE" ]; then
+            echo "Nothing to release since the last tag — clean no-op."
+            echo "has_release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::release:prepare failed (rc=$RC) without producing a valid manifest"
+            exit 1
+          fi
+
+      - name: Open release PR
+        if: steps.guard.outputs.skip == 'false' && steps.prepare.outputs.has_release == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: pnpm release:pr
+
+      - name: Job summary
+        if: always()
+        run: |
+          if [ "${{ steps.guard.outputs.skip }}" = "true" ]; then
+            echo "### Skipped — a release PR is already open" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.prepare.outputs.has_release }}" = "true" ]; then
+            echo "### Release PR opened" >> "$GITHUB_STEP_SUMMARY"
+            jq -r '.releases[] | "- \(.tag)"' .release/manifest.json >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### No release — nothing releasable since the last tag" >> "$GITHUB_STEP_SUMMARY"
+          fi
