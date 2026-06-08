@@ -60,11 +60,19 @@ const { mockLogin, mockGetSecret } = vi.hoisted(() => ({
   mockGetSecret: vi.fn(),
 }));
 
+// vitest 4 only runs a mock implementation under `new` when it is a `function`
+// or `class`; an arrow function is not constructable. A class is used (not a
+// function expression) because biome's useArrowFunction rule would otherwise
+// rewrite it back to an arrow on commit and re-break the mock.
 vi.mock("@infisical/sdk", () => ({
-  InfisicalSDK: vi.fn().mockImplementation(() => ({
-    auth: () => ({ universalAuth: { login: mockLogin } }),
-    secrets: () => ({ getSecret: mockGetSecret }),
-  })),
+  InfisicalSDK: class {
+    auth() {
+      return { universalAuth: { login: mockLogin } };
+    }
+    secrets() {
+      return { getSecret: mockGetSecret };
+    }
+  },
 }));
 
 vi.mock("@pulumi/pulumi", () => ({

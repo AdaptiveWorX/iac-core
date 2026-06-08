@@ -79,7 +79,7 @@
   },
   "dependencies": {
     "@adaptiveworx/iac-schemas": "workspace:^",
-    "@infisical/sdk": "^4.0.6"
+    "@infisical/sdk": "^5.0.2"
   },
   "peerDependencies": {
     "@pulumi/pulumi": "^3.0.0",
