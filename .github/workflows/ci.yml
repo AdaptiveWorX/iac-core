@@ -75,3 +75,9 @@ jobs:
         run: |
           echo "Running nx run-many (full validation on main)"
           pnpm nx run-many -t lint typecheck test build
+
+      # Full-workspace coverage gate. Runs every time (not nx-affected) so the
+      # ratchet floor in vitest.config.ts is enforced against the whole repo;
+      # the suite is fast. Thresholds fail the build on regression.
+      - name: Coverage gate
+        run: pnpm test:coverage
