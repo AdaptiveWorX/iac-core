@@ -32,6 +32,16 @@ cd "$(git rev-parse --show-toplevel)"
 # worktree's tree.
 export NX_WORKSPACE_ROOT_PATH="$(pwd)"
 
+# pnpm forwards the `--` separator from `pnpm release:prepare -- <args>` as a
+# literal first argument, which then lands in front of our flags as
+# `nx release --skip-publish -- --projects=…`. Past that `--`, nx treats
+# everything as positional and silently ignores --projects/--specifier,
+# versioning every project in auto mode. Drop a single leading `--` so the
+# flags reach nx as flags. (Calling this script directly also works.)
+if [ "${1:-}" = "--" ]; then
+  shift
+fi
+
 # 1. Branch guard.
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 if [ "$BRANCH" = "main" ]; then

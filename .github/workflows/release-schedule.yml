@@ -28,6 +28,10 @@ on:
     - cron: '0 14 * * 1'
   workflow_dispatch:
     inputs:
+      projects:
+        description: 'Optional comma-separated package(s) to release, e.g. "@adaptiveworx/iac-core". Leave blank to auto-detect packages with releasable changes since their last tag.'
+        required: false
+        type: string
       specifier:
         description: 'Optional nx release specifier for an on-demand release (e.g. patch, minor, major, or an exact version). Leave blank for conventional-commit auto mode.'
         required: false
@@ -114,39 +118,58 @@ jobs:
           git config user.name  "adaptiveworx-release[bot]"
           git config user.email "adaptiveworx-release[bot]@users.noreply.github.com"
 
-      - name: Create release branch
+      - name: Determine release scope
+        id: scope
         if: steps.guard.outputs.skip == 'false'
+        env:
+          PROJECTS_INPUT: ${{ inputs.projects }}
+        run: |
+          # Scope the release to packages that actually changed. Without this,
+          # nx attributes shared-file changes (lockfile, root config, scripts/)
+          # to every project and patch-bumps the whole workspace.
+          if [ -n "$PROJECTS_INPUT" ]; then
+            PROJECTS="$PROJECTS_INPUT"
+            echo "Using explicitly requested projects: $PROJECTS"
+          else
+            PROJECTS=$(bash scripts/release/changed-projects.sh)
+            echo "Auto-detected releasable projects: ${PROJECTS:-<none>}"
+          fi
+          echo "projects=$PROJECTS" >> "$GITHUB_OUTPUT"
+
+      - name: Create release branch
+        if: steps.guard.outputs.skip == 'false' && steps.scope.outputs.projects != ''
         run: git switch -c "release/$(date -u +%Y%m%d-%H%M)"
 
       - name: Prepare release
         id: prepare
-        if: steps.guard.outputs.skip == 'false'
+        if: steps.guard.outputs.skip == 'false' && steps.scope.outputs.projects != ''
         env:
           # GitHub Actions sets CI=true (Nx runs non-interactively); pin the
           # daemon off so nothing is left running on the ephemeral runner.
           NX_DAEMON: 'false'
+          PROJECTS: ${{ steps.scope.outputs.projects }}
           SPECIFIER: ${{ inputs.specifier }}
         run: |
           rm -f .release/manifest.json
           BEFORE=$(git rev-parse HEAD)
+          # Call prepare.sh directly (not `pnpm release:prepare -- …`, which
+          # injects a `--` that hides the flags from nx) and scope to the
+          # changed packages.
+          ARGS=(--projects="$PROJECTS")
+          [ -n "$SPECIFIER" ] && ARGS+=(--specifier="$SPECIFIER")
           set +e
-          if [ -n "$SPECIFIER" ]; then
-            pnpm release:prepare -- --specifier="$SPECIFIER"
-          else
-            pnpm release:prepare
-          fi
+          bash scripts/release/prepare.sh "${ARGS[@]}"
           RC=$?
           set -e
           # Three outcomes, distinguished without parsing Nx/script output:
           #   1. a non-empty manifest exists  -> a release was prepared
-          #   2. no manifest AND HEAD unmoved -> nothing releasable since last
-          #      tag (release:prepare exits non-zero from the manifest gen by
-          #      design); a clean no-op
+          #   2. no manifest AND HEAD unmoved -> the scoped projects produced no
+          #      net bump (e.g. only chore commits); a clean no-op
           #   3. anything else                -> a real failure
           if [ -f .release/manifest.json ] && [ "$(jq '.releases | length' .release/manifest.json)" -gt 0 ]; then
             echo "has_release=true" >> "$GITHUB_OUTPUT"
           elif [ "$(git rev-parse HEAD)" = "$BEFORE" ]; then
-            echo "Nothing to release since the last tag — clean no-op."
+            echo "Scoped projects produced no version bump — clean no-op."
             echo "has_release=false" >> "$GITHUB_OUTPUT"
           else
             echo "::error::release:prepare failed (rc=$RC) without producing a valid manifest"
