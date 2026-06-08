@@ -54,15 +54,25 @@ const { mockLogin, mockGetSecret, ConstructorSpy } = vi.hoisted(() => {
   return { mockLogin, mockGetSecret, ConstructorSpy };
 });
 
+// vitest 4 only invokes a mock implementation under `new` when it is a
+// `function` or `class` — an arrow function is not constructable, so the
+// factory (and ConstructorSpy) would never run. A class is used here (rather
+// than a function expression) because biome's useArrowFunction rule rewrites
+// function expressions back to arrows on commit, which would silently re-break
+// the mock. ConstructorSpy records construction args for assertions.
 vi.mock("@infisical/sdk", () => {
   return {
-    InfisicalSDK: vi.fn().mockImplementation((...args: unknown[]) => {
-      ConstructorSpy(...args);
-      return {
-        auth: () => ({ universalAuth: { login: mockLogin } }),
-        secrets: () => ({ getSecret: mockGetSecret }),
-      };
-    }),
+    InfisicalSDK: class {
+      constructor(...args: unknown[]) {
+        ConstructorSpy(...args);
+      }
+      auth() {
+        return { universalAuth: { login: mockLogin } };
+      }
+      secrets() {
+        return { getSecret: mockGetSecret };
+      }
+    },
   };
 });
 
