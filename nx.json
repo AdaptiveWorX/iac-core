@@ -55,6 +55,7 @@
     "releaseTagPattern": "{projectName}@{version}",
     "version": {
       "conventionalCommits": true,
+      "updateDependents": "never",
       "conventionalCommitsConfig": {
         "types": {
           "feat":     { "semverBump": "minor", "changelog": { "title": "🚀 Features" } },
