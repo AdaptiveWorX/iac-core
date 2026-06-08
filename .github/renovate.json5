@@ -1,0 +1,81 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    "group:monorepos",
+  ],
+
+  // --- Conventional-commit titles -------------------------------------------
+  // pr-title.yml enforces a fixed scope allowlist (mirrors commitlint
+  // scope-enum). Renovate's default "deps" scope is NOT in that list, so every
+  // Renovate PR is pinned to `chore(repo)`, which is a valid scope and never
+  // triggers an Nx Release version bump (correct for dependency hygiene PRs).
+  // Renovate auto-merges as the Renovate app, not an org admin, so its PRs are
+  // bound by the required `validate` + `validate-title` checks.
+  semanticCommits: "enabled",
+  semanticCommitType: "chore",
+  semanticCommitScope: "repo",
+
+  // --- Range hygiene --------------------------------------------------------
+  // Keep declared semver ranges (caret); update the range only when the new
+  // version falls outside it. Never pin to or hold back at an old version.
+  rangeStrategy: "replace",
+
+  // --- Cadence / noise control ----------------------------------------------
+  timezone: "America/Denver",
+  schedule: ["before 6am on monday"],
+  prConcurrentLimit: 10,
+  prHourlyLimit: 4,
+  labels: ["dependencies"],
+  // Renovate PRs carry the `bot` label, which pr-title.yml lists in
+  // ignoreLabels — a belt-and-suspenders fallback so a future scope tweak
+  // can't silently wedge the title check.
+  addLabels: ["bot"],
+
+  // --- The drift-prevention engine ------------------------------------------
+  // Weekly in-range lockfile refresh. This is what would have prevented the
+  // 30 stale-transitive Dependabot alerts: it pulls transitive deps up to the
+  // latest version already allowed by their parents' ranges. Auto-merged once
+  // CI (validate) is green, since it never changes manifests.
+  lockFileMaintenance: {
+    enabled: true,
+    schedule: ["before 6am on monday"],
+    automerge: true,
+  },
+
+  // Renovate also opens prioritised PRs for known vulnerabilities (independent
+  // of GitHub's Dependabot security alerts, which stay enabled).
+  vulnerabilityAlerts: {
+    labels: ["security"],
+    automerge: false,
+  },
+
+  packageRules: [
+    {
+      // Nx core + plugins must move in lockstep, or the workspace breaks.
+      matchPackageNames: ["nx", "/^@nx//"],
+      groupName: "nx monorepo",
+    },
+    {
+      // Auto-merge low-risk dev-dependency updates once CI passes.
+      matchDepTypes: ["devDependencies"],
+      matchUpdateTypes: ["minor", "patch"],
+      automerge: true,
+    },
+    {
+      // Never auto-merge majors — they need a human (e.g. the vitest 3 -> 4
+      // bump that quietly broke the test mocks). Flag them for review.
+      matchUpdateTypes: ["major"],
+      automerge: false,
+      addLabels: ["major-update"],
+    },
+    {
+      // Pulumi providers download a matching plugin binary at install; group
+      // them so a bump and its peer move together and review stays coherent.
+      matchPackageNames: ["/^@pulumi//"],
+      groupName: "pulumi",
+    },
+  ],
+}
