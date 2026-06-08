@@ -1,3 +1,14 @@
+## 0.3.2 (2026-06-08)
+
+### 🩹 Fixes
+
+- **iac-core:** resolve all open Dependabot alerts ([#40](https://github.com/AdaptiveWorX/iac-core/pull/40), [#39](https://github.com/AdaptiveWorX/iac-core/issues/39))
+
+### ❤️ Thank You
+
+- Claude Opus 4.8 (1M context)
+- Lloyd Mangnall @lloydmangnall
+
 ## 0.3.1 (2026-05-11)
 
 ### 🚀 Features
