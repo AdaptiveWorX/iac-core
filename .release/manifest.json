@@ -1,10 +1,28 @@
 {
   "releases": [
     {
-      "package": "@adaptiveworx/iac-core",
-      "version": "0.3.2",
-      "tag": "@adaptiveworx/iac-core@0.3.2",
-      "directory": "packages/iac-core"
+      "package": "@adaptiveworx/iac-aws",
+      "version": "0.3.1",
+      "tag": "@adaptiveworx/iac-aws@0.3.1",
+      "directory": "packages/iac-aws"
+    },
+    {
+      "package": "@adaptiveworx/iac-azure",
+      "version": "0.1.4",
+      "tag": "@adaptiveworx/iac-azure@0.1.4",
+      "directory": "packages/iac-azure"
+    },
+    {
+      "package": "@adaptiveworx/iac-policies",
+      "version": "0.2.2",
+      "tag": "@adaptiveworx/iac-policies@0.2.2",
+      "directory": "packages/iac-policies"
+    },
+    {
+      "package": "@adaptiveworx/iac-schemas",
+      "version": "0.1.5",
+      "tag": "@adaptiveworx/iac-schemas@0.1.5",
+      "directory": "packages/iac-schemas"
     }
   ]
 }
