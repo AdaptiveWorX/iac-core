@@ -90,7 +90,8 @@ provider, account references and how to add a provider.
 ### `schemas/`
 
 - **`SCHEMA_CONFIG`, `SCHEMA_BASE_URL`** — canonical metadata for the IaC schema namespace.
-- **`schemas/core/core-schemas`** — Zod validators (`StackContextSchema`, `ProjectNameSchema`, `StackNameSchema`, `DeploymentConfigSchema`, `AwsRegionSchema`, etc.).
+- **`schemas/core/core-schemas`** — Zod validators (`StackContextSchema`, `ProjectNameSchema`, `StackNameSchema`, `DeploymentConfigSchema` and `PolicyConfigSchema` (both take a `provider` and validate regions against it), `AwsRegionSchema` (derived from iac-schemas' `REGIONS`), etc.).
+- **`schemas/core/tags`** — `StandardTagsSchema` (the standard tag keys from iac-schemas, `Workload` included), `WorkloadSchema`, `TagValueSchema`.
 - **`schemas/core/providers`** — `ProviderSchema`, `PROVIDER_DEFINITIONS`, provider regions (`isValidProviderRegion`, `resolveProviderRegion`, `GLOBAL_REGION_CODE`), and provider-neutral account references (`AccountReferenceSchema`, `accountReference`).
 
 ### `validation/`

@@ -9,6 +9,7 @@
  * These types form the foundation of the TypeScript-first IaC system
  */
 
+import type { AwsRegion } from "../schemas/core/core-schemas.js";
 import type { GlobalRegion, Provider } from "../schemas/core/providers.js";
 
 /**
@@ -60,56 +61,6 @@ export type StackPurposeClass =
 export type StackPurpose = string;
 
 /**
- * AWS regions where OPT-IN is NOT REQUIRED
- * Includes both full region names and shorthand codes
- */
-export type AwsRegion =
-  // US Regions (full names)
-  | "us-east-1"
-  | "us-east-2"
-  | "us-west-1"
-  | "us-west-2"
-  // US Regions (shorthand)
-  | "use1"
-  | "use2"
-  | "usw1"
-  | "usw2"
-  // Asia Pacific (full names)
-  | "ap-south-1"
-  | "ap-northeast-1"
-  | "ap-northeast-2"
-  | "ap-northeast-3"
-  | "ap-southeast-1"
-  | "ap-southeast-2"
-  // Asia Pacific (shorthand)
-  | "aps1"
-  | "apne1"
-  | "apne2"
-  | "apne3"
-  | "apse1"
-  | "apse2"
-  // Europe (full names)
-  | "eu-central-1"
-  | "eu-west-1"
-  | "eu-west-2"
-  | "eu-west-3"
-  | "eu-north-1"
-  // Europe (shorthand)
-  | "euc1"
-  | "euw1"
-  | "euw2"
-  | "euw3"
-  | "eun1"
-  // Canada (full names)
-  | "ca-central-1"
-  // Canada (shorthand)
-  | "cac1"
-  // South America (full names)
-  | "sa-east-1"
-  // South America (shorthand)
-  | "sae1";
-
-/**
  * Stack context interface - contains all information needed to identify deployment target
  * Architecture: {org}/{tenant}-{provider}-{env}/[{target-env}-]{account-purpose}-{stack-purpose}[-{concern}]-{region}
  *
@@ -148,7 +99,8 @@ export interface DeploymentConfig {
   readonly accountEnvironments: readonly Environment[];
   readonly enableMultiPurpose: boolean;
   readonly useInfisical: boolean;
-  readonly awsRegion: AwsRegion;
+  readonly provider: Provider;
+  readonly region: StackRegion;
 }
 
 /**
@@ -226,7 +178,7 @@ export interface ResourceNaming {
   readonly accountPurpose: AccountPurpose;
   readonly stackPurpose: StackPurpose;
   readonly environment: Environment;
-  readonly region: AwsRegion;
+  readonly region: StackRegion;
 }
 
 /**
@@ -237,7 +189,8 @@ export interface PolicyConfig {
   readonly enableSecurityPolicies: boolean;
   readonly enableCompliancePolicies: boolean;
   readonly maxMonthlyCostUsd: number;
-  readonly allowedRegions: readonly AwsRegion[];
+  readonly provider: Provider;
+  readonly allowedRegions: readonly StackRegion[];
   readonly requiredTags: readonly string[];
 }
 
