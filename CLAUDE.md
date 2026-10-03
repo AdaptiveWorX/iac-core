@@ -14,6 +14,20 @@ Claude Code on this repo.
 | Migration sequencing (transient) | [`docs/migration-plan.md`](./docs/migration-plan.md) |
 | Conventional commits + Nx Release flow | [`CONTRIBUTING.md`](./CONTRIBUTING.md) |
 
+## Working agreement (EA + agents)
+
+- **Branches:** branch from current `main`, and don't stack PRs. If a PR goes stale, merge `main` into it with a normal push. Never force-push a shared branch.
+- **PR scope:** one PR per apply unit (one live stack or deployable change).
+  - Never mix auto-apply with manual-dispatch stacks, or a library with its consumer.
+  - Batch non-deploying changes (CI, scripts, docs, guardrails, tests) into one tooling PR per session.
+  - Urgent unblocking fixes stay small.
+- **PR body:** *Depends on* / *Followed by* / *Apply steps* / *Expected preview* (infra).
+- **Before infra work:** survey live state read-only (`worx-architect-ro*` profiles, the Cloudflare read API) and state which assumptions it confirmed.
+- **Decisions:** settle structural questions with the EA before work starts.
+- **Roles:** agents draft, test, push branches and open PRs. They never merge, apply, dispatch or force-push; the EA does.
+- **Paths:** agents use absolute paths and `git -C`, never `cd` across repos, and confirm the repo before writing.
+- **Reports:** about 300 words at most; details go in the PR body.
+
 ## Claude-specific conventions
 
 - **Use worktrees for any non-trivial change.** This repo's parent
