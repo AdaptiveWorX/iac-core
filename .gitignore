@@ -23,3 +23,5 @@ coverage/
 .env
 .env.local
 .env.*.local
+
+.nx/migrate-runs

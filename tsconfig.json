@@ -4,5 +4,8 @@
   "references": [
     { "path": "./packages/iac-aws" },
     { "path": "./packages/iac-azure" }
-  ]
+  ],
+  "compilerOptions": {
+    "ignoreDeprecations": "6.0"
+  }
 }
