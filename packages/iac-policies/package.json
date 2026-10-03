@@ -51,6 +51,9 @@
     "provenance": true,
     "registry": "https://registry.npmjs.org/"
   },
+  "dependencies": {
+    "@adaptiveworx/iac-schemas": "workspace:^"
+  },
   "peerDependencies": {
     "@pulumi/policy": "^1.18.0",
     "@pulumi/pulumi": "^3.150.0",

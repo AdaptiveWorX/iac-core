@@ -101,16 +101,12 @@ here. Azure-Tenant-shaped pieces will live in `iac-azure`.
 
 ### `@adaptiveworx/iac-schemas`
 
-Zod schemas + generated JSON Schemas for all of AdaptiveWorX's
-configuration contracts (stack config, account config, environment
-config, …). Published so that:
-
-- External tooling (linters, AI agents, IDE assistants) can validate
-  YAML/JSON config files against canonical schemas.
-- Consumers (Prosilio, iac-worx, others) can use the same Zod runtime
-  validators in their TypeScript code.
-
-Has zero runtime deps beyond Zod, which is a peer dependency.
+Pure data shared by every package: region codes and names per provider
+(`REGIONS`, the single source iac-core derives `AwsRegion` /
+`AwsRegionSchema` from; also published as `config/regions.json`) and the
+standard tag keys (`STANDARD_TAG_KEYS`, including `Workload`). Zero
+runtime dependencies. The Zod validators themselves live in iac-core;
+for JSON Schema, call zod 4's `z.toJSONSchema()` on them.
 
 ### `@adaptiveworx/iac-policies`
 

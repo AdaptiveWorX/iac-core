@@ -13,9 +13,11 @@
  * on their tsconfig.
  */
 
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { REGIONS } from "./regions.js";
+
+export { REGIONS } from "./regions.js";
+export type { StandardTagKey } from "./tags.js";
+export { STANDARD_TAG_KEYS } from "./tags.js";
 
 interface RegionGroup {
   aliases: Record<string, string>;
@@ -29,15 +31,23 @@ export interface Regions {
   cloudflare: RegionGroup;
 }
 
-const here = dirname(fileURLToPath(import.meta.url));
-// At runtime this resolves to <package>/config/regions.json. The relative
-// path holds in both monorepo source layout (libs/iac/schemas/src → ../config)
-// and the published-npm layout (dist/ → ../config).
-const regionsPath = join(here, "..", "config", "regions.json");
-
 /**
- * Region aliases + canonical region names per provider (aws, azure,
- * gcp, cloudflare). Source-of-truth for region resolution across the
- * @adaptiveworx/iac-* packages.
+ * Region aliases + canonical region names per provider (aws, azure, gcp,
+ * cloudflare), as a plain record. The typed source is {@link REGIONS}.
  */
-export const regions: Regions = JSON.parse(readFileSync(regionsPath, "utf8")) as Regions;
+export const regions: Regions = REGIONS as unknown as Regions;
+
+/** An AWS region code used in stack names (`use1`, `usw2`, …). */
+export type AwsRegionCode = keyof typeof REGIONS.aws.aliases;
+
+/** An AWS region name (`us-east-1`, …). */
+export type AwsRegionName = (typeof REGIONS.aws.regions)[number];
+
+/** Every AWS region code, in iac-schemas order. */
+export const AWS_REGION_CODES = Object.keys(REGIONS.aws.aliases) as [
+  AwsRegionCode,
+  ...AwsRegionCode[],
+];
+
+/** Every AWS region name, in iac-schemas order. */
+export const AWS_REGION_NAMES = [...REGIONS.aws.regions] as [AwsRegionName, ...AwsRegionName[]];

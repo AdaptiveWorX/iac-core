@@ -39,6 +39,7 @@ export {
   type AwsSecurityBaselineChecks,
   type AwsSecurityBaselineOptions,
   awsSecurityBaselinePolicy,
+  DEFAULT_REQUIRED_TAGS,
   type DeploymentProtectionOptions,
   deploymentProtectionPolicy,
   type RegionalComplianceOptions,

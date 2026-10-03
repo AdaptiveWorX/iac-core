@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type { StandardTagKey } from "@adaptiveworx/iac-schemas";
 import type * as policy from "@pulumi/policy";
 
 /**
@@ -32,9 +33,25 @@ export const AWS_NON_TAGGABLE_RESOURCES: readonly string[] = [
   "aws:ec2/networkAclRule:NetworkAclRule",
 ] as const;
 
+/**
+ * The tags every resource must carry unless a policy says otherwise:
+ * the environment, the workload it belongs to (`Workload`, which permission
+ * boundaries and ABAC conditions scope by; `shared` for shared
+ * infrastructure) and the tool that manages it. Keys from
+ * `@adaptiveworx/iac-schemas`' STANDARD_TAG_KEYS.
+ */
+export const DEFAULT_REQUIRED_TAGS = [
+  "Environment",
+  "Workload",
+  "ManagedBy",
+] as const satisfies readonly StandardTagKey[];
+
 export interface RequireTagsOptions {
-  /** Tag names that all (non-skipped) resources must carry. */
-  readonly requiredTags: readonly string[];
+  /**
+   * Tag names that all (non-skipped) resources must carry.
+   * Default: {@link DEFAULT_REQUIRED_TAGS} (Environment, Workload, ManagedBy).
+   */
+  readonly requiredTags?: readonly string[];
 
   /**
    * Optional: expected values for specific tag names. When provided, a
@@ -85,7 +102,8 @@ export interface RequireTagsOptions {
  *     skipResourceTypes: AWS_NON_TAGGABLE_RESOURCES,
  *   });
  */
-export function requireTagsPolicy(opts: RequireTagsOptions): policy.ResourceValidationPolicy {
+export function requireTagsPolicy(opts: RequireTagsOptions = {}): policy.ResourceValidationPolicy {
+  const requiredTags = opts.requiredTags ?? DEFAULT_REQUIRED_TAGS;
   const skipTypes = new Set(opts.skipResourceTypes ?? []);
   const skipPrefixes = opts.skipResourceTypePrefixes ?? ["pulumi:"];
 
@@ -108,12 +126,12 @@ export function requireTagsPolicy(opts: RequireTagsOptions): policy.ResourceVali
 
       if (!hasTagsField) {
         reportViolation(
-          `Resource ${args.urn} missing tags field. Required tags: ${opts.requiredTags.join(", ")}`
+          `Resource ${args.urn} missing tags field. Required tags: ${requiredTags.join(", ")}`
         );
         return;
       }
 
-      const missingTags = opts.requiredTags.filter(t => !tags[t]);
+      const missingTags = requiredTags.filter(t => !tags[t]);
       if (missingTags.length > 0) {
         reportViolation(`Resource ${args.urn} missing required tags: ${missingTags.join(", ")}`);
       }

@@ -34,13 +34,6 @@ export const SCHEMA_CONFIG = {
   // OpenAPI specification version (latest)
   openApiVersion: "3.1.0",
 
-  // Output directories (relative to repository root)
-  outputDirs: {
-    generated: "libs/iac/schemas/generated",
-    schemas: "libs/iac/schemas/generated/schemas",
-    json: "libs/iac/schemas/generated/schemas/json",
-  },
-
   // Agent-specific metadata
   agentOptimized: true,
 

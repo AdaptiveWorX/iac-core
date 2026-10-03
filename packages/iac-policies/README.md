@@ -53,7 +53,7 @@ stack the pack runs against.
 import { PolicyPack } from "@pulumi/policy";
 import { detectStackContext } from "@adaptiveworx/iac-core";
 import {
-  requireTagsPolicy,
+  requireTagsPolicy, // requiredTags defaults to DEFAULT_REQUIRED_TAGS: Environment, Workload, ManagedBy
   regionalCompliancePolicy,
   awsSecurityBaselinePolicy,
   deploymentProtectionPolicy,
@@ -106,7 +106,7 @@ pack when needed.
 ```ts
 import { PolicyPack } from "@pulumi/policy";
 import {
-  requireTagsPolicy,
+  requireTagsPolicy, // requiredTags defaults to DEFAULT_REQUIRED_TAGS: Environment, Workload, ManagedBy
   regionalCompliancePolicy,
   deploymentProtectionPolicy,
 } from "@adaptiveworx/iac-policies";

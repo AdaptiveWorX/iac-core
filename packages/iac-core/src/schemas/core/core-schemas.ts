@@ -9,6 +9,7 @@
  * These schemas provide type-safe validation with structured error messages
  */
 
+import { AWS_REGION_CODES, AWS_REGION_NAMES } from "@adaptiveworx/iac-schemas";
 import { z } from "zod";
 import type { ComplianceRequirement } from "../../types/core.js";
 import {
@@ -154,34 +155,12 @@ export const StackPurposeSchema = z
   );
 
 /**
- * AWS region schema with regional compliance considerations
- * Accepts both full region names (us-east-1) and compressed codes (use1)
+ * AWS region schema: every AWS region code (`use1`) and name (`us-east-1`)
+ * in `@adaptiveworx/iac-schemas` (REGIONS), the single source of region data.
  */
-export const AwsRegionSchema = z.enum([
-  // Full AWS region names
-  "us-east-1",
-  "us-east-2",
-  "us-west-1",
-  "us-west-2",
-  "eu-west-1",
-  "eu-west-2",
-  "eu-central-1",
-  "ap-southeast-1",
-  "ap-southeast-2",
-  "ap-northeast-1",
-  // Compressed region codes
-  "use1",
-  "use2",
-  "usw1",
-  "usw2",
-  "euw1",
-  "euw2",
-  "euc1",
-  "apse1",
-  "apse2",
-  "apne1",
-]);
+export const AwsRegionSchema = z.enum([...AWS_REGION_CODES, ...AWS_REGION_NAMES]);
 
+/** An AWS region code or name, derived from iac-schemas. */
 export type AwsRegion = z.infer<typeof AwsRegionSchema>;
 
 /**
@@ -414,9 +393,21 @@ export const DeploymentConfigSchema = z
     accountEnvironments: z.array(EnvironmentSchema).min(1, "At least one environment required"),
     enableMultiPurpose: z.boolean(),
     useInfisical: z.boolean(),
-    awsRegion: AwsRegionSchema,
+    /** The provider deployments target; decides which regions are valid. */
+    provider: ProviderSchema,
+    /** The home region: one of the provider's region codes or names (glb for global providers). */
+    region: z.string().min(1),
   })
   .superRefine((data, ctx) => {
+    // The region must belong to the provider
+    if (!isValidProviderRegion(data.provider, data.region)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Region '${data.region}' is not a ${data.provider} region`,
+        path: ["region"],
+      });
+    }
+
     // Agent guardrail: Multi-purpose account validation
     if (data.enableMultiPurpose && data.accountPurposes.includes("ucx")) {
       ctx.addIssue({
@@ -559,10 +550,24 @@ export const PolicyConfigSchema = z
     enableSecurityPolicies: z.boolean(),
     enableCompliancePolicies: z.boolean(),
     maxMonthlyCostUsd: z.number().min(100).max(1000000),
-    allowedRegions: z.array(AwsRegionSchema).min(1),
+    /** The provider the allowed regions belong to. */
+    provider: ProviderSchema,
+    /** Region codes or names of the provider (glb for global providers). */
+    allowedRegions: z.array(z.string().min(1)).min(1),
     requiredTags: z.array(z.string()).min(1),
   })
   .superRefine((data, ctx) => {
+    // Every allowed region must belong to the provider
+    for (const [index, region] of data.allowedRegions.entries()) {
+      if (!isValidProviderRegion(data.provider, region)) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Region '${region}' is not a ${data.provider} region`,
+          path: ["allowedRegions", index],
+        });
+      }
+    }
+
     // Agent guardrail: Production cost validation
     if (data.maxMonthlyCostUsd > 50000 && !data.enableCostGuardrails) {
       ctx.addIssue({
