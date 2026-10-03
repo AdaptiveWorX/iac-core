@@ -1,0 +1,24 @@
+{
+  "name": "@adaptiveworx/ts7-consumer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Consumer fixture: type-checks every published package's emitted .d.ts with TypeScript 7, as a consumer on TS 7 (iac-worx) compiles them. The repo itself builds with TypeScript 6 until Nx supports 7.",
+  "scripts": {
+    "typecheck": "node check.mjs"
+  },
+  "devDependencies": {
+    "@adaptiveworx/iac-aws": "workspace:*",
+    "@adaptiveworx/iac-azure": "workspace:*",
+    "@adaptiveworx/iac-core": "workspace:*",
+    "@adaptiveworx/iac-policies": "workspace:*",
+    "@adaptiveworx/iac-schemas": "workspace:*",
+    "@pulumi/aws": "^7.48.0",
+    "@pulumi/azure-native": "^3.28.0",
+    "@pulumi/policy": "^1.21.0",
+    "@pulumi/pulumi": "^3.266.0",
+    "@types/node": "26.6.3",
+    "typescript": "npm:typescript@7.0.2",
+    "zod": "^4.6.5"
+  }
+}

@@ -121,6 +121,18 @@
       automerge: true,
     },
     {
+      // The build stays on TypeScript 6 until Nx supports 7 (Nx 23 reads
+      // tsconfigs through the TypeScript JS API, which TS 7 dropped). A
+      // TypeScript major for the build never automerges and waits for
+      // Dashboard approval, so Renovate doesn't keep proposing it. The
+      // tools/ts7-consumer fixture's own TS 7 alias is exempt (it's the check).
+      matchPackageNames: ["typescript"],
+      matchUpdateTypes: ["major"],
+      matchFileNames: ["package.json", "packages/*/package.json"],
+      dependencyDashboardApproval: true,
+      automerge: false,
+    },
+    {
       // Shipped to consumers: runtime and peer dependencies of the published
       // packages never automerge, whatever the update type. Last, so it wins.
       matchFileNames: ["packages/*/package.json"],

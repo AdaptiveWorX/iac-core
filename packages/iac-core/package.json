@@ -83,7 +83,7 @@
   },
   "peerDependencies": {
     "@pulumi/pulumi": "^3.0.0",
-    "typescript": "^6.0.0",
+    "typescript": "^6.0.0 || ^7.0.0",
     "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {

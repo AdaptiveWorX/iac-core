@@ -54,7 +54,7 @@
   "peerDependencies": {
     "@pulumi/policy": "^1.18.0",
     "@pulumi/pulumi": "^3.150.0",
-    "typescript": "^6.0.0"
+    "typescript": "^6.0.0 || ^7.0.0"
   },
   "peerDependenciesMeta": {
     "typescript": {
