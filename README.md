@@ -37,7 +37,7 @@ pnpm add @adaptiveworx/iac-core @adaptiveworx/iac-schemas \
   @pulumi/azure-native @pulumi/pulumi
 ```
 
-`@pulumi/*` SDKs are peer dependencies — bring your own version. Node 24+
+`@pulumi/*` SDKs are peer dependencies — bring your own version. Node 26+
 required.
 
 ## Quickstart (AWS)
