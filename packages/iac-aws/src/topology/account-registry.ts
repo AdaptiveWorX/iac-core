@@ -76,7 +76,13 @@ export function parseAwsAccountsJson(rawJson: string, env: string): AwsAccountsM
     }
     return accounts;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    // AWS_ACCOUNTS comes from SecretManager. V8's JSON.parse messages echo a
+    // slice of the input, so the raw message must never reach a log line or
+    // a thrown Error — report only the error kind.
+    const errorMessage =
+      error instanceof SyntaxError
+        ? "value is not valid JSON (contents withheld)"
+        : `${error instanceof Error ? error.name : "Error"} while parsing (contents withheld)`;
     const envLower = env.toLowerCase();
 
     const isDevelopment = ["dev", "development", "local"].includes(envLower);
