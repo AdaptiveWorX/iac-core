@@ -1,3 +1,28 @@
+## 0.5.0 (2026-10-03)
+
+### 🚀 Features
+
+- ⚠️  **iac-core:** a provider segment (aws, gcp, azure, cloudflare, github, infisical), a glb region, account references, one stack grammar ([#56](https://github.com/AdaptiveWorX/iac-core/pull/56))
+
+### ⚠️  Breaking Changes
+
+- **iac-core:** a provider segment (aws, gcp, azure, cloudflare, github, infisical), a glb region, account references, one stack grammar  ([#56](https://github.com/AdaptiveWorX/iac-core/pull/56))
+  validation tightens where a name could never round-trip.
+  StackPurposeSchema no longer accepts hyphens (a hyphenated purpose parses as
+  purpose + concern); ProjectNameSchema requires a known provider segment;
+  StackContextSchema's region and parsed types widen from AwsRegion to
+  StackRegion (AWS codes, glb, other providers' codes), and its inferred
+  provider/cloud fields are optional. Every name iac-worx deploys validates
+  unchanged.
+
+### 🧱 Updated Dependencies
+
+- Updated @adaptiveworx/iac-schemas to 0.1.6
+
+### ❤️ Thank You
+
+- Lloyd Mangnall @lloydmangnall
+
 ## 0.4.0 (2026-10-03)
 
 ### 🚀 Features
