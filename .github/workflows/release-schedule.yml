@@ -2,8 +2,11 @@ name: Scheduled Release
 
 # Batches a week of releasable changes into a single release PR, then lets a
 # human merge it (the existing release-tags.yml -> release.yml pipeline does
-# the rest). This is the "auto-trigger" half of the release flow; it just runs
-# `pnpm release:prepare` + `pnpm release:pr` on a cadence instead of by hand.
+# the rest). This is the only way a release is prepared: it runs
+# scripts/release/prepare.sh + open-pr.sh (both CI-only; there is no local
+# release path). The manifest records the main commit the release was
+# computed from; CI fails the release PR once main moves past it, and
+# release-tags.yml refuses to tag it (scripts/release/release-base.ts).
 #
 # Sizing is NOT fixed to "patch": Nx Release computes each package's bump from
 # its conventional commits since its last tag (fix -> patch, feat -> minor,
@@ -123,9 +126,7 @@ jobs:
         run: |
           rm -f .release/manifest.json
           BEFORE=$(git rev-parse HEAD)
-          # Call prepare.sh directly (not `pnpm release:prepare -- …`, which
-          # injects a `--` that hides the flags from nx) and scope to the
-          # changed packages.
+          # Scope to the changed packages; flags go straight to nx release.
           ARGS=(--projects="$PROJECTS")
           [ -n "$SPECIFIER" ] && ARGS+=(--specifier="$SPECIFIER")
           set +e
@@ -143,7 +144,7 @@ jobs:
             echo "Scoped projects produced no version bump — clean no-op."
             echo "has_release=false" >> "$GITHUB_OUTPUT"
           else
-            echo "::error::release:prepare failed (rc=$RC) without producing a valid manifest"
+            echo "::error::prepare.sh failed (rc=$RC) without producing a valid manifest"
             exit 1
           fi
 
@@ -151,7 +152,7 @@ jobs:
         if: steps.guard.outputs.skip == 'false' && steps.prepare.outputs.has_release == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: pnpm release:pr
+        run: bash scripts/release/open-pr.sh
 
       - name: Job summary
         if: always()

@@ -9,6 +9,8 @@
  *   - manifest entry's `tag` follows the `releaseTagPattern`
  *     (`{projectName}@{version}`)
  *   - manifest's `directory` exists and contains the expected `package.json`
+ *   - the release commit's parent is the main commit the release was
+ *     prepared from (`baseSha`; see release-base.ts)
  *   - no on-disk @adaptiveworx package whose version differs from its last
  *     released tag is missing from the manifest
  *
@@ -20,6 +22,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { checkReleaseCommitParent } from "./release-base.js";
 
 interface PackageJson {
   name?: string;
@@ -35,6 +38,7 @@ interface Release {
 }
 
 interface Manifest {
+  baseSha?: string;
   releases: Release[];
 }
 
@@ -141,6 +145,14 @@ function main(): void {
       `package ${pkg.name}@${pkg.version} (in ${dir}) has no existing tag and is missing from the release manifest. ` +
         "Either include it in the release or roll back the version bump."
     );
+  }
+
+  // Stale-release guard (b): the release commit must sit directly on the main
+  // commit its versions and changelogs were computed from.
+  const parent = execFileSync("git", ["rev-parse", "HEAD^1"], { encoding: "utf8" }).trim();
+  const stale = checkReleaseCommitParent(manifest, parent);
+  if (stale !== undefined) {
+    fail(stale);
   }
 
   console.log(`✓ manifest valid: ${manifest.releases.length} release(s)`);

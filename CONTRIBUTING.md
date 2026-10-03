@@ -253,7 +253,7 @@ fix(iac-core): handle missing AWS_REGION env var in stack-utils
 perf(iac-core): cache CIDR allocations across calls
 feat(iac-azure)!: rename FabricCapacity.skuTier to skuName
 
-docs(repo): clarify Nx Release flow in CONTRIBUTING.md
+docs(repo): clarify the release flow in CONTRIBUTING.md
 chore(repo): upgrade pnpm to 12.9
 ci(repo): cache pnpm store in release workflow
 refactor(repo): collapse tsconfig.lib.json files into one shared base
@@ -323,103 +323,90 @@ This repo uses [Nx Release](https://nx.dev/features/manage-releases)
 with **independent versioning per package**. Configuration lives in
 the `release` block of [nx.json](./nx.json).
 
-Releases land on `main` **via PR**, not via direct push. This keeps
-release commits subject to the same governance as every other change
-(rebase merge, status checks must pass, no bypass) and avoids relying
-on bypass behaviors that vary between GitHub UI and CLI contexts. The
-only privileged automation is a dedicated GitHub App that creates the
-package tags after the release PR merges.
+Releases are prepared **only in CI**, by the Scheduled Release workflow
+(`release-schedule.yml`: Mondays, or `workflow_dispatch` for an urgent
+release). There is no local release path: `scripts/release/prepare.sh` and
+`open-pr.sh` refuse to run outside GitHub Actions. Releases land on `main`
+via a PR like every other change; the only privileged automation is a
+dedicated GitHub App that creates the package tags after the release PR
+merges.
 
 ### Release flow
 
 ```
-maintainer
-  └─ git checkout -b release/<id>
-  └─ pnpm release:prepare
-        ├─ nx release --skip-publish
-        │     ├─ bumps packages/*/package.json versions
-        │     ├─ generates packages/*/CHANGELOG.md entries
-        │     ├─ creates chore(release) commit (--no-verify)
-        │     └─ creates per-package tags locally (not pushed)
-        └─ generate .release/manifest.json
-        └─ amend chore(release) commit to include manifest
-        └─ re-tag at amended commit
-  └─ pnpm release:pr
-        ├─ git push -u origin <release/<id>>
-        └─ gh pr create
+Scheduled Release (release-schedule.yml: Monday cron or workflow_dispatch)
+  └─ branch release/<date> from main's tip
+  └─ scripts/release/prepare.sh
+        ├─ nx release --skip-publish (versions, CHANGELOGs, chore(release) commit)
+        └─ .release/manifest.json: package@version pairs + baseSha (the main commit)
+  └─ scripts/release/open-pr.sh → release PR
                 ↓
-        REVIEW + REBASE MERGE
+        REVIEW + MERGE (squash keeps the chore(release): publish subject)
+        CI fails the release PR once main moves past baseSha
                 ↓
-GitHub Actions (release-tags.yml)
+Release Tags (release-tags.yml)
   └─ fires on push to main, head_commit subject startsWith "chore(release): publish"
-  └─ mints GitHub App token (RELEASE_APP_*)
-  └─ validates .release/manifest.json against repo state
+  └─ validates .release/manifest.json; refuses to tag if the release commit's
+     parent isn't baseSha (it merged onto a later main)
   └─ creates + pushes per-package tags (idempotent)
                 ↓
-GitHub Actions (release.yml)
+Release (release.yml)
   └─ fires on tag push @adaptiveworx/iac-*@*
   └─ builds + publishes via npm OIDC Trusted Publishing
 ```
 
-### Step 1 — `pnpm release:prepare` (locally, on a release branch)
+### Preview
 
 ```bash
-git checkout -b release/$(date +%Y%m%d-%H%M)
-
-# Auto-mode (Nx walks conventional commits to choose specifiers):
-pnpm release:prepare
-
-# Manual override (forced version for one project):
-pnpm release:prepare -- --projects=@adaptiveworx/iac-policies --specifier=0.2.0
+pnpm release:dry          # `nx release --dry-run --skip-publish`; writes nothing
 ```
 
-The script refuses to run on `main`. After it succeeds you'll have a
-single `chore(release): publish` commit on the release branch with
-package versions bumped, CHANGELOGs generated, `.release/manifest.json`
-recording the package@version pairs, and per-package git tags pointing
-at HEAD locally (not pushed yet).
+### On-demand release
 
-To preview without committing:
+Dispatch **Scheduled Release** with `projects` (comma-separated package
+names) and/or `specifier` (`patch`, `minor`, `major` or an exact version).
 
-```bash
-pnpm release:dry          # `nx release --dry-run --skip-publish`
-```
+### A stale release PR
 
-### Step 2 — `pnpm release:pr`
+A release PR is computed from one main commit (`baseSha` in
+`.release/manifest.json`). If anything merges to main before it does, its
+versions and changelogs no longer describe what would ship: CI fails it
+("re-run Scheduled Release") and Release Tags refuses to tag it. Close it and
+dispatch Scheduled Release again. (Release #58 shipped #57's breaking
+change as a patch this way; `scripts/release/release-base.ts` exists to
+prevent a repeat.)
 
-```bash
-pnpm release:pr
-```
+### A refused release
 
-Pushes the release branch to `origin` and opens a PR with title
-`chore(release): publish <pkg>@<ver>, <pkg>@<ver>` and a body listing
-the manifest. CI runs the same `validate` + `validate-title` gate as
-any other PR.
+If a release PR merges after main moved on anyway, Release Tags fails with
+"Refusing to tag". Main then carries the release commit (bumped
+`package.json` versions, CHANGELOG entries, `.release/manifest.json`) with no
+tags, and nothing is published. To recover:
 
-### Step 3 — Review + rebase merge
+1. Revert the release commit in a PR:
+   ```bash
+   git switch -c revert/release-$(date -u +%Y%m%d) origin/main
+   git revert <release-commit-sha>   # restores the latest tagged versions
+   git push -u origin HEAD
+   ```
+   Title the PR `revert(release): undo the untagged release <pkg>@<ver>, …`
+   (GitHub's default `Revert "…"` title fails the PR-title check). The
+   pre-commit version guard allows exactly this change: back to each
+   package's latest tagged version.
+2. Merge it (any strategy; its subject doesn't start with
+   `chore(release): publish`, so Release Tags ignores it).
+3. Dispatch **Scheduled Release**. It releases the reverted changes together
+   with everything that landed since; Nx ignores the reverted release commit.
 
-The PR title is a properly-scoped conventional commit (`chore(release):
-publish ...`); merge it via **rebase**. The chore(release) commit lands
-on `main` exactly as written, including `.release/manifest.json`.
+Until step 1 lands, Scheduled Release refuses to start
+(`scripts/release/check-untagged.ts`: "main carries untagged versions").
+If Release Tags failed for another reason (an outage, a token), don't
+revert: re-run the Release Tags run; tag creation is idempotent.
 
-### Step 4 — Tags and publish (automated)
+### Pre-releases
 
-`release-tags.yml` fires on the push to main, mints a GitHub App
-token, validates the manifest, and creates+pushes per-package git tags
-at the merged commit. Each tag push triggers `release.yml`, which
-publishes the corresponding npm package via OIDC Trusted Publishing.
-
-### Pre-release & alpha tags
-
-For breaking changes that need bake time, pass `--pre-id` through:
-
-```bash
-pnpm release:prepare -- --pre-id=alpha
-# Publishes 1.0.0-alpha.0 etc.
-```
-
-Pre-release tags publish under the `alpha` dist-tag on npm, leaving
-`latest` pointing at the stable release.
+Not supported by the CI flow; `release.yml` publishes to the `latest`
+dist-tag.
 
 ### Recovery
 

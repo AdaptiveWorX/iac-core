@@ -34,6 +34,8 @@ export default defineConfig({
       "packages/*/src/**/*.unit.test.{js,ts}",
       "packages/*/src/**/*.integration.test.{js,ts}",
       "packages/*/src/**/*.workflow.test.{js,ts}",
+      // Repo scripts (release tooling); not part of the coverage floor.
+      "scripts/**/*.unit.test.ts",
     ],
     exclude: ["node_modules", "dist", "build", "**/dist/**"],
     coverage: {
