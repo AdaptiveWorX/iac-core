@@ -3,11 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import tsconfigPaths from "vite-tsconfig-paths";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  plugins: [tsconfigPaths()],
   test: {
     globals: true,
     environment: "node",
@@ -35,8 +33,5 @@ export default defineConfig({
         lines: 33,
       },
     },
-  },
-  esbuild: {
-    target: "node26",
   },
 });

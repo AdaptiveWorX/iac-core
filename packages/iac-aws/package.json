@@ -63,8 +63,8 @@
   },
   "devDependencies": {
     "@adaptiveworx/iac-core": "workspace:*",
-    "@pulumi/aws": "^7.7.0",
-    "@pulumi/pulumi": "^3.200.0",
+    "@pulumi/aws": "^7.48.0",
+    "@pulumi/pulumi": "^3.266.0",
     "typescript": "^6.0.0"
   }
 }

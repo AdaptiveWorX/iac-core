@@ -94,7 +94,7 @@ export namespace AgentValidationService {
         success: false,
         errors: [
           {
-            field: fieldPrefix !== "" ? fieldPrefix : "unknown",
+            field: fieldPrefix === "" ? "unknown" : fieldPrefix,
             message: error instanceof Error ? error.message : "Unknown validation error",
             code: "INVALID_VALUE",
             severity: "error",
@@ -147,7 +147,7 @@ export namespace AgentValidationService {
   ): ValidationError[] {
     return zodError.issues.map(issue => {
       const issuePath = issue.path.join(".");
-      const field = fieldPrefix !== "" ? `${fieldPrefix}.${issuePath}` : issuePath;
+      const field = fieldPrefix === "" ? issuePath : `${fieldPrefix}.${issuePath}`;
 
       const code = mapZodCodeToValidationCode(issue, context);
       const severity = determineSeverity(issue, context);
