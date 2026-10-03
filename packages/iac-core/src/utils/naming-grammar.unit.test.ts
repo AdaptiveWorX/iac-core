@@ -33,9 +33,7 @@ import {
 import {
   buildStackReference,
   detectStackContext,
-  generateProjectName,
   generateStackName,
-  getStackProvider,
   isValidStackName,
   parseProjectName,
   parseStackName,
@@ -230,7 +228,6 @@ describe("naming grammar", () => {
         org: "adaptiveworx",
         tenant: "worx",
         provider: e.provider,
-        cloud: e.provider,
         accountPurpose: e.accountPurpose,
         stackPurpose: e.stackPurpose,
         environment: e.environment,
@@ -240,18 +237,11 @@ describe("naming grammar", () => {
         ...(e.concern === undefined ? {} : { concern: e.concern }),
         ...(e.targetEnvironment === undefined ? {} : { targetEnvironment: e.targetEnvironment }),
       });
-      expect(getStackProvider(context)).toBe(e.provider);
     });
 
-    it.each(IAC_WORX)(
-      "$project/$stack validates with provider, with the deprecated cloud, and with both",
-      e => {
-        expect(issuesOf(contextInput(e))).toEqual([]);
-        const { provider, ...rest } = contextInput(e);
-        expect(issuesOf({ ...rest, cloud: provider })).toEqual([]);
-        expect(issuesOf(contextInput(e, { cloud: e.provider }))).toEqual([]);
-      }
-    );
+    it.each(IAC_WORX)("$project/$stack validates as a context", e => {
+      expect(issuesOf(contextInput(e))).toEqual([]);
+    });
 
     it.each(IAC_WORX)(
       "$stack is one grammar: StackNameSchema, parseStackName, generateStackName agree",
@@ -262,7 +252,6 @@ describe("naming grammar", () => {
         expect(StackPurposeSchema.safeParse(e.stackPurpose).success).toBe(true);
         const parsed = parseStackName(`adaptiveworx/${e.project}/${e.stack}`);
         expect(parsed.provider).toBe(e.provider);
-        expect(parsed.cloud).toBe(e.provider);
         expect(
           generateStackName(
             parsed.accountPurpose,
@@ -421,27 +410,26 @@ describe("naming grammar", () => {
       ]);
     });
 
-    it("requires a provider, and provider and cloud to agree", () => {
+    it("requires a provider", () => {
       expect(
         issuesOf({
           ...base,
           region: "glb",
           projectName: "worx-cloudflare-sec",
           stackName: "ops-ztna-glb",
-        })
-      ).toEqual(["provider: provider is required (or the deprecated cloud)"]);
-      expect(
-        issuesOf({
-          ...base,
-          provider: "cloudflare",
-          cloud: "aws",
-          region: "glb",
-          projectName: "worx-cloudflare-sec",
-          stackName: "ops-ztna-glb",
-        })
-      ).toContain(
-        "cloud: provider 'cloudflare' and cloud 'aws' disagree; cloud is a deprecated alias of provider"
-      );
+        }).some(issue => issue.startsWith("provider:"))
+      ).toBe(true);
+    });
+
+    it("a cloud field does not stand in for provider (renamed, no alias)", () => {
+      const result = StackContextSchema.safeParse({
+        ...base,
+        cloud: "cloudflare",
+        region: "glb",
+        projectName: "worx-cloudflare-sec",
+        stackName: "ops-ztna-glb",
+      });
+      expect(result.success).toBe(false);
     });
 
     it("rejects a malformed project name", () => {
@@ -478,17 +466,6 @@ describe("naming grammar", () => {
   });
 
   describe("project names and stack references", () => {
-    it("generateProjectName(tenant, provider, env) builds a valid project name", () => {
-      expect(generateProjectName("worx", "cloudflare", "sec")).toBe("worx-cloudflare-sec");
-      expect(ProjectNameSchema.safeParse(generateProjectName("worx", "aws", "dev")).success).toBe(
-        true
-      );
-    });
-
-    it("keeps the deprecated two-argument form's output", () => {
-      expect(generateProjectName("aws", "dev")).toBe("aws-dev");
-    });
-
     it("buildStackReference() builds org/project/stack", () => {
       expect(
         buildStackReference({

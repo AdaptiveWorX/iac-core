@@ -12,13 +12,6 @@
 import type { GlobalRegion, Provider } from "../schemas/core/providers.js";
 
 /**
- * @deprecated Use `Provider` (`schemas/core/providers.js`): the project's
- * second segment names a provider (cloud or SaaS). Same type; it now also
- * includes github and infisical.
- */
-export type CloudProvider = Provider;
-
-/**
  * Environment classification for policy and CI/CD behavior
  * Organizations define custom environment names (dev, qa, uat, prod, etc.)
  * but classify them into standard categories for consistent policy application
@@ -131,14 +124,8 @@ export type AwsRegion =
 export interface StackContext {
   readonly org: string;
   readonly tenant: string;
-  /**
-   * The project's provider. Always set by detectStackContext() and
-   * StackContextSchema; optional only so contexts built before it existed
-   * still type-check. Read it with getStackProvider(context).
-   */
-  readonly provider?: Provider;
-  /** @deprecated Use `provider` (or getStackProvider(context)); same value. */
-  readonly cloud: CloudProvider;
+  /** The project's provider: the `{provider}` segment of `{tenant}-{provider}-{env}`. */
+  readonly provider: Provider;
   readonly accountPurpose: AccountPurpose;
   readonly stackPurpose: StackPurpose;
   readonly environment: Environment;
@@ -235,7 +222,7 @@ export type StackRegion = AwsRegion | GlobalRegion | (string & {});
 
 export interface ResourceNaming {
   readonly orgPrefix: string;
-  readonly cloud: CloudProvider;
+  readonly provider: Provider;
   readonly accountPurpose: AccountPurpose;
   readonly stackPurpose: StackPurpose;
   readonly environment: Environment;

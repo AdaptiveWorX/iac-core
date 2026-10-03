@@ -25,7 +25,7 @@ export function generateStackReadme(
   options: StackReadmeOptions = {}
 ): string {
   const { additionalSections = {} } = options;
-  const provider = context.provider ?? context.cloud;
+  const { provider } = context;
 
   let readme = `# ${context.org}-${provider}-${context.accountPurpose}-${context.stackPurpose}-${context.environment}-${context.region}\n\n`;
 

@@ -57,7 +57,6 @@ export type {
   AccountPurpose,
   AgentGuardrails,
   CidrAllocation,
-  CloudProvider,
   ComplianceRequirement,
   DeploymentConfig,
   Environment,

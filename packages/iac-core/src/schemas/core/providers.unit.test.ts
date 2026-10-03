@@ -5,7 +5,6 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { CloudProviderSchema } from "./core-schemas.js";
 import {
   AccountReferenceSchema,
   accountReference,
@@ -37,11 +36,6 @@ describe("providers", () => {
 
     it("has exactly one definition per provider (the extension point)", () => {
       expect(ProviderSchema.options).toEqual(Object.keys(PROVIDER_DEFINITIONS));
-    });
-
-    it("keeps CloudProviderSchema as a deprecated alias of the same schema", () => {
-      expect(CloudProviderSchema).toBe(ProviderSchema);
-      expect(CloudProviderSchema.parse("cloudflare")).toBe("cloudflare");
     });
 
     it("isProvider narrows provider names and rejects prototype keys", () => {

@@ -37,7 +37,7 @@ const clearControlEnv = (): void => {
     "INFISICAL_PROJECT_ID",
     "INFISICAL_SITE_URL",
     "IAC_ENV",
-    "IAC_CLOUD",
+    "IAC_PROVIDER",
     "IAC_REGION",
     "IAC_PURPOSE",
     "GITHUB_ACTIONS",
@@ -106,7 +106,7 @@ describe("SecretManager — current API", () => {
     });
 
     it("accepts a default context", () => {
-      const sm = new SecretManager({ environment: "stg", cloud: "azure" });
+      const sm = new SecretManager({ environment: "stg", provider: "azure" });
       expect(sm).toBeInstanceOf(SecretManager);
     });
 
@@ -184,7 +184,7 @@ describe("SecretManager — current API", () => {
       );
     });
 
-    it("walks the path list and falls back from /{cloud} to /", async () => {
+    it("walks the path list and falls back from /{provider} to /", async () => {
       mockGetSecret
         .mockRejectedValueOnce(new Error("not found in /aws"))
         .mockResolvedValueOnce({ secretValue: "from-root" });
@@ -224,10 +224,10 @@ describe("SecretManager — current API", () => {
       expect(mockGetSecret).toHaveBeenCalledWith(expect.objectContaining({ environment: "prd" }));
     });
 
-    it("uses the resolved cloud in the path list", async () => {
+    it("uses the resolved provider in the path list", async () => {
       mockGetSecret.mockResolvedValueOnce({ secretValue: "ok" });
       const sm = new SecretManager();
-      await sm.getSecret("KEY", { cloud: "azure" });
+      await sm.getSecret("KEY", { provider: "azure" });
       expect(mockGetSecret).toHaveBeenCalledWith(expect.objectContaining({ secretPath: "/azure" }));
     });
   });
@@ -294,7 +294,7 @@ describe("SecretManager — current API", () => {
 
   describe("context resolution", () => {
     it("uses defaults when nothing is provided", async () => {
-      // Default env=dev, cloud=aws — visible via Infisical query when creds are set.
+      // Default env=dev, provider=aws — visible via Infisical query when creds are set.
       process.env.INFISICAL_CLIENT_ID = "id";
       process.env.INFISICAL_CLIENT_SECRET = "secret";
       process.env.INFISICAL_PROJECT_ID = "proj";
@@ -308,7 +308,7 @@ describe("SecretManager — current API", () => {
 
     it("prefers IAC_* env vars over hardcoded defaults", async () => {
       process.env.IAC_ENV = "stg";
-      process.env.IAC_CLOUD = "azure";
+      process.env.IAC_PROVIDER = "azure";
       process.env.INFISICAL_CLIENT_ID = "id";
       process.env.INFISICAL_CLIENT_SECRET = "secret";
       process.env.INFISICAL_PROJECT_ID = "proj";
@@ -322,12 +322,12 @@ describe("SecretManager — current API", () => {
 
     it("prefers defaultContext over IAC_* env vars", async () => {
       process.env.IAC_ENV = "stg";
-      process.env.IAC_CLOUD = "azure";
+      process.env.IAC_PROVIDER = "azure";
       process.env.INFISICAL_CLIENT_ID = "id";
       process.env.INFISICAL_CLIENT_SECRET = "secret";
       process.env.INFISICAL_PROJECT_ID = "proj";
       mockGetSecret.mockResolvedValueOnce({ secretValue: "ok" });
-      const sm = new SecretManager({ environment: "prd", cloud: "gcp" });
+      const sm = new SecretManager({ environment: "prd", provider: "gcp" });
       await sm.getSecret("KEY");
       expect(mockGetSecret).toHaveBeenCalledWith(
         expect.objectContaining({ environment: "prd", secretPath: "/gcp" })
@@ -339,8 +339,8 @@ describe("SecretManager — current API", () => {
       process.env.INFISICAL_CLIENT_SECRET = "secret";
       process.env.INFISICAL_PROJECT_ID = "proj";
       mockGetSecret.mockResolvedValueOnce({ secretValue: "ok" });
-      const sm = new SecretManager({ environment: "prd", cloud: "gcp" });
-      await sm.getSecret("KEY", { environment: "sec", cloud: "aws" });
+      const sm = new SecretManager({ environment: "prd", provider: "gcp" });
+      await sm.getSecret("KEY", { environment: "sec", provider: "aws" });
       expect(mockGetSecret).toHaveBeenCalledWith(
         expect.objectContaining({ environment: "sec", secretPath: "/aws" })
       );
@@ -352,7 +352,7 @@ describe("SecretManager — current API", () => {
       process.env.INFISICAL_PROJECT_ID = "proj";
       mockGetSecret.mockResolvedValueOnce({ secretValue: "ok" });
       const sm = new SecretManager();
-      await sm.getSecret("KEY", { environment: "  stg  ", cloud: "  azure  " });
+      await sm.getSecret("KEY", { environment: "  stg  ", provider: "  azure  " });
       expect(mockGetSecret).toHaveBeenCalledWith(
         expect.objectContaining({ environment: "stg", secretPath: "/azure" })
       );

@@ -5,14 +5,15 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { CloudProvider, StackContext } from "../types/core.js";
+import type { Provider } from "../schemas/core/providers.js";
+import type { StackContext } from "../types/core.js";
 import { exportStackReadme, generateStackReadme } from "./stack-readme.js";
 
 describe("stack-readme", () => {
   const baseContext: StackContext = {
     org: "adaptiveworx",
     tenant: "worx",
-    cloud: "aws",
+    provider: "aws",
     accountPurpose: "ops",
     stackPurpose: "iam",
     environment: "dev",
@@ -167,16 +168,16 @@ describe("stack-readme", () => {
     });
 
     it("should handle all providers", () => {
-      const clouds: CloudProvider[] = ["aws", "azure", "gcp", "cloudflare", "github", "infisical"];
+      const providers: Provider[] = ["aws", "azure", "gcp", "cloudflare", "github", "infisical"];
 
-      for (const cloud of clouds) {
+      for (const provider of providers) {
         const context: StackContext = {
           ...baseContext,
-          cloud,
+          provider,
         };
 
         const readme = generateStackReadme(context);
-        expect(readme).toContain(`| Provider | ${cloud} |`);
+        expect(readme).toContain(`| Provider | ${provider} |`);
       }
     });
 

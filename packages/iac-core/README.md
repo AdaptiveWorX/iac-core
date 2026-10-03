@@ -62,9 +62,8 @@ one-word segments). Providers: `aws`, `gcp`, `azure` (regional: `use1`,
 | `worx-aws-sec` | `dev-ops-vpc-use1` | centralized: dev's VPC, from sec |
 | `worx-cloudflare-sec` | `ops-ztna-glb` | ops account, ztna, global |
 
-`provider` replaces the older `cloud` name; `CloudProviderSchema`,
-`CloudProvider` and `StackContext.cloud` remain as deprecated aliases. See
-[docs/naming.md](./docs/naming.md) for the full grammar, the region rules per
+`provider` replaced the older `cloud` name in 0.5, with no aliases (the rename
+table is in the naming doc). See [docs/naming.md](./docs/naming.md) for the full grammar, the region rules per
 provider, account references and how to add a provider.
 
 ## Quick-start guides per cloud
@@ -83,7 +82,7 @@ provider, account references and how to add a provider.
 
 ### `utils/`
 
-- **`stack-utils`** — `detectStackContext`, `getStackProvider`, `parseProjectName`, `parseStackName`, `generateProjectName`, `generateStackName`, `buildStackReference`, `validateStackContext`, `getEnvironmentConfig`, `getComplianceRequirements`, `validateCrossAccountOperation`.
+- **`stack-utils`** — `detectStackContext`, `parseProjectName`, `parseStackName`, `generateStackName`, `buildStackReference`, `validateStackContext`, `getEnvironmentConfig`, `getComplianceRequirements`, `validateCrossAccountOperation`.
 - **`region-utils`** — `resolveRegion`, `getRegionAliases`, `isValidRegion`, `validateAvailabilityZones` (loads region aliases from `@adaptiveworx/iac-schemas`).
 - **`cidr-allocation`** — `calculateVpcCidr`, `getVpcCidr` for non-overlapping CIDR allocation across environments + regions.
 - **`stack-readme`** — `generateStackReadme`, `exportStackReadme` for auto-documenting Pulumi stacks.
@@ -101,7 +100,7 @@ provider, account references and how to add a provider.
 
 ### `types/`
 
-- All shared infrastructure types: `CloudProvider`, `Environment`, `StackContext`, `DeploymentConfig`, `ComplianceRequirement`, `AccountConfig`, `CidrAllocation`, etc.
+- All shared infrastructure types: `Provider`, `Environment`, `StackContext`, `DeploymentConfig`, `ComplianceRequirement`, `AccountConfig`, `CidrAllocation`, etc.
 
 ## Configuration via environment variables
 
@@ -253,7 +252,7 @@ class SecretManager {
 
 interface SecretContext {
   environment?: Environment;   // dev | stg | prd | sec
-  cloud?: CloudProvider;       // aws | azure | gcp | cloudflare
+  provider?: string;          // Infisical folder /{provider}; default IAC_PROVIDER, then aws
   region?: string;
   purpose?: string;
 }
@@ -287,7 +286,7 @@ class OrganizationConfig {
 
   // Build a stack name from components — applies stackNaming.separator
   // and compresses the region per regionFormat
-  formatStackName(org: string, cloud: string, purpose: string, env: string, region: string): string;
+  formatStackName(org: string, provider: string, purpose: string, env: string, region: string): string;
 
   // Strategy lookup (none | single | multi-az | high-availability)
   getNatGatewayCount(environment: string): number;
@@ -372,10 +371,10 @@ const registry = new AWSAccountRegistry();   // empty foundation map, generic pr
 ### Utilities — `region-utils`
 
 ```ts
-function resolveRegion(cloud: CloudProvider, regionAlias: string): string;
-function getRegionAliases(cloud: CloudProvider): Record<string, string>;
-function getRegions(cloud: CloudProvider): string[];
-function isValidRegion(cloud: CloudProvider, region: string): boolean;
+function resolveRegion(provider: Provider, regionAlias: string): string;
+function getRegionAliases(provider: Provider): Record<string, string>;
+function getRegions(provider: Provider): string[];
+function isValidRegion(provider: Provider, region: string): boolean;
 function validateAvailabilityZones(region: string, count: number): boolean;
 ```
 

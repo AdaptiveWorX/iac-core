@@ -134,7 +134,7 @@ export const DEFAULT_ENVIRONMENTS: Record<string, EnvironmentConfig> = {
 
 export const DEFAULT_STACK_NAMING: StackNaming = {
   separator: "-",
-  components: ["org", "cloud", "purpose", "env", "region"],
+  components: ["org", "provider", "purpose", "env", "region"],
   regionFormat: "compressed",
   examples: [
     "myorg-aws-app-dev-use1",
@@ -199,13 +199,13 @@ export class OrganizationConfig {
 
   formatStackName(
     org: string,
-    cloud: string,
+    provider: string,
     purpose: string,
     env: string,
     region: string
   ): string {
     const regionCompressed = region.replace("-", "");
-    const components = [org, cloud, purpose, env, regionCompressed];
+    const components = [org, provider, purpose, env, regionCompressed];
     return components.join(this.stackNaming.separator);
   }
 

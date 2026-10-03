@@ -14,7 +14,7 @@ import { InfisicalSDK } from "@infisical/sdk";
 import * as pulumi from "@pulumi/pulumi";
 
 const DEFAULT_ENVIRONMENT = "dev";
-const DEFAULT_CLOUD = "aws";
+const DEFAULT_PROVIDER = "aws";
 
 function getEnvVar(name: string): string | undefined {
   const value = process.env[name];
@@ -56,14 +56,15 @@ function describeError(
 
 export interface SecretContext {
   readonly environment?: string;
-  readonly cloud?: string;
+  /** The Infisical folder `/{provider}` is searched before `/` (default aws). */
+  readonly provider?: string;
   readonly region?: string;
   readonly purpose?: string;
 }
 
 interface ResolvedContext {
   readonly environment: string;
-  readonly cloud: string;
+  readonly provider: string;
   readonly region: string | undefined;
   readonly purpose: string | undefined;
 }
@@ -132,7 +133,7 @@ export class SecretManager {
       }
 
       // Fallback to environment variables for secrets
-      // This requires secrets to be in .env.{cloud}.{env} files (use env-refresh)
+      // This requires secrets to be in .env.{provider}.{env} files (use env-refresh)
       void pulumi.log.info("ℹ️  Using environment variables for secrets (local development mode)");
       void pulumi.log.info(
         "💡 Tip: Set INFISICAL_CLIENT_ID and INFISICAL_CLIENT_SECRET for cross-environment access"
@@ -157,11 +158,11 @@ export class SecretManager {
       getEnvVar("IAC_ENV") ??
       DEFAULT_ENVIRONMENT
     ).trim();
-    const cloud = (
-      context?.cloud ??
-      this.defaultContext?.cloud ??
-      getEnvVar("IAC_CLOUD") ??
-      DEFAULT_CLOUD
+    const provider = (
+      context?.provider ??
+      this.defaultContext?.provider ??
+      getEnvVar("IAC_PROVIDER") ??
+      DEFAULT_PROVIDER
     ).trim();
     const region =
       context?.region?.trim() ??
@@ -174,18 +175,18 @@ export class SecretManager {
 
     return {
       environment,
-      cloud,
+      provider,
       region,
       purpose,
     };
   }
 
   private buildSecretPaths(context: ResolvedContext): string[] {
-    // Simple 2-path lookup: cloud-specific, then root
-    // Cloud folder (/{cloud}): Cloud-specific feature flags and config
-    //   Examples: /aws, /azure, /cloudflare (when deploying to those clouds)
-    // Root folder (/): Cross-cloud org-wide config (GITHUB_*, ORG_*, PULUMI_*, quality gates)
-    return [`/${context.cloud}`, "/"];
+    // Simple 2-path lookup: provider-specific, then root
+    // Provider folder (/{provider}): provider-specific feature flags and config
+    //   Examples: /aws, /azure, /cloudflare (when deploying to those providers)
+    // Root folder (/): cross-provider org-wide config (GITHUB_*, ORG_*, PULUMI_*, quality gates)
+    return [`/${context.provider}`, "/"];
   }
 
   async getSecret(key: string, context?: SecretContext): Promise<string> {
@@ -255,7 +256,7 @@ export class SecretManager {
 
     throw new Error(
       `❌ Secret '${key}' not found in Infisical or environment variables.\n` +
-        `Context: env=${resolved.environment}, cloud=${resolved.cloud}, region=${resolved.region ?? "-"}, purpose=${resolved.purpose ?? "-"}\n` +
+        `Context: env=${resolved.environment}, provider=${resolved.provider}, region=${resolved.region ?? "-"}, purpose=${resolved.purpose ?? "-"}\n` +
         `Current IAC_ENV: ${currentEnv}\n` +
         "💡 For cross-environment access, set INFISICAL_CLIENT_ID and INFISICAL_CLIENT_SECRET for Universal Auth."
     );

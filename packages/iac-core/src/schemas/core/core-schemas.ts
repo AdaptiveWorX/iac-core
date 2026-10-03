@@ -14,18 +14,9 @@ import type { ComplianceRequirement } from "../../types/core.js";
 import {
   isRegionalProvider,
   isValidProviderRegion,
-  type Provider,
   ProviderSchema,
   resolveProviderRegion,
 } from "./providers.js";
-
-/**
- * @deprecated Use {@link ProviderSchema} (`./providers.js`): the project's
- * second segment names a provider (cloud or SaaS), not only a cloud. This
- * alias is the same schema; it now also accepts cloudflare, github and
- * infisical.
- */
-export const CloudProviderSchema = ProviderSchema;
 
 /**
  * Stack names have 3 to 5 hyphen-separated segments:
@@ -261,21 +252,12 @@ export const StackNameSchema = z
     }
   );
 
-/** The provider of a stack context input: `provider`, or the deprecated `cloud`. */
-function contextProvider(data: {
-  provider?: Provider | undefined;
-  cloud?: Provider | undefined;
-}): Provider | undefined {
-  return data.provider ?? data.cloud;
-}
-
 /**
  * Stack context schema with cross-field validation for project/stack naming
  * Architecture: {org}/{tenant}-{provider}-{env}/[{target-env}-]{account-purpose}-{stack-purpose}[-{concern}]-{region}
  * Concern: Optional descriptor for blast radius isolation (e.g., "github", "sso", "appName1")
  *
- * Provider: pass `provider`, or the deprecated `cloud` (same values); if both
- * are given they must match. `region` must be valid for the provider: a
+ * `region` must be valid for the provider: a
  * regional provider's code or full name (AWS `use1` / `us-east-1`), or `glb`
  * / `global` for a global provider (Cloudflare, GitHub, Infisical).
  */
@@ -283,9 +265,7 @@ export const StackContextSchema = z
   .object({
     org: z.string().min(1), // Pulumi Cloud organization (e.g., "adaptiveworx")
     tenant: OrgPrefixSchema, // Multi-tenant identifier (worx, care, etc.)
-    provider: ProviderSchema.optional(),
-    /** @deprecated Use `provider`. */
-    cloud: ProviderSchema.optional(),
+    provider: ProviderSchema,
     accountPurpose: AccountPurposeSchema,
     stackPurpose: StackPurposeSchema,
     environment: EnvironmentSchema,
@@ -296,22 +276,7 @@ export const StackContextSchema = z
     targetEnvironment: EnvironmentSchema.optional(),
   })
   .superRefine((data, ctx) => {
-    const provider = contextProvider(data);
-    if (provider === undefined) {
-      ctx.addIssue({
-        code: "custom",
-        message: "provider is required (or the deprecated cloud)",
-        path: ["provider"],
-      });
-      return;
-    }
-    if (data.provider !== undefined && data.cloud !== undefined && data.provider !== data.cloud) {
-      ctx.addIssue({
-        code: "custom",
-        message: `provider '${data.provider}' and cloud '${data.cloud}' disagree; cloud is a deprecated alias of provider`,
-        path: ["cloud"],
-      });
-    }
+    const { provider } = data;
 
     // Agent guardrail: the region must exist for the provider; glb only for global providers
     if (!isValidProviderRegion(provider, data.region)) {

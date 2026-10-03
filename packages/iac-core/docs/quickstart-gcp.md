@@ -1,6 +1,6 @@
 # Quick start — GCP with `@adaptiveworx/iac-core`
 
-GCP support in `@adaptiveworx/iac-core` is **type-aware but framework-thin** — same shape as Azure. `StackContext` and `resolveRegion` know about `cloud: "gcp"`, region aliases (`use1` → `us-east1`, etc.) live in [`@adaptiveworx/iac-schemas`](https://github.com/AdaptiveWorX/iac-worx/tree/main/libs/iac/schemas), but there's no `GCPProjectRegistry` (analogous to `AWSAccountRegistry`) yet.
+GCP support in `@adaptiveworx/iac-core` is **type-aware but framework-thin** — same shape as Azure. `StackContext` and `resolveRegion` know about `provider: "gcp"`, region aliases (`use1` → `us-east1`, etc.) live in [`@adaptiveworx/iac-schemas`](https://github.com/AdaptiveWorX/iac-worx/tree/main/libs/iac/schemas), but there's no `GCPProjectRegistry` (analogous to `AWSAccountRegistry`) yet.
 
 For GCP deployments, use the package for secrets + region resolution + Pulumi stack-context. The AWS-specific surface stays disabled.
 

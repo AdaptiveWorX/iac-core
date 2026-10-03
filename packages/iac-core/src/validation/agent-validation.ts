@@ -306,7 +306,7 @@ export namespace ValidationPatterns {
     context: string = "stack-context"
   ): ValidationResult<{
     org: string;
-    cloud: "aws" | "gcp" | "azure";
+    provider: Provider;
     purpose: "app" | "ucx" | "data" | "security" | "ops";
     environment: "dev" | "stg" | "prd" | "sec";
     region: string;
@@ -319,7 +319,7 @@ export namespace ValidationPatterns {
           .min(2)
           .max(8)
           .regex(/^[a-z][a-z0-9]*$/),
-        cloud: z.enum(["aws", "gcp", "azure"]),
+        provider: ProviderSchema,
         purpose: z.enum(["app", "ucx", "data", "security", "ops"]),
         environment: z.enum(["dev", "stg", "prd", "sec"]),
         region: z.string(),

@@ -15,11 +15,8 @@ validates both names (`detectStackContext()`, `parseProjectName()`,
 
 `worx-aws-dev`, `worx-aws-sec`, `worx-cloudflare-sec`, `worx-github-sec`.
 
-The provider segment used to be called `cloud`. The old names stay as
-deprecated aliases with the same values: `CloudProviderSchema`
-(= `ProviderSchema`), `CloudProvider` (= `Provider`), and `cloud` on a
-`StackContext` (= `provider`). `StackContextSchema` accepts `provider`, `cloud`
-or both (they must agree); `detectStackContext()` sets both.
+The provider segment used to be called `cloud`; iac-core 0.5 renamed it
+everywhere, with no aliases (see [Renamed in 0.5](#renamed-in-05)).
 
 ## Stack: `[{target-env}-]{account-purpose}-{stack-purpose}[-{concern}]-{region}`
 
@@ -87,11 +84,28 @@ take an optional `provider` (default `aws`) and check both account ids against i
 
 ## Building names
 
-- `generateProjectName(tenant, provider, env)` -> `worx-cloudflare-sec`. The
-  two-argument form `generateProjectName(cloud, env)` is deprecated: it returns
-  `aws-dev`, which is not a valid project name.
 - `generateStackName(accountPurpose, stackPurpose, region, concern?, targetEnv?)`.
 - `buildStackReference({ org, tenant, provider, environment, accountPurpose,
   stackPurpose, region, concern?, targetEnvironment? })` ->
-  `adaptiveworx/worx-cloudflare-sec/ops-ztna-glb`. It replaces the deprecated
-  `generateFullStackReference()`, whose project segment has no tenant.
+  `adaptiveworx/worx-cloudflare-sec/ops-ztna-glb`.
+
+## Renamed in 0.5
+
+`cloud` became `provider` throughout, with no deprecated aliases:
+
+| Before (0.4) | Now (0.5) |
+|---|---|
+| `CloudProviderSchema` (`aws`, `gcp`, `azure`) | `ProviderSchema` (+ `cloudflare`, `github`, `infisical`) |
+| type `CloudProvider` | type `Provider` |
+| `StackContext.cloud` / `StackContextSchema` input `cloud` | `provider` (required) |
+| `parseProjectName()` → `{ tenant, cloud, environment }` | `{ tenant, provider, environment }` |
+| `parseStackName("org/project/stack").cloud` | `.provider` |
+| `ResourceNaming.cloud` | `ResourceNaming.provider` |
+| `SecretContext.cloud` (SecretManager) | `SecretContext.provider` (Infisical folder `/{provider}`) |
+| env var `IAC_CLOUD` | `IAC_PROVIDER` (default `aws`) |
+| `resolveRegion(cloud, …)`, `getRegionAliases(cloud)`, `getRegions(cloud)`, `isValidRegion(cloud, …)` | same functions, parameter `provider: Provider` |
+| `OrganizationConfig.formatStackName(org, cloud, …)`, `DEFAULT_STACK_NAMING.components` `"cloud"` | `provider` |
+| `ValidationPatterns.validateStackContext` field `cloud` | `provider` |
+| `generateProjectName(cloud, env)` (returned `aws-dev`) | removed: a project name is `` `${tenant}-${provider}-${env}` `` |
+| `generateFullStackReference(org, cloud, env, …)` (no tenant) | removed: `buildStackReference({ org, tenant, provider, … })` |
+| Cloudflare region alias `global` | `glb` (`global` stays valid as the region name) |
