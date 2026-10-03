@@ -2,7 +2,7 @@
 
 Core utilities for [AdaptiveWorX™ Flow](https://adaptiveworx.com) infrastructure-as-code: secret management, stack context detection, region resolution, CIDR allocation, and Zod-validated configuration schemas.
 
-The package is multi-cloud-aware (AWS today; Azure and GCP planned) and is licensed under Apache 2.0 for use in any Pulumi + TypeScript project.
+The package is multi-provider-aware (AWS today; Cloudflare, GitHub and Infisical as global providers; Azure and GCP planned) and is licensed under Apache 2.0 for use in any Pulumi + TypeScript project.
 
 ## Install
 
@@ -30,7 +30,7 @@ import {
   detectStackContext,
 } from "@adaptiveworx/iac-core";
 
-// 1. Detect Pulumi stack context (cloud, environment, region, purpose)
+// 1. Detect Pulumi stack context (provider, environment, region, purpose)
 const ctx = detectStackContext();
 
 // 2. Load organization options from env vars
@@ -48,6 +48,25 @@ import { SecretManager } from "@adaptiveworx/iac-core/config/secrets";
 import { resolveRegion } from "@adaptiveworx/iac-core/utils/region-utils";
 ```
 
+## Naming
+
+Projects are `{tenant}-{provider}-{env}`; stacks are
+`[{target-env}-]{account-purpose}-{stack-purpose}[-{concern}]-{region}` (3 to 5
+one-word segments). Providers: `aws`, `gcp`, `azure` (regional: `use1`,
+`usw2`, …) and `cloudflare`, `github`, `infisical` (global: region `glb`).
+
+| Project | Stack | Reads as |
+|---|---|---|
+| `worx-aws-dev` | `app-flow-use1` | app account, flow, us-east-1 |
+| `worx-aws-sec` | `ops-iam-github-use1` | ops account, iam, concern github |
+| `worx-aws-sec` | `dev-ops-vpc-use1` | centralized: dev's VPC, from sec |
+| `worx-cloudflare-sec` | `ops-ztna-glb` | ops account, ztna, global |
+
+`provider` replaces the older `cloud` name; `CloudProviderSchema`,
+`CloudProvider` and `StackContext.cloud` remain as deprecated aliases. See
+[docs/naming.md](./docs/naming.md) for the full grammar, the region rules per
+provider, account references and how to add a provider.
+
 ## Quick-start guides per cloud
 
 - [AWS quick start](./docs/quickstart-aws.md) — full Pulumi + AWS deploy walkthrough; covers OrganizationConfig, AWSAccountRegistry, CIDR, and policy-pack integration
@@ -64,7 +83,7 @@ import { resolveRegion } from "@adaptiveworx/iac-core/utils/region-utils";
 
 ### `utils/`
 
-- **`stack-utils`** — `detectStackContext`, `parseStackName`, `generateStackName`, `validateStackContext`, `getEnvironmentConfig`, `getComplianceRequirements`, `validateCrossAccountOperation`.
+- **`stack-utils`** — `detectStackContext`, `getStackProvider`, `parseProjectName`, `parseStackName`, `generateProjectName`, `generateStackName`, `buildStackReference`, `validateStackContext`, `getEnvironmentConfig`, `getComplianceRequirements`, `validateCrossAccountOperation`.
 - **`region-utils`** — `resolveRegion`, `getRegionAliases`, `isValidRegion`, `validateAvailabilityZones` (loads region aliases from `@adaptiveworx/iac-schemas`).
 - **`cidr-allocation`** — `calculateVpcCidr`, `getVpcCidr` for non-overlapping CIDR allocation across environments + regions.
 - **`stack-readme`** — `generateStackReadme`, `exportStackReadme` for auto-documenting Pulumi stacks.
@@ -72,7 +91,8 @@ import { resolveRegion } from "@adaptiveworx/iac-core/utils/region-utils";
 ### `schemas/`
 
 - **`SCHEMA_CONFIG`, `SCHEMA_BASE_URL`** — canonical metadata for the IaC schema namespace.
-- **`schemas/core/core-schemas`** — Zod validators (`StackContextSchema`, `DeploymentConfigSchema`, `AwsRegionSchema`, etc.).
+- **`schemas/core/core-schemas`** — Zod validators (`StackContextSchema`, `ProjectNameSchema`, `StackNameSchema`, `DeploymentConfigSchema`, `AwsRegionSchema`, etc.).
+- **`schemas/core/providers`** — `ProviderSchema`, `PROVIDER_DEFINITIONS`, provider regions (`isValidProviderRegion`, `resolveProviderRegion`, `GLOBAL_REGION_CODE`), and provider-neutral account references (`AccountReferenceSchema`, `accountReference`).
 
 ### `validation/`
 
