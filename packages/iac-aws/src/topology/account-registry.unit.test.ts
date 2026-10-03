@@ -6,7 +6,41 @@
 
 import type { SecretManager } from "@adaptiveworx/iac-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AwsAccountRegistry } from "./account-registry.js";
+import { AwsAccountRegistry, parseAwsAccountsJson } from "./account-registry.js";
+
+const { logCalls } = vi.hoisted(() => ({ logCalls: [] as string[] }));
+
+vi.mock("@pulumi/pulumi", async importOriginal => {
+  const actual = await importOriginal<typeof import("@pulumi/pulumi")>();
+  const capture =
+    (level: string) =>
+    (...args: unknown[]): Promise<void> => {
+      logCalls.push(`${level}: ${args.map(a => String(a)).join(" ")}`);
+      return Promise.resolve();
+    };
+  return {
+    ...actual,
+    log: {
+      info: capture("info"),
+      warn: capture("warn"),
+      debug: capture("debug"),
+      error: capture("error"),
+    },
+  };
+});
+
+/** Fails if any 4-character window of `value` appears in `output`. */
+function expectNoLeak(output: readonly string[], value: string): void {
+  const joined = output.join("\n");
+  for (let i = 0; i + 4 <= value.length; i++) {
+    const window = value.substring(i, i + 4);
+    expect(joined, `output leaked '${window}'`).not.toContain(window);
+  }
+}
+
+/** Malformed AWS_ACCOUNTS blob carrying a distinctive marker V8 would echo. */
+const LEAKY_MARKER = "Qz8RwT5yUi3PkL";
+const MALFORMED_ACCOUNTS = `{"ops": {"id": "1", "email": ${LEAKY_MARKER}}}`;
 
 /**
  * Builds a minimally-shaped `SecretManager` mock that returns a fixed
@@ -104,6 +138,56 @@ describe("AwsAccountRegistry", () => {
       // return the cached normalised Map without re-reading. After clear,
       // both layers re-fetch.
       expect(mockSecretManager.getOptionalSecret).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("never logs AWS_ACCOUNTS contents", () => {
+    beforeEach(() => {
+      logCalls.length = 0;
+    });
+
+    it("dev: a malformed blob warns without echoing its contents", () => {
+      expect(parseAwsAccountsJson(MALFORMED_ACCOUNTS, "dev")).toEqual({});
+      expect(logCalls.join("\n")).toContain("not valid JSON");
+      expectNoLeak(logCalls, LEAKY_MARKER);
+    });
+
+    it("prd: the thrown error and the error log withhold the contents", () => {
+      let thrown: unknown;
+      try {
+        parseAwsAccountsJson(MALFORMED_ACCOUNTS, "prd");
+      } catch (error) {
+        thrown = error;
+      }
+      expect(thrown).toBeInstanceOf(Error);
+      expectNoLeak([(thrown as Error).message, ...logCalls], LEAKY_MARKER);
+    });
+
+    it("registry: first read and cache hit both stay silent about contents", async () => {
+      const sm = {
+        getOptionalSecret: vi.fn(() => Promise.resolve(MALFORMED_ACCOUNTS)),
+      } as unknown as SecretManager;
+      const reg = new AwsAccountRegistry({ secretManager: sm, accountNamingPrefix: "worx" });
+
+      await expect(reg.getAccountsForEnvironment("dev")).resolves.toEqual(new Map());
+      await expect(reg.getAccountsForEnvironment("dev")).resolves.toEqual(new Map());
+      await reg.getAwsProfile("ops", "dev");
+
+      expect(sm.getOptionalSecret).toHaveBeenCalledTimes(1);
+      expectNoLeak(logCalls, LEAKY_MARKER);
+    });
+
+    it("registry: a production parse failure is logged without contents", async () => {
+      const sm = {
+        getOptionalSecret: vi.fn(() => Promise.resolve(MALFORMED_ACCOUNTS)),
+      } as unknown as SecretManager;
+      const reg = new AwsAccountRegistry({ secretManager: sm, accountNamingPrefix: "worx" });
+
+      await expect(reg.getAccountsForEnvironment("prd")).resolves.toEqual(new Map());
+      await reg.getAwsProfile("ops", "prd");
+
+      expect(logCalls.length).toBeGreaterThan(0);
+      expectNoLeak(logCalls, LEAKY_MARKER);
     });
   });
 });

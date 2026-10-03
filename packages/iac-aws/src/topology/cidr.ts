@@ -42,5 +42,15 @@ export async function getAwsVpcCidr(
     cloud: "aws",
     environment,
   });
-  return calculateVpcCidr(cidrBase, offset);
+  try {
+    return calculateVpcCidr(cidrBase, offset);
+  } catch {
+    // calculateVpcCidr's messages embed its input; VPC_CIDR_BASE is sourced
+    // from SecretManager, so withhold the value (and the cause that carries it).
+    throw new Error(
+      `getAwsVpcCidr: VPC_CIDR_BASE for environment '${environment}' cannot allocate a /16 ` +
+        `at offset ${offset} for region '${region}' (value withheld). ` +
+        "Check that it is a valid IPv4 CIDR with enough capacity."
+    );
+  }
 }
