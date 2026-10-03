@@ -1,0 +1,25 @@
+# Dependabot: security updates only (version-update PRs disabled with
+# open-pull-requests-limit: 0). The commit-message prefix gives PR titles a
+# scope the PR-title check accepts (iac-core, iac-schemas, iac-policies,
+# iac-aws, iac-azure, repo, release).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    commit-message:
+      prefix: "chore(repo)"
+    groups:
+      npm_and_yarn:
+        applies-to: security-updates
+        patterns:
+          - "*"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    commit-message:
+      prefix: "chore(repo)"
