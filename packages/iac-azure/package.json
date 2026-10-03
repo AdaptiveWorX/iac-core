@@ -51,7 +51,7 @@
   "peerDependencies": {
     "@pulumi/azure-native": "^3.0.0",
     "@pulumi/pulumi": "^3.0.0",
-    "typescript": "^6.0.0"
+    "typescript": "^6.0.0 || ^7.0.0"
   },
   "peerDependenciesMeta": {
     "typescript": {

@@ -59,7 +59,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "peerDependencies": {
-    "typescript": "^6.0.0"
+    "typescript": "^6.0.0 || ^7.0.0"
   },
   "peerDependenciesMeta": {
     "typescript": {

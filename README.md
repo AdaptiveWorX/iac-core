@@ -106,8 +106,12 @@ pnpm format:check       # Check only
   `pnpm-workspace.yaml`: a strict 3-day `minimumReleaseAge`, an explicit
   `allowBuilds` map)
 - **Nx 23** for build orchestration, caching, affected graph, releases
-- **TypeScript 6** with `@tsconfig/strictest` (TypeScript 7 waits on Nx:
-  Nx 23 reads tsconfigs through the TypeScript JS API, which 7 dropped)
+- **TypeScript 6** builds the packages, with `@tsconfig/strictest`, until
+  Nx supports TypeScript 7 (Nx 23 reads tsconfigs through the TypeScript JS
+  API, which 7 dropped). **Consumers may use TypeScript 6 or 7**: the
+  `typescript` peer is `^6.0.0 || ^7.0.0`, and `tools/ts7-consumer` (part of
+  every `typecheck` run) type-checks each package's emitted `.d.ts` with
+  TypeScript 7.0.2, `skipLibCheck` off
 - **Vitest 5** for unit + integration tests
 - **Biome 2** for lint + format; **Renovate** for dependency updates
 

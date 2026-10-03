@@ -54,7 +54,7 @@
     "@adaptiveworx/iac-core": "^0.2.0 || ^0.3.0 || ^0.4.0",
     "@pulumi/aws": "^7.0.0",
     "@pulumi/pulumi": "^3.0.0",
-    "typescript": "^6.0.0"
+    "typescript": "^6.0.0 || ^7.0.0"
   },
   "peerDependenciesMeta": {
     "typescript": {

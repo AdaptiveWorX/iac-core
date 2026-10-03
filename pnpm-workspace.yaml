@@ -1,5 +1,8 @@
 packages:
   - "packages/*"
+  # Private, never published: tools/ts7-consumer checks the packages' .d.ts
+  # under TypeScript 7 (see its package.json).
+  - "tools/*"
 
 # pnpm 12 reads its settings only from this file: the package.json "pnpm"
 # field and pnpm-specific .npmrc keys are ignored.
@@ -8,6 +11,14 @@ strictPeerDependencies: false
 publicHoistPattern:
   - "@types/*"
   - "@biomejs/*"
+
+# @pulumi/pulumi declares `typescript >=3.8.3 <7` for its runtime's TS program
+# loader (the TypeScript JS API, which TS 7 no longer ships). Only the
+# tools/ts7-consumer fixture installs TS 7, and it only type-checks against
+# Pulumi's declarations, never runs a Pulumi program, so the edge is waived.
+peerDependencyRules:
+  allowedVersions:
+    "@pulumi/pulumi>typescript": "7"
 
 # Dependency build scripts: every package that ships one is decided here
 # explicitly (true = run it, false = skip it).
