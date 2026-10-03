@@ -55,9 +55,10 @@ export class AgentValidationError extends Error {
  */
 export namespace AgentValidationService {
   const ERROR_CODE_MAP: Partial<Record<string, ValidationErrorCode>> = {
+    // zod 4 issue codes (zod 3's invalid_string / invalid_enum_value).
     invalid_type: "REQUIRED_FIELD_MISSING",
-    invalid_string: "INVALID_FORMAT",
-    invalid_enum_value: "INVALID_VALUE",
+    invalid_format: "INVALID_FORMAT",
+    invalid_value: "INVALID_VALUE",
     too_small: "CONSTRAINT_VIOLATION",
     too_big: "CONSTRAINT_VIOLATION",
     invalid_union: "INVALID_VALUE",
@@ -211,7 +212,7 @@ export namespace AgentValidationService {
     }
 
     // Format and constraint violations are warnings in dev
-    if (["invalid_string", "too_small", "too_big"].includes(issue.code)) {
+    if (["invalid_format", "too_small", "too_big"].includes(issue.code)) {
       return context.includes("dev") ? "warning" : "error";
     }
 
