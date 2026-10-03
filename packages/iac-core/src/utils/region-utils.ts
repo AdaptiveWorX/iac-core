@@ -5,7 +5,7 @@
  */
 
 /**
- * Region mapping utilities for cloud providers.
+ * Region mapping utilities per provider.
  *
  * Sources canonical region data from `@adaptiveworx/iac-schemas` so this
  * works identically in the monorepo and in published-npm form (no
@@ -13,37 +13,29 @@
  */
 
 import { regions as regionsData } from "@adaptiveworx/iac-schemas";
+import type { Provider } from "../schemas/core/providers.js";
 
 interface RegionConfig {
   aliases: Record<string, string>;
   regions: string[];
 }
 
-interface RegionsData {
-  aws: RegionConfig;
-  azure: RegionConfig;
-  gcp: RegionConfig;
-  cloudflare: RegionConfig;
-}
+const EMPTY_REGIONS: RegionConfig = { aliases: {}, regions: [] };
 
-const cachedRegions = regionsData as RegionsData;
-
-function loadRegionsConfig(): RegionsData {
-  return cachedRegions;
+/** The provider's region table from iac-schemas (empty for a provider it has none for). */
+function regionConfig(provider: Provider): RegionConfig {
+  const table = (regionsData as unknown as Partial<Record<string, RegionConfig>>)[provider];
+  return table ?? EMPTY_REGIONS;
 }
 
 /**
  * Resolve a region alias to its full region name
- * @param cloud - Cloud provider (aws, azure, gcp, cloudflare)
+ * @param provider - Provider (aws, azure, gcp, cloudflare, …)
  * @param regionAlias - Short region code (e.g., "use1") or full name
  * @returns Full region name (e.g., "us-east-1") or original if no mapping exists
  */
-export function resolveRegion(
-  cloud: "aws" | "azure" | "gcp" | "cloudflare",
-  regionAlias: string
-): string {
-  const regions = loadRegionsConfig();
-  const config = regions[cloud];
+export function resolveRegion(provider: Provider, regionAlias: string): string {
+  const config = regionConfig(provider);
 
   // Check if it's an alias
   const resolvedAlias: string | undefined = config.aliases[regionAlias];
@@ -61,39 +53,31 @@ export function resolveRegion(
 }
 
 /**
- * Get all available region aliases for a cloud provider
- * @param cloud - Cloud provider
+ * Get all available region aliases for a provider
+ * @param provider - Provider
  * @returns Record of alias to full region name
  */
-export function getRegionAliases(
-  cloud: "aws" | "azure" | "gcp" | "cloudflare"
-): Record<string, string> {
-  const regions = loadRegionsConfig();
-  return regions[cloud].aliases;
+export function getRegionAliases(provider: Provider): Record<string, string> {
+  return regionConfig(provider).aliases;
 }
 
 /**
- * Get all available full region names for a cloud provider
- * @param cloud - Cloud provider
+ * Get all available full region names for a provider
+ * @param provider - Provider
  * @returns Array of full region names
  */
-export function getRegions(cloud: "aws" | "azure" | "gcp" | "cloudflare"): string[] {
-  const regions = loadRegionsConfig();
-  return regions[cloud].regions;
+export function getRegions(provider: Provider): string[] {
+  return regionConfig(provider).regions;
 }
 
 /**
- * Check if a region alias or name is valid for a cloud provider
- * @param cloud - Cloud provider
+ * Check if a region alias or name is valid for a provider
+ * @param provider - Provider
  * @param region - Region alias or full name
  * @returns true if valid, false otherwise
  */
-export function isValidRegion(
-  cloud: "aws" | "azure" | "gcp" | "cloudflare",
-  region: string
-): boolean {
-  const regions = loadRegionsConfig();
-  const config = regions[cloud];
+export function isValidRegion(provider: Provider, region: string): boolean {
+  const config = regionConfig(provider);
 
   // Check if region exists as an alias or full region name
   return region in config.aliases || config.regions.includes(region);

@@ -46,7 +46,7 @@ const clearControlEnv = (): void => {
     "INFISICAL_PROJECT_ID",
     "INFISICAL_SITE_URL",
     "IAC_ENV",
-    "IAC_CLOUD",
+    "IAC_PROVIDER",
     "IAC_REGION",
     "IAC_PURPOSE",
     "GITHUB_ACTIONS",
@@ -191,11 +191,11 @@ describe("SecretManager — workflow scenarios", () => {
       expect(calls).toEqual(["dev", "stg", "prd", "sec"]);
     });
 
-    it("dispatches each request to the right cloud path", async () => {
+    it("dispatches each request to the right provider path", async () => {
       const sm = new SecretManager();
 
-      for (const cloud of ["aws", "azure", "gcp", "cloudflare"]) {
-        await sm.getSecret("KEY", { cloud });
+      for (const provider of ["aws", "azure", "gcp", "cloudflare"]) {
+        await sm.getSecret("KEY", { provider });
       }
 
       const paths = mockGetSecret.mock.calls.map(c => (c[0] as { secretPath: string }).secretPath);
@@ -203,7 +203,7 @@ describe("SecretManager — workflow scenarios", () => {
     });
 
     it("default context locks in environment for every call until overridden", async () => {
-      const sm = new SecretManager({ environment: "stg", cloud: "azure" });
+      const sm = new SecretManager({ environment: "stg", provider: "azure" });
 
       await sm.getSecret("A");
       await sm.getSecret("B", { environment: "prd" });

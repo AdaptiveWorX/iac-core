@@ -33,8 +33,8 @@ function requirePulumiOrg(): string {
 /**
  * Detect stack context from current Pulumi project and stack
  * Agent guardrail: Comprehensive validation with structured error handling
- * Uses hierarchical naming: {org}/{tenant}-{cloud}-{env}/{account-purpose}-{stack-purpose}-{concern}-{region}
- * Or for centralized resources: {org}/{tenant}-{cloud}-{env}/{target-env}-{account-purpose}-{stack-purpose}-{concern}-{region}
+ * Uses hierarchical naming: {org}/{tenant}-{provider}-{env}/[{target-env}-]{account-purpose}-{stack-purpose}[-{concern}]-{region}
+ * (e.g. adaptiveworx/worx-aws-sec/ops-iam-github-use1, adaptiveworx/worx-cloudflare-sec/ops-ztna-glb).
  */
 export function detectStackContext(): StackContext {
   try {
@@ -42,7 +42,7 @@ export function detectStackContext(): StackContext {
     const stackName = pulumi.getStack(); // e.g., "ops-iam-github-use1" or "dev-ops-vpc-shared-use1"
 
     // Parse project name using helper
-    const { tenant, cloud, environment } = parseProjectName(projectName);
+    const { tenant, provider, environment } = parseProjectName(projectName);
 
     // Parse stack name using centralized parser
     const parsed = parseStackName(stackName);
@@ -52,7 +52,7 @@ export function detectStackContext(): StackContext {
     const contextInput = {
       org: requirePulumiOrg(),
       tenant, // Multi-tenant identifier (worx, care, etc.)
-      cloud,
+      provider,
       accountPurpose,
       stackPurpose,
       environment,
@@ -95,36 +95,37 @@ export function validateStackContext(context: StackContext): void {
 /**
  * Parse project name components with validation
  * Agent guardrail: Ensures consistent project naming
- * Format: {tenant}-{cloud}-{env} (e.g., "worx-aws-dev", "care-aws-prd")
+ * Format: {tenant}-{provider}-{env} (e.g., "worx-aws-dev", "worx-cloudflare-sec").
+ * Splits only; StackContextSchema / ProjectNameSchema validate the provider.
  */
 export function parseProjectName(projectName: string): {
   tenant: string;
-  cloud: string;
+  provider: string;
   environment: string;
 } {
   const parts = projectName.split("-");
 
   if (parts.length !== 3) {
     throw new Error(
-      `Invalid project name format: ${projectName}. Expected: {tenant}-{cloud}-{env}`
+      `Invalid project name format: ${projectName}. Expected: {tenant}-{provider}-{env}`
     );
   }
 
-  const [tenantRaw, cloudRaw, environmentRaw] = parts;
+  const [tenantRaw, providerRaw, environmentRaw] = parts;
 
-  if (tenantRaw === undefined || cloudRaw === undefined || environmentRaw === undefined) {
+  if (tenantRaw === undefined || providerRaw === undefined || environmentRaw === undefined) {
     throw new Error(`Incomplete project name components: ${projectName}`);
   }
 
   const tenant = tenantRaw.trim();
-  const cloud = cloudRaw.trim();
+  const provider = providerRaw.trim();
   const environment = environmentRaw.trim();
 
-  if ([tenant, cloud, environment].some(part => part.length === 0)) {
+  if ([tenant, provider, environment].some(part => part.length === 0)) {
     throw new Error(`Incomplete project name components: ${projectName}`);
   }
 
-  return { tenant, cloud, environment };
+  return { tenant, provider, environment };
 }
 
 /**
@@ -142,14 +143,14 @@ export function parseStackName(stackName: string): {
   targetEnvironment?: string;
   org?: string;
   tenant?: string;
-  cloud?: string;
+  provider?: string;
   environment?: string;
 } {
-  // Handle full Pulumi stack format: org/project/stack or org/tenant-cloud-env/stack
+  // Handle full Pulumi stack format: org/project/stack or org/tenant-provider-env/stack
   let actualStackName = stackName;
   let extractedOrg: string | undefined;
   let extractedTenant: string | undefined;
-  let extractedCloud: string | undefined;
+  let extractedProvider: string | undefined;
   let extractedEnvironment: string | undefined;
 
   if (stackName.includes("/")) {
@@ -163,11 +164,11 @@ export function parseStackName(stackName: string): {
         extractedOrg = org;
         actualStackName = stack;
 
-        // Parse project name: {tenant}-{cloud}-{env}
+        // Parse project name: {tenant}-{provider}-{env}
         const projectParts = projectName.split("-");
         if (projectParts.length === 3) {
           extractedTenant = projectParts[0];
-          extractedCloud = projectParts[1];
+          extractedProvider = projectParts[1];
           extractedEnvironment = projectParts[2];
         }
       }
@@ -212,7 +213,7 @@ export function parseStackName(stackName: string): {
       region,
       ...(extractedOrg === undefined ? {} : { org: extractedOrg }),
       ...(extractedTenant === undefined ? {} : { tenant: extractedTenant }),
-      ...(extractedCloud === undefined ? {} : { cloud: extractedCloud }),
+      ...(extractedProvider === undefined ? {} : { provider: extractedProvider }),
       ...(extractedEnvironment === undefined ? {} : { environment: extractedEnvironment }),
     };
   } else if (parts.length === 4) {
@@ -252,7 +253,7 @@ export function parseStackName(stackName: string): {
         region,
         ...(extractedOrg === undefined ? {} : { org: extractedOrg }),
         ...(extractedTenant === undefined ? {} : { tenant: extractedTenant }),
-        ...(extractedCloud === undefined ? {} : { cloud: extractedCloud }),
+        ...(extractedProvider === undefined ? {} : { provider: extractedProvider }),
         ...(extractedEnvironment === undefined ? {} : { environment: extractedEnvironment }),
       };
     } else {
@@ -283,7 +284,7 @@ export function parseStackName(stackName: string): {
         region,
         ...(extractedOrg === undefined ? {} : { org: extractedOrg }),
         ...(extractedTenant === undefined ? {} : { tenant: extractedTenant }),
-        ...(extractedCloud === undefined ? {} : { cloud: extractedCloud }),
+        ...(extractedProvider === undefined ? {} : { provider: extractedProvider }),
         ...(extractedEnvironment === undefined ? {} : { environment: extractedEnvironment }),
       };
     }
@@ -313,7 +314,7 @@ export function parseStackName(stackName: string): {
       region,
       ...(extractedOrg === undefined ? {} : { org: extractedOrg }),
       ...(extractedTenant === undefined ? {} : { tenant: extractedTenant }),
-      ...(extractedCloud === undefined ? {} : { cloud: extractedCloud }),
+      ...(extractedProvider === undefined ? {} : { provider: extractedProvider }),
       ...(extractedEnvironment === undefined ? {} : { environment: extractedEnvironment }),
     };
   } else {
@@ -325,14 +326,6 @@ export function parseStackName(stackName: string): {
         "{target-env}-{account-purpose}-{stack-purpose}-{concern}-{region}"
     );
   }
-}
-
-/**
- * Generate project name from components
- * Agent utility: Ensures consistent project naming
- */
-export function generateProjectName(cloud: string, environment: string): string {
-  return `${cloud}-${environment}`;
 }
 
 /**
@@ -364,20 +357,29 @@ export function generateStackName(
 }
 
 /**
- * Generate fully qualified stack reference for Pulumi Cloud
- * Agent utility: Creates org/project/stack reference path
+ * Build a fully qualified Pulumi stack reference:
+ * `{org}/{tenant}-{provider}-{env}/{stack}` (e.g. adaptiveworx/worx-cloudflare-sec/ops-ztna-glb).
  */
-export function generateFullStackReference(
-  org: string,
-  cloud: string,
-  environment: string,
-  accountPurpose: string,
-  stackPurpose: string,
-  region: string
-): string {
-  const projectName = generateProjectName(cloud, environment);
-  const stackName = generateStackName(accountPurpose, stackPurpose, region);
-  return `${org}/${projectName}/${stackName}`;
+export function buildStackReference(args: {
+  readonly org: string;
+  readonly tenant: string;
+  readonly provider: string;
+  readonly environment: string;
+  readonly accountPurpose: string;
+  readonly stackPurpose: string;
+  readonly region: string;
+  readonly concern?: string;
+  readonly targetEnvironment?: string;
+}): string {
+  const projectName = `${args.tenant}-${args.provider}-${args.environment}`;
+  const stackName = generateStackName(
+    args.accountPurpose,
+    args.stackPurpose,
+    args.region,
+    args.concern,
+    args.targetEnvironment
+  );
+  return `${args.org}/${projectName}/${stackName}`;
 }
 
 /**

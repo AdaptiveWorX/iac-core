@@ -17,6 +17,7 @@ import {
   EnvironmentSchema,
   StackContextSchema,
 } from "../schemas/core/core-schemas.js";
+import { PROVIDER_DEFINITIONS, ProviderSchema } from "../schemas/core/providers.js";
 import type { Environment, ValidationError, ValidationResult } from "../types/core.js";
 import { AgentValidationService } from "./agent-validation.js";
 
@@ -186,17 +187,15 @@ export const StackSizeSchema = z
 
 /**
  * Cross-account configuration validation with security constraints
+ *
+ * `provider` (default `aws`) decides the account id shape: 12 digits for
+ * AWS, 32 hex for Cloudflare, and so on (PROVIDER_DEFINITIONS).
  */
 export const CrossAccountConfigSchema = z
   .object({
-    sourceAccount: z
-      .string()
-      .length(12)
-      .regex(/^\d{12}$/, "Must be valid 12-digit AWS account ID"),
-    targetAccount: z
-      .string()
-      .length(12)
-      .regex(/^\d{12}$/, "Must be valid 12-digit AWS account ID"),
+    provider: ProviderSchema.default("aws"),
+    sourceAccount: z.string(),
+    targetAccount: z.string(),
     operation: z.enum([
       "assume-role",
       "share-resource",
@@ -213,6 +212,21 @@ export const CrossAccountConfigSchema = z
     allowedActions: z.array(z.string()).optional(),
   })
   .superRefine((data, ctx) => {
+    // Account ids must have the provider's shape
+    const accountId = PROVIDER_DEFINITIONS[data.provider].accountId;
+    for (const field of ["sourceAccount", "targetAccount"] as const) {
+      if (!accountId.pattern.test(data[field])) {
+        ctx.addIssue({
+          code: "invalid_format",
+          format: "regex",
+          pattern: accountId.pattern.source,
+          input: data[field],
+          message: `Must be valid ${accountId.description}`,
+          path: [field],
+        });
+      }
+    }
+
     // Production requires approval for all cross-account operations
     if (data.environment === "prd" && !data.approvalRequired) {
       ctx.addIssue({

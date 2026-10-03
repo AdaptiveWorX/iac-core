@@ -55,7 +55,7 @@ const { success, errors } = validateStackContext(ctx);
 if (!success) {
   throw new Error("invalid stack context: " + errors.map(e => e.message).join(", "));
 }
-// ctx: { cloud: "aws", environment: "dev", region: "us-east-1", purpose: "vpc", ... }
+// ctx: { provider: "aws", environment: "dev", region: "us-east-1", purpose: "vpc", ... }
 ```
 
 ## 3. Resolve regions + account IDs

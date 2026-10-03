@@ -36,14 +36,17 @@ function isZodSchema(value: unknown): value is z.ZodType {
 }
 
 function collectSchemas(): SchemaEntry[] {
-  return Object.entries(coreSchemas)
-    .filter(([exportName, value]) => exportName.endsWith("Schema") && isZodSchema(value))
-    .map(([exportName, schema]) => ({
-      exportName,
-      name: exportName.replace(/Schema$/, "") || exportName,
-      schema,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  return (
+    Object.entries(coreSchemas)
+      // core-schemas also exports plain constants (segment counts, target
+      // environments); keep only the *Schema exports that are Zod schemas.
+      .flatMap(([exportName, value]): SchemaEntry[] =>
+        exportName.endsWith("Schema") && isZodSchema(value)
+          ? [{ exportName, name: exportName.replace(/Schema$/, "") || exportName, schema: value }]
+          : []
+      )
+      .sort((a, b) => a.name.localeCompare(b.name))
+  );
 }
 
 const schemaEntries = collectSchemas();

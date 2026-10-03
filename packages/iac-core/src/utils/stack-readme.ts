@@ -25,15 +25,16 @@ export function generateStackReadme(
   options: StackReadmeOptions = {}
 ): string {
   const { additionalSections = {} } = options;
+  const { provider } = context;
 
-  let readme = `# ${context.org}-${context.cloud}-${context.accountPurpose}-${context.stackPurpose}-${context.environment}-${context.region}\n\n`;
+  let readme = `# ${context.org}-${provider}-${context.accountPurpose}-${context.stackPurpose}-${context.environment}-${context.region}\n\n`;
 
   // Stack Context Table
   readme += "## Stack Context\n\n";
   readme += "| Property | Value |\n";
   readme += "|----------|-------|\n";
   readme += `| Organization | ${context.org} |\n`;
-  readme += `| Cloud | ${context.cloud} |\n`;
+  readme += `| Provider | ${provider} |\n`;
   readme += `| Account Purpose | ${context.accountPurpose} |\n`;
   readme += `| Stack Purpose | ${context.stackPurpose} |\n`;
   readme += `| Environment | ${context.environment} |\n`;

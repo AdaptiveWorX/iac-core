@@ -42,10 +42,10 @@ If you don't need a typed organization config at all, skip this — the rest of 
 import { detectStackContext } from "@adaptiveworx/iac-core";
 
 const ctx = detectStackContext();
-// For an Azure stack: { cloud: "azure", environment: "prd", region: "eastus2", purpose: "data", ... }
+// For an Azure stack: { provider: "azure", environment: "prd", region: "eastus2", purpose: "data", ... }
 ```
 
-`StackContext` is multi-cloud-aware (`cloud: "aws" | "azure" | "gcp" | "cloudflare"`); the parsing/validation utilities all work for Azure too.
+`StackContext` is multi-provider-aware (`provider: Provider`); the parsing/validation utilities all work for Azure too.
 
 ## 3. Read secrets via Infisical (or env-var fallback)
 

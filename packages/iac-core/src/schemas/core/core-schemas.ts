@@ -11,11 +11,30 @@
 
 import { z } from "zod";
 import type { ComplianceRequirement } from "../../types/core.js";
+import {
+  isRegionalProvider,
+  isValidProviderRegion,
+  ProviderSchema,
+  resolveProviderRegion,
+} from "./providers.js";
 
 /**
- * Cloud provider schema with agent-friendly validation
+ * Stack names have 3 to 5 hyphen-separated segments:
+ *   {account-purpose}-{stack-purpose}-{region}
+ *   {account-purpose}-{stack-purpose}-{concern}-{region}
+ *   {target-env}-{account-purpose}-{stack-purpose}-{region}
+ *   {target-env}-{account-purpose}-{stack-purpose}-{concern}-{region}
+ * One rule for StackNameSchema, parseStackName and StackContextSchema.
  */
-export const CloudProviderSchema = z.enum(["aws", "gcp", "azure"]);
+export const STACK_NAME_MIN_SEGMENTS = 3;
+export const STACK_NAME_MAX_SEGMENTS = 5;
+
+/**
+ * Target environments recognized as the first segment of a 4-part stack name
+ * (`dev-ops-vpc-use1`); any other first segment makes a 4-part name
+ * `{account-purpose}-{stack-purpose}-{concern}-{region}`.
+ */
+export const STACK_TARGET_ENVIRONMENTS = ["dev", "stg", "prd", "sec"] as const;
 
 /**
  * Environment classification schema for policy behavior
@@ -116,8 +135,12 @@ export const StackPurposeClassSchema = z.enum([
  * - Security: iam, secrets, kms, waf, firewall
  * - Observability: monitoring, logging, metrics, tracing
  *
- * Accepts any lowercase alphanumeric string with hyphens (2-20 chars).
- * Hyphens allowed for compound names (e.g., "ml-training", "data-pipeline").
+ * Accepts any lowercase alphanumeric string (2-20 chars). No hyphens: a stack
+ * purpose is one segment of a hyphen-delimited stack name, so "ml-training"
+ * could never be parsed back (it reads as purpose "ml", concern "training").
+ * Write compound purposes as one word ("mltraining") or move the qualifier
+ * into the concern segment (`app-ml-training-use1`: purpose ml, concern
+ * training).
  *
  * See docs/extending-configuration.md for patterns and examples.
  */
@@ -126,8 +149,8 @@ export const StackPurposeSchema = z
   .min(2)
   .max(20)
   .regex(
-    /^[a-z][a-z0-9-]*$/,
-    "Stack purpose must start with lowercase letter and contain only lowercase alphanumeric characters and hyphens"
+    /^[a-z][a-z0-9]*$/,
+    "Stack purpose must start with lowercase letter and contain only lowercase alphanumeric characters (no hyphens: it is one stack-name segment)"
   );
 
 /**
@@ -189,30 +212,30 @@ export const OrgPrefixSchema = z
   });
 
 /**
- * Project name validation for tenant-cloud-env format
- * Pattern: {tenant}-{cloud}-{env} (e.g., worx-aws-dev, care-gcp-prd)
+ * Project name: {tenant}-{provider}-{env}, where provider is one of
+ * {@link ProviderSchema} (e.g. worx-aws-dev, worx-cloudflare-sec, care-gcp-prd).
  */
 export const ProjectNameSchema = z
   .string()
   .min(7, "Project name too short")
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Project name must be kebab-case")
-  .refine(
-    val => {
-      const parts = val.split("-");
-      return parts.length === 3; // tenant-cloud-env
-    },
-    {
-      message: "Project name must follow pattern: {tenant}-{cloud}-{env}",
-    }
-  );
+  .refine(val => val.split("-").length === 3, {
+    message: "Project name must follow pattern: {tenant}-{provider}-{env}",
+  })
+  .refine(val => ProviderSchema.safeParse(val.split("-")[1]).success, {
+    message: `Project name's provider segment must be one of: ${ProviderSchema.options.join(", ")}`,
+  });
 
 /**
- * Stack name validation following 3-part or 4-part naming convention
- * 3-part: {account-purpose}-{stack-purpose}-{region} (e.g., app-web-use1)
- * 4-part: {target-env}-{account-purpose}-{stack-purpose}-{region} (e.g., dev-ops-vpc-use1)
+ * Stack name: 3 to 5 kebab-case segments (see STACK_NAME_MIN_SEGMENTS):
+ *   3: {account-purpose}-{stack-purpose}-{region}                      app-web-use1, ops-ztna-glb
+ *   4: {account-purpose}-{stack-purpose}-{concern}-{region}            ops-iam-github-use1
+ *   4: {target-env}-{account-purpose}-{stack-purpose}-{region}         dev-ops-vpc-use1
+ *   5: {target-env}-{account-purpose}-{stack-purpose}-{concern}-{region} dev-ops-vpc-shared-use1
  *
- * 4-part naming is used for centralized resources (VPCs, DNS, etc.) deployed in
- * one environment but serving another environment.
+ * The 4-part forms are told apart by the first segment: a target
+ * environment (STACK_TARGET_ENVIRONMENTS) makes it the centralized form. The
+ * region segment is checked against the provider in StackContextSchema.
  */
 export const StackNameSchema = z
   .string()
@@ -220,38 +243,55 @@ export const StackNameSchema = z
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Stack name must be kebab-case")
   .refine(
     val => {
-      const parts = val.split("-");
-      return parts.length === 3 || parts.length === 4;
+      const count = val.split("-").length;
+      return count >= STACK_NAME_MIN_SEGMENTS && count <= STACK_NAME_MAX_SEGMENTS;
     },
     {
       message:
-        "Stack name must follow pattern: {account-purpose}-{stack-purpose}-{region} or {target-env}-{account-purpose}-{stack-purpose}-{region}",
+        "Stack name must have 3 to 5 segments: [{target-env}-]{account-purpose}-{stack-purpose}[-{concern}]-{region}",
     }
   );
 
 /**
  * Stack context schema with cross-field validation for project/stack naming
- * Architecture: adaptiveworx/{tenant}-{cloud}-{env}/{account-purpose}-{stack-purpose}-{concern}-{region}
- * Or for centralized resources: adaptiveworx/{tenant}-{cloud}-{env}/{target-env}-{account-purpose}-{stack-purpose}-{concern}-{region}
+ * Architecture: {org}/{tenant}-{provider}-{env}/[{target-env}-]{account-purpose}-{stack-purpose}[-{concern}]-{region}
  * Concern: Optional descriptor for blast radius isolation (e.g., "github", "sso", "appName1")
+ *
+ * `region` must be valid for the provider: a
+ * regional provider's code or full name (AWS `use1` / `us-east-1`), or `glb`
+ * / `global` for a global provider (Cloudflare, GitHub, Infisical).
  */
 export const StackContextSchema = z
   .object({
     org: z.string().min(1), // Pulumi Cloud organization (e.g., "adaptiveworx")
     tenant: OrgPrefixSchema, // Multi-tenant identifier (worx, care, etc.)
-    cloud: CloudProviderSchema,
+    provider: ProviderSchema,
     accountPurpose: AccountPurposeSchema,
     stackPurpose: StackPurposeSchema,
     environment: EnvironmentSchema,
-    region: AwsRegionSchema,
+    region: z.string().min(1),
     projectName: ProjectNameSchema,
     stackName: StackNameSchema,
     concern: z.string().optional(),
     targetEnvironment: EnvironmentSchema.optional(),
   })
   .superRefine((data, ctx) => {
+    const { provider } = data;
+
+    // Agent guardrail: the region must exist for the provider; glb only for global providers
+    if (!isValidProviderRegion(provider, data.region)) {
+      ctx.addIssue({
+        code: "custom",
+        message: isRegionalProvider(provider)
+          ? `Region '${data.region}' is not a ${provider} region code${data.region === "glb" ? " (glb is only for providers without regions, e.g. cloudflare)" : ""}`
+          : `Provider '${provider}' has no regions: its stacks use region 'glb'`,
+        path: ["region"],
+      });
+    }
+    const fullRegion = resolveProviderRegion(provider, data.region);
+
     // Agent guardrail: Validate project name consistency
-    const expectedProjectName = `${data.tenant}-${data.cloud}-${data.environment}`;
+    const expectedProjectName = `${data.tenant}-${provider}-${data.environment}`;
     if (data.projectName !== expectedProjectName) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -318,9 +358,10 @@ export const StackContextSchema = z
       }
     }
 
-    // Agent guardrail: Production environment safety checks
-    if (data.environment === "prd") {
-      if (data.accountPurpose === "ops" && data.region !== "us-east-1") {
+    // Agent guardrail: Production environment safety checks (AWS region rule;
+    // the region is compared resolved, so `use1` and `us-east-1` both pass)
+    if (data.environment === "prd" && provider === "aws") {
+      if (data.accountPurpose === "ops" && fullRegion !== "us-east-1") {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "Production ops accounts must be deployed in us-east-1",
@@ -330,7 +371,11 @@ export const StackContextSchema = z
     }
 
     // Agent guardrail: UCX compliance validation
-    if (data.accountPurpose === "ucx" && !["us-east-1", "us-west-2"].includes(data.region)) {
+    if (
+      provider === "aws" &&
+      data.accountPurpose === "ucx" &&
+      !["us-east-1", "us-west-2"].includes(fullRegion)
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "UCX accounts require US regions for compliance",

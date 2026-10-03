@@ -45,8 +45,6 @@ vi.mock("./region-utils.js", () => ({
 import * as pulumi from "@pulumi/pulumi";
 import {
   detectStackContext,
-  generateFullStackReference,
-  generateProjectName,
   generateStackName,
   getComplianceRequirements,
   getEnvironmentConfig,
@@ -68,21 +66,21 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       const result = parseProjectName("worx-aws-dev");
       expect(result).toEqual({
         tenant: "worx",
-        cloud: "aws",
+        provider: "aws",
         environment: "dev",
       });
     });
 
-    it("should parse different tenant/cloud/env combinations", () => {
+    it("should parse different tenant/provider/env combinations", () => {
       expect(parseProjectName("care-gcp-prd")).toEqual({
         tenant: "care",
-        cloud: "gcp",
+        provider: "gcp",
         environment: "prd",
       });
 
       expect(parseProjectName("worx-azure-stg")).toEqual({
         tenant: "worx",
-        cloud: "azure",
+        provider: "azure",
         environment: "stg",
       });
     });
@@ -91,19 +89,19 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       // Test that parsed components are trimmed (even though input shouldn't have spaces)
       const result = parseProjectName("worx-aws-dev");
       expect(result.tenant).toBe("worx");
-      expect(result.cloud).toBe("aws");
+      expect(result.provider).toBe("aws");
       expect(result.environment).toBe("dev");
     });
 
     it("should throw error for invalid format with too few parts", () => {
       expect(() => parseProjectName("worx-aws")).toThrow(
-        "Invalid project name format: worx-aws. Expected: {tenant}-{cloud}-{env}"
+        "Invalid project name format: worx-aws. Expected: {tenant}-{provider}-{env}"
       );
     });
 
     it("should throw error for invalid format with too many parts", () => {
       expect(() => parseProjectName("worx-aws-dev-extra")).toThrow(
-        "Invalid project name format: worx-aws-dev-extra. Expected: {tenant}-{cloud}-{env}"
+        "Invalid project name format: worx-aws-dev-extra. Expected: {tenant}-{provider}-{env}"
       );
     });
 
@@ -245,7 +243,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       expect(result).toEqual({
         org: "adaptiveworx",
         tenant: "worx",
-        cloud: "aws",
+        provider: "aws",
         environment: "dev",
         accountPurpose: "app",
         stackPurpose: "web",
@@ -258,7 +256,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       expect(result).toEqual({
         org: "adaptiveworx",
         tenant: "worx",
-        cloud: "aws",
+        provider: "aws",
         environment: "dev",
         accountPurpose: "app",
         stackPurpose: "iam",
@@ -272,7 +270,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       expect(result).toEqual({
         org: "adaptiveworx",
         tenant: "worx",
-        cloud: "aws",
+        provider: "aws",
         environment: "sec",
         targetEnvironment: "dev",
         accountPurpose: "ops",
@@ -286,7 +284,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       expect(result).toEqual({
         org: "adaptiveworx",
         tenant: "worx",
-        cloud: "aws",
+        provider: "aws",
         environment: "sec",
         targetEnvironment: "dev",
         accountPurpose: "ops",
@@ -301,7 +299,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       expect(result).toEqual({
         org: "adaptiveworx",
         tenant: "care",
-        cloud: "gcp",
+        provider: "gcp",
         environment: "prd",
         accountPurpose: "app",
         stackPurpose: "api",
@@ -327,14 +325,6 @@ describe("Stack Utils - Comprehensive Coverage", () => {
 
     it("should throw error for empty stack names", () => {
       expect(() => parseStackName("")).toThrow("Invalid stack name format");
-    });
-  });
-
-  describe("generateProjectName", () => {
-    it("should generate project name from cloud and environment", () => {
-      expect(generateProjectName("aws", "dev")).toBe("aws-dev");
-      expect(generateProjectName("gcp", "prd")).toBe("gcp-prd");
-      expect(generateProjectName("azure", "stg")).toBe("azure-stg");
     });
   });
 
@@ -373,24 +363,6 @@ describe("Stack Utils - Comprehensive Coverage", () => {
 
     it("should ignore both empty strings", () => {
       expect(generateStackName("app", "web", "use1", "", "")).toBe("app-web-use1");
-    });
-  });
-
-  describe("generateFullStackReference", () => {
-    it("should generate full Pulumi stack reference", () => {
-      expect(generateFullStackReference("adaptiveworx", "aws", "dev", "app", "web", "use1")).toBe(
-        "adaptiveworx/aws-dev/app-web-use1"
-      );
-    });
-
-    it("should generate references for different combinations", () => {
-      expect(generateFullStackReference("adaptiveworx", "gcp", "prd", "ops", "iam", "usw2")).toBe(
-        "adaptiveworx/gcp-prd/ops-iam-usw2"
-      );
-
-      expect(
-        generateFullStackReference("adaptiveworx", "azure", "stg", "lake", "data", "euw1")
-      ).toBe("adaptiveworx/azure-stg/lake-data-euw1");
     });
   });
 
@@ -438,7 +410,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
 
       expect(context.org).toBe("adaptiveworx");
       expect(context.tenant).toBe("worx");
-      expect(context.cloud).toBe("aws");
+      expect(context.provider).toBe("aws");
       expect(context.environment).toBe("dev");
       expect(context.accountPurpose).toBe("app");
       expect(context.stackPurpose).toBe("web");
@@ -510,12 +482,15 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       expect(context.region).toBe("use1");
     });
 
-    it("should throw error for 5-part stack names (not supported by schema)", () => {
+    it("should detect context for 5-part stack names (one 3-5 segment rule)", () => {
       vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-sec");
       vi.mocked(pulumi.getStack).mockReturnValue("dev-ops-vpc-shared-use1");
 
-      // Schema validation only allows 3-part or 4-part stack names
-      expect(() => detectStackContext()).toThrow("Stack context detection failed");
+      // StackNameSchema, parseStackName and StackContextSchema share the 3-5 segment rule.
+      const context = detectStackContext();
+      expect(context.targetEnvironment).toBe("dev");
+      expect(context.concern).toBe("shared");
+      expect(context.stackPurpose).toBe("vpc");
     });
 
     it("should throw error for invalid project name", () => {
@@ -557,7 +532,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       const context: StackContext = {
         org: "adaptiveworx",
         tenant: "worx",
-        cloud: "aws",
+        provider: "aws",
         accountPurpose: "app",
         stackPurpose: "web",
         environment: "dev",
@@ -574,7 +549,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       const context: StackContext = {
         org: "adaptiveworx",
         tenant: "worx",
-        cloud: "aws",
+        provider: "aws",
         accountPurpose: "app",
         stackPurpose: "iam",
         environment: "dev",
@@ -591,7 +566,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       const invalidContext = {
         org: "adaptiveworx",
         tenant: "worx",
-        cloud: "invalid-cloud",
+        provider: "invalid-cloud",
         accountPurpose: "app",
         stackPurpose: "web",
         environment: "dev",
@@ -608,7 +583,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       const invalidContext = {
         org: "",
         tenant: "worx",
-        cloud: "aws",
+        provider: "aws",
         accountPurpose: "a",
         stackPurpose: "web",
         environment: "dev",
@@ -845,7 +820,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
     const createContext = (overrides: Partial<StackContext>): StackContext => ({
       org: "adaptiveworx",
       tenant: "worx",
-      cloud: "aws",
+      provider: "aws",
       accountPurpose: "app",
       stackPurpose: "web",
       environment: "dev",

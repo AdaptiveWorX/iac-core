@@ -2,7 +2,7 @@
 
 Core utilities for [AdaptiveWorX™ Flow](https://adaptiveworx.com) infrastructure-as-code: secret management, stack context detection, region resolution, CIDR allocation, and Zod-validated configuration schemas.
 
-The package is multi-cloud-aware (AWS today; Azure and GCP planned) and is licensed under Apache 2.0 for use in any Pulumi + TypeScript project.
+The package is multi-provider-aware (AWS today; Cloudflare, GitHub and Infisical as global providers; Azure and GCP planned) and is licensed under Apache 2.0 for use in any Pulumi + TypeScript project.
 
 ## Install
 
@@ -30,7 +30,7 @@ import {
   detectStackContext,
 } from "@adaptiveworx/iac-core";
 
-// 1. Detect Pulumi stack context (cloud, environment, region, purpose)
+// 1. Detect Pulumi stack context (provider, environment, region, purpose)
 const ctx = detectStackContext();
 
 // 2. Load organization options from env vars
@@ -48,6 +48,24 @@ import { SecretManager } from "@adaptiveworx/iac-core/config/secrets";
 import { resolveRegion } from "@adaptiveworx/iac-core/utils/region-utils";
 ```
 
+## Naming
+
+Projects are `{tenant}-{provider}-{env}`; stacks are
+`[{target-env}-]{account-purpose}-{stack-purpose}[-{concern}]-{region}` (3 to 5
+one-word segments). Providers: `aws`, `gcp`, `azure` (regional: `use1`,
+`usw2`, …) and `cloudflare`, `github`, `infisical` (global: region `glb`).
+
+| Project | Stack | Reads as |
+|---|---|---|
+| `worx-aws-dev` | `app-flow-use1` | app account, flow, us-east-1 |
+| `worx-aws-sec` | `ops-iam-github-use1` | ops account, iam, concern github |
+| `worx-aws-sec` | `dev-ops-vpc-use1` | centralized: dev's VPC, from sec |
+| `worx-cloudflare-sec` | `ops-ztna-glb` | ops account, ztna, global |
+
+`provider` replaced the older `cloud` name in 0.5, with no aliases (the rename
+table is in the naming doc). See [docs/naming.md](./docs/naming.md) for the full grammar, the region rules per
+provider, account references and how to add a provider.
+
 ## Quick-start guides per cloud
 
 - [AWS quick start](./docs/quickstart-aws.md) — full Pulumi + AWS deploy walkthrough; covers OrganizationConfig, AWSAccountRegistry, CIDR, and policy-pack integration
@@ -64,7 +82,7 @@ import { resolveRegion } from "@adaptiveworx/iac-core/utils/region-utils";
 
 ### `utils/`
 
-- **`stack-utils`** — `detectStackContext`, `parseStackName`, `generateStackName`, `validateStackContext`, `getEnvironmentConfig`, `getComplianceRequirements`, `validateCrossAccountOperation`.
+- **`stack-utils`** — `detectStackContext`, `parseProjectName`, `parseStackName`, `generateStackName`, `buildStackReference`, `validateStackContext`, `getEnvironmentConfig`, `getComplianceRequirements`, `validateCrossAccountOperation`.
 - **`region-utils`** — `resolveRegion`, `getRegionAliases`, `isValidRegion`, `validateAvailabilityZones` (loads region aliases from `@adaptiveworx/iac-schemas`).
 - **`cidr-allocation`** — `calculateVpcCidr`, `getVpcCidr` for non-overlapping CIDR allocation across environments + regions.
 - **`stack-readme`** — `generateStackReadme`, `exportStackReadme` for auto-documenting Pulumi stacks.
@@ -72,7 +90,8 @@ import { resolveRegion } from "@adaptiveworx/iac-core/utils/region-utils";
 ### `schemas/`
 
 - **`SCHEMA_CONFIG`, `SCHEMA_BASE_URL`** — canonical metadata for the IaC schema namespace.
-- **`schemas/core/core-schemas`** — Zod validators (`StackContextSchema`, `DeploymentConfigSchema`, `AwsRegionSchema`, etc.).
+- **`schemas/core/core-schemas`** — Zod validators (`StackContextSchema`, `ProjectNameSchema`, `StackNameSchema`, `DeploymentConfigSchema`, `AwsRegionSchema`, etc.).
+- **`schemas/core/providers`** — `ProviderSchema`, `PROVIDER_DEFINITIONS`, provider regions (`isValidProviderRegion`, `resolveProviderRegion`, `GLOBAL_REGION_CODE`), and provider-neutral account references (`AccountReferenceSchema`, `accountReference`).
 
 ### `validation/`
 
@@ -81,7 +100,7 @@ import { resolveRegion } from "@adaptiveworx/iac-core/utils/region-utils";
 
 ### `types/`
 
-- All shared infrastructure types: `CloudProvider`, `Environment`, `StackContext`, `DeploymentConfig`, `ComplianceRequirement`, `AccountConfig`, `CidrAllocation`, etc.
+- All shared infrastructure types: `Provider`, `Environment`, `StackContext`, `DeploymentConfig`, `ComplianceRequirement`, `AccountConfig`, `CidrAllocation`, etc.
 
 ## Configuration via environment variables
 
@@ -233,7 +252,7 @@ class SecretManager {
 
 interface SecretContext {
   environment?: Environment;   // dev | stg | prd | sec
-  cloud?: CloudProvider;       // aws | azure | gcp | cloudflare
+  provider?: string;          // Infisical folder /{provider}; default IAC_PROVIDER, then aws
   region?: string;
   purpose?: string;
 }
@@ -267,7 +286,7 @@ class OrganizationConfig {
 
   // Build a stack name from components — applies stackNaming.separator
   // and compresses the region per regionFormat
-  formatStackName(org: string, cloud: string, purpose: string, env: string, region: string): string;
+  formatStackName(org: string, provider: string, purpose: string, env: string, region: string): string;
 
   // Strategy lookup (none | single | multi-az | high-availability)
   getNatGatewayCount(environment: string): number;
@@ -352,10 +371,10 @@ const registry = new AWSAccountRegistry();   // empty foundation map, generic pr
 ### Utilities — `region-utils`
 
 ```ts
-function resolveRegion(cloud: CloudProvider, regionAlias: string): string;
-function getRegionAliases(cloud: CloudProvider): Record<string, string>;
-function getRegions(cloud: CloudProvider): string[];
-function isValidRegion(cloud: CloudProvider, region: string): boolean;
+function resolveRegion(provider: Provider, regionAlias: string): string;
+function getRegionAliases(provider: Provider): Record<string, string>;
+function getRegions(provider: Provider): string[];
+function isValidRegion(provider: Provider, region: string): boolean;
 function validateAvailabilityZones(region: string, count: number): boolean;
 ```
 

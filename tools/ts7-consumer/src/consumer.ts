@@ -14,6 +14,7 @@ import * as organization from "@adaptiveworx/iac-core/config/organization";
 import * as secrets from "@adaptiveworx/iac-core/config/secrets";
 import * as constants from "@adaptiveworx/iac-core/schemas/constants";
 import * as coreSchemas from "@adaptiveworx/iac-core/schemas/core/core-schemas";
+import * as providers from "@adaptiveworx/iac-core/schemas/core/providers";
 import * as generators from "@adaptiveworx/iac-core/schemas/generators/generate-schemas";
 import * as coreTypes from "@adaptiveworx/iac-core/types/core";
 import * as cidrAllocation from "@adaptiveworx/iac-core/utils/cidr-allocation";
@@ -34,6 +35,7 @@ export const entryPoints = {
   secrets,
   constants,
   coreSchemas,
+  providers,
   generators,
   coreTypes,
   cidrAllocation,
@@ -51,3 +53,17 @@ export const entryPoints = {
 export const awsRegion: core.AwsRegion = "us-east-1";
 export const parsedRegion = core.AwsRegionSchema.parse(awsRegion);
 export const regionTable: schemas.Regions = schemas.regions;
+export const ztnaProject: core.Provider = "cloudflare";
+export const cloudflareAccount: core.AccountReference = core.accountReference(
+  "cloudflare",
+  "0123456789abcdef0123456789abcdef"
+);
+export const ztnaStack: string = core.buildStackReference({
+  org: "adaptiveworx",
+  tenant: "worx",
+  provider: "cloudflare",
+  environment: "sec",
+  accountPurpose: "ops",
+  stackPurpose: "ztna",
+  region: providers.GLOBAL_REGION_CODE,
+});

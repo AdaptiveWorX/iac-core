@@ -13,6 +13,16 @@ import {
 } from "../../src/utils/region-utils.js";
 
 describe("region-utils", () => {
+  describe("Cloudflare global region", () => {
+    it("resolves glb (the global region code) and global", () => {
+      expect(resolveRegion("cloudflare", "glb")).toBe("global");
+      expect(resolveRegion("cloudflare", "global")).toBe("global");
+      expect(isValidRegion("cloudflare", "glb")).toBe(true);
+      expect(isValidRegion("cloudflare", "use1")).toBe(false);
+      expect(isValidRegion("aws", "glb")).toBe(false);
+    });
+  });
+
   describe("resolveRegion", () => {
     describe("AWS", () => {
       it("resolves AWS region aliases to full names", () => {
@@ -91,8 +101,8 @@ describe("region-utils", () => {
     });
 
     it("returns Cloudflare region aliases", () => {
-      const aliases = getRegionAliases("cloudflare");
-      expect(aliases).toHaveProperty("global", "global");
+      // glb is Cloudflare's only region code; "global" is the region name itself
+      expect(getRegionAliases("cloudflare")).toEqual({ glb: "global" });
     });
   });
 
@@ -195,17 +205,17 @@ describe("region-utils", () => {
   });
 
   describe("Cross-cloud consistency", () => {
-    it("each cloud has consistent alias and region lists", () => {
-      const clouds: Array<"aws" | "azure" | "gcp" | "cloudflare"> = [
+    it("each provider has consistent alias and region lists", () => {
+      const providers: Array<"aws" | "azure" | "gcp" | "cloudflare"> = [
         "aws",
         "azure",
         "gcp",
         "cloudflare",
       ];
 
-      for (const cloud of clouds) {
-        const aliases = getRegionAliases(cloud);
-        const regions = getRegions(cloud);
+      for (const provider of providers) {
+        const aliases = getRegionAliases(provider);
+        const regions = getRegions(provider);
 
         // All alias values should be in the regions list
         for (const fullRegion of Object.values(aliases)) {

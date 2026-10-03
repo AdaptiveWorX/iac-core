@@ -9,10 +9,7 @@
  * These types form the foundation of the TypeScript-first IaC system
  */
 
-/**
- * Supported cloud providers
- */
-export type CloudProvider = "aws" | "gcp" | "azure" | "cloudflare";
+import type { GlobalRegion, Provider } from "../schemas/core/providers.js";
 
 /**
  * Environment classification for policy and CI/CD behavior
@@ -114,12 +111,11 @@ export type AwsRegion =
 
 /**
  * Stack context interface - contains all information needed to identify deployment target
- * Architecture: adaptiveworx/{tenant}-{cloud}-{env}/{account-purpose}-{stack-purpose}-{concern}-{region}
- * Or for centralized resources: adaptiveworx/{tenant}-{cloud}-{env}/{target-env}-{account-purpose}-{stack-purpose}-{concern}-{region}
+ * Architecture: {org}/{tenant}-{provider}-{env}/[{target-env}-]{account-purpose}-{stack-purpose}[-{concern}]-{region}
  *
- * Project: {tenant}-{cloud}-{env} (e.g., worx-aws-dev, care-aws-prd)
- * Stack: {account-purpose}-{stack-purpose}-{concern}-{region} (e.g., ops-iam-github-use1)
- * Stack (centralized): {target-env}-{account-purpose}-{stack-purpose}-{concern}-{region} (e.g., dev-ops-vpc-shared-use1)
+ * Project: {tenant}-{provider}-{env} (e.g., worx-aws-dev, worx-cloudflare-sec)
+ * Stack: {account-purpose}-{stack-purpose}[-{concern}]-{region} (e.g., ops-iam-github-use1, ops-ztna-glb)
+ * Stack (centralized): {target-env}-{account-purpose}-{stack-purpose}[-{concern}]-{region} (e.g., dev-ops-vpc-use1)
  *
  * Org: Pulumi Cloud organization (always "adaptiveworx")
  * Tenant: Multi-tenant identifier (worx, care, etc.) - each tenant can have different compliance requirements
@@ -128,11 +124,13 @@ export type AwsRegion =
 export interface StackContext {
   readonly org: string;
   readonly tenant: string;
-  readonly cloud: CloudProvider;
+  /** The project's provider: the `{provider}` segment of `{tenant}-{provider}-{env}`. */
+  readonly provider: Provider;
   readonly accountPurpose: AccountPurpose;
   readonly stackPurpose: StackPurpose;
   readonly environment: Environment;
-  readonly region: AwsRegion;
+  /** The stack's region code: the provider's (AWS `use1`, …) or `glb`. */
+  readonly region: StackRegion;
   readonly projectName: string;
   readonly stackName: string;
   readonly concern?: string;
@@ -216,9 +214,15 @@ export interface CidrAllocation {
 /**
  * Resource naming configuration
  */
+/**
+ * A stack's region: an AWS region (code or full name), `glb` / `global` for
+ * providers without regions, or another provider's region code.
+ */
+export type StackRegion = AwsRegion | GlobalRegion | (string & {});
+
 export interface ResourceNaming {
   readonly orgPrefix: string;
-  readonly cloud: CloudProvider;
+  readonly provider: Provider;
   readonly accountPurpose: AccountPurpose;
   readonly stackPurpose: StackPurpose;
   readonly environment: Environment;

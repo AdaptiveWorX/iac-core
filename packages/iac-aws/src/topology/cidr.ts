@@ -39,7 +39,7 @@ export async function getAwsVpcCidr(
     );
   }
   const cidrBase = await secretManager.getSecret("VPC_CIDR_BASE", {
-    cloud: "aws",
+    provider: "aws",
     environment,
   });
   try {
