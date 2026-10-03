@@ -6,7 +6,10 @@
     "appsDir": "packages"
   },
   "namedInputs": {
-    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "default": [
+      "{projectRoot}/**/*",
+      "sharedGlobals"
+    ],
     "sharedGlobals": [
       "{workspaceRoot}/tsconfig.base.json",
       "{workspaceRoot}/biome.json",
@@ -21,53 +24,119 @@
   },
   "targetDefaults": {
     "build": {
-      "dependsOn": ["^build"],
-      "inputs": ["production", "^production"],
-      "outputs": ["{projectRoot}/dist"],
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "production",
+        "^production"
+      ],
+      "outputs": [
+        "{projectRoot}/dist"
+      ],
       "cache": true
     },
     "test": {
-      "dependsOn": ["^build"],
-      "inputs": ["default", "^production", "{workspaceRoot}/vitest.config.ts"],
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "default",
+        "^production",
+        "{workspaceRoot}/vitest.config.ts"
+      ],
       "cache": true
     },
     "test:unit": {
-      "dependsOn": ["^build"],
-      "inputs": ["default", "^production", "{workspaceRoot}/vitest.config.ts"],
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "default",
+        "^production",
+        "{workspaceRoot}/vitest.config.ts"
+      ],
       "cache": true
     },
     "lint": {
-      "inputs": ["default", "{workspaceRoot}/biome.json"],
+      "inputs": [
+        "default",
+        "{workspaceRoot}/biome.json"
+      ],
       "cache": true
     },
     "typecheck": {
-      "dependsOn": ["^build"],
-      "inputs": ["default", "^production"],
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "default",
+        "^production"
+      ],
       "cache": true
     },
     "nx-release-publish": {
-      "dependsOn": ["build"]
+      "dependsOn": [
+        "build"
+      ]
     }
   },
   "release": {
     "projectsRelationship": "independent",
-    "projects": ["packages/*"],
-    "releaseTagPattern": "{projectName}@{version}",
+    "projects": [
+      "packages/*"
+    ],
     "version": {
       "conventionalCommits": true,
       "updateDependents": "never",
       "conventionalCommitsConfig": {
         "types": {
-          "feat":     { "semverBump": "minor", "changelog": { "title": "🚀 Features" } },
-          "fix":      { "semverBump": "patch", "changelog": { "title": "🩹 Fixes" } },
-          "perf":     { "semverBump": "patch", "changelog": { "title": "🔥 Performance" } },
-          "refactor": { "semverBump": "none",  "changelog": false },
-          "chore":    { "semverBump": "none",  "changelog": false },
-          "ci":       { "semverBump": "none",  "changelog": false },
-          "build":    { "semverBump": "none",  "changelog": false },
-          "docs":     { "semverBump": "none",  "changelog": false },
-          "test":     { "semverBump": "none",  "changelog": false },
-          "style":    { "semverBump": "none",  "changelog": false }
+          "feat": {
+            "semverBump": "minor",
+            "changelog": {
+              "title": "🚀 Features"
+            }
+          },
+          "fix": {
+            "semverBump": "patch",
+            "changelog": {
+              "title": "🩹 Fixes"
+            }
+          },
+          "perf": {
+            "semverBump": "patch",
+            "changelog": {
+              "title": "🔥 Performance"
+            }
+          },
+          "refactor": {
+            "semverBump": "none",
+            "changelog": false
+          },
+          "chore": {
+            "semverBump": "none",
+            "changelog": false
+          },
+          "ci": {
+            "semverBump": "none",
+            "changelog": false
+          },
+          "build": {
+            "semverBump": "none",
+            "changelog": false
+          },
+          "docs": {
+            "semverBump": "none",
+            "changelog": false
+          },
+          "test": {
+            "semverBump": "none",
+            "changelog": false
+          },
+          "style": {
+            "semverBump": "none",
+            "changelog": false
+          }
         }
       },
       "preVersionCommand": "pnpm nx affected -t build"
@@ -90,7 +159,10 @@
       "tag": true,
       "push": false
     },
-    "version-plans": false
+    "version-plans": false,
+    "releaseTag": {
+      "pattern": "{projectName}@{version}"
+    }
   },
   "plugins": [],
   "parallel": 3,
@@ -99,23 +171,36 @@
     "depConstraints": [
       {
         "sourceTag": "scope:core",
-        "onlyDependOnLibsWithTags": ["scope:core"]
+        "onlyDependOnLibsWithTags": [
+          "scope:core"
+        ]
       },
       {
         "sourceTag": "scope:aws",
-        "onlyDependOnLibsWithTags": ["scope:core", "scope:aws"]
+        "onlyDependOnLibsWithTags": [
+          "scope:core",
+          "scope:aws"
+        ]
       },
       {
         "sourceTag": "scope:azure",
-        "onlyDependOnLibsWithTags": ["scope:core", "scope:azure"]
+        "onlyDependOnLibsWithTags": [
+          "scope:core",
+          "scope:azure"
+        ]
       },
       {
         "sourceTag": "scope:policies",
-        "onlyDependOnLibsWithTags": ["scope:core", "scope:policies"]
+        "onlyDependOnLibsWithTags": [
+          "scope:core",
+          "scope:policies"
+        ]
       },
       {
         "sourceTag": "scope:schemas",
-        "onlyDependOnLibsWithTags": ["scope:schemas"]
+        "onlyDependOnLibsWithTags": [
+          "scope:schemas"
+        ]
       }
     ]
   }
