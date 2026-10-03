@@ -36,7 +36,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const regionsPath = join(here, "..", "config", "regions.json");
 
 /**
- * Region aliases + canonical region names per cloud provider (aws, azure,
+ * Region aliases + canonical region names per provider (aws, azure,
  * gcp, cloudflare). Source-of-truth for region resolution across the
  * @adaptiveworx/iac-* packages.
  */
