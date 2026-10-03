@@ -25,6 +25,35 @@ function getEnvVar(name: string): string | undefined {
   return trimmed === "" ? undefined : trimmed;
 }
 
+const REDACTED = "[REDACTED]";
+
+/**
+ * Renders an error for a log line without leaking credentials.
+ *
+ * Never log a secret value, nor any prefix, suffix or length of one. SDK
+ * errors can be very large (a RangeError while formatting them has been
+ * seen) and may echo request material, so the message is truncated and
+ * every known-sensitive string (e.g. the Universal Auth client credentials)
+ * is replaced with a placeholder before it reaches the logger.
+ */
+function describeError(
+  error: unknown,
+  fallback: string,
+  sensitive: ReadonlyArray<string | undefined> = []
+): string {
+  try {
+    let message = error instanceof Error ? String(error.message) : String(error);
+    for (const value of sensitive) {
+      if (typeof value === "string" && value.length > 0) {
+        message = message.split(value).join(REDACTED);
+      }
+    }
+    return message.length > 500 ? `${message.substring(0, 500)}... (truncated)` : message;
+  } catch {
+    return `${fallback} (error details unavailable)`;
+  }
+}
+
 export interface SecretContext {
   readonly environment?: string;
   readonly cloud?: string;
@@ -93,18 +122,10 @@ export class SecretManager {
           void pulumi.log.info("🔐 Infisical using Universal Auth (machine identity)");
           return await Promise.resolve();
         } catch (error: unknown) {
-          // Handle large Infisical SDK errors that can cause RangeError during formatting
-          let errorMessage = "Authentication failed";
-          try {
-            if (error instanceof Error) {
-              const msg = String(error.message);
-              errorMessage = msg.length > 500 ? `${msg.substring(0, 500)}... (truncated)` : msg;
-            } else {
-              errorMessage = String(error).substring(0, 500);
-            }
-          } catch {
-            errorMessage = "Authentication failed (error details unavailable)";
-          }
+          const errorMessage = describeError(error, "Authentication failed", [
+            clientSecret,
+            clientId,
+          ]);
           void pulumi.log.warn(`⚠️ Universal Auth login failed: ${errorMessage}`);
           // Fall through to env vars fallback
         }
@@ -118,18 +139,10 @@ export class SecretManager {
       );
       return await Promise.resolve();
     } catch (error: unknown) {
-      // Handle large Infisical SDK errors that can cause RangeError during formatting
-      let errorMessage = "Initialization failed";
-      try {
-        if (error instanceof Error) {
-          const msg = String(error.message);
-          errorMessage = msg.length > 500 ? `${msg.substring(0, 500)}... (truncated)` : msg;
-        } else {
-          errorMessage = String(error).substring(0, 500);
-        }
-      } catch {
-        errorMessage = "Initialization failed (error details unavailable)";
-      }
+      const errorMessage = describeError(error, "Initialization failed", [
+        getEnvVar("INFISICAL_CLIENT_SECRET"),
+        getEnvVar("INFISICAL_CLIENT_ID"),
+      ]);
       void pulumi.log.warn(`⚠️ Failed to initialize Infisical: ${errorMessage}`);
       void pulumi.log.info("🔄 Falling back to environment variables");
       this.useInfisical = false;
@@ -201,26 +214,18 @@ export class SecretManager {
           const secretValue =
             typeof secret.secretValue === "string" ? secret.secretValue : undefined;
           if (typeof secretValue === "string" && secretValue.trim().length > 0) {
+            // Log the key, environment, path and source only — never the
+            // value, nor any prefix, suffix or length of it.
             void pulumi.log.info(
               `🔐 Retrieved '${key}' from Infisical: env=${resolved.environment}, path=${path}`
             );
-            void pulumi.log.debug(`🔐 Secret value preview: ${secretValue.substring(0, 100)}...`);
             return secretValue;
           }
         } catch (error: unknown) {
-          // Handle Infisical SDK errors carefully (can be very large)
-          // Completely suppress the error to prevent RangeError from large messages
-          let debugMessage = "Secret not found";
-          try {
-            if (error instanceof Error) {
-              // Safely truncate error message
-              const msg = String(error.message);
-              debugMessage = msg.length > 100 ? `${msg.substring(0, 100)}...` : msg;
-            }
-          } catch {
-            // If even accessing error.message fails, use generic message
-            debugMessage = "Error accessing secret (details suppressed)";
-          }
+          const debugMessage = describeError(error, "Secret not found", [
+            getEnvVar("INFISICAL_CLIENT_SECRET"),
+            getEnvVar("INFISICAL_CLIENT_ID"),
+          ]);
           // Continue to next path
           void pulumi.log.debug(`🔍 '${key}' not found in ${path}: ${debugMessage}`);
         }
