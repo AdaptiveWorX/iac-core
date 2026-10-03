@@ -268,12 +268,13 @@ cloud-agnostic.
 
 | Tool | Version | Why |
 |---|---|---|
-| **pnpm** | ≥10.0.0 | Workspace protocol, fast installs, deterministic hoisting |
-| **Nx** | ^22.5.1 | Affected graph, caching, release orchestration |
-| **TypeScript** | ^5.9.3 (compatible with 6.x) | `@tsconfig/strictest` baseline |
-| **Vitest** | ^3.2.4 | Test runner; `*.unit.test.ts` and `*.integration.test.ts` patterns |
-| **Biome** | 2.2.5 | Linter + formatter (replaces ESLint + Prettier) |
-| **Node** | ≥24.0.0 | Engine constraint enforced via `engine-strict=true` |
+| **pnpm** | 12 (≥12.0.0) | Workspace protocol; strict 3-day `minimumReleaseAge`, explicit `allowBuilds` |
+| **Nx** | 23.2.1 | Affected graph, caching, release orchestration |
+| **TypeScript** | ^6.0.3 | `@tsconfig/strictest` baseline (7 waits on Nx support) |
+| **Vitest** | 5 | Test runner; `*.unit.test.ts` and `*.integration.test.ts` patterns |
+| **Biome** | 2.5 (exact) | Linter + formatter (replaces ESLint + Prettier) |
+| **Node** | 26 (≥26.0.0) | `.nvmrc`; engine constraint enforced via `engine-strict=true` |
+| **Renovate** | — | Dependency updates (`.github/renovate.json5`) |
 
 All tooling configs live at the repo root; per-package configs only
 override what's truly per-package (e.g. `tsconfig.lib.json` for build
