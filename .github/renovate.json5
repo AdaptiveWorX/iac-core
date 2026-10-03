@@ -5,7 +5,18 @@
     ":dependencyDashboard",
     ":semanticCommits",
     "group:monorepos",
+    // Actions are referenced by immutable SHA, kept current via the version comment.
+    "helpers:pinGitHubActionDigests",
   ],
+
+  // --- Supply-chain delay (aligned with flow-04) ------------------------------
+  // Every datasource (npm, Actions, .nvmrc Node, packageManager pnpm) waits 3
+  // days, matching pnpm's strict minimumReleaseAge (4320 minutes) in
+  // pnpm-workspace.yaml; "strict" opens no branch at all until the age passes.
+  minimumReleaseAge: "3 days",
+  internalChecksFilter: "strict",
+  // API commits are Verified (signed by GitHub).
+  platformCommit: "enabled",
 
   // --- Conventional-commit titles -------------------------------------------
   // pr-title.yml enforces a fixed scope allowlist (mirrors commitlint
@@ -54,9 +65,10 @@
 
   packageRules: [
     {
-      // Nx core + plugins must move in lockstep, or the workspace breaks.
-      matchPackageNames: ["nx", "/^@nx//"],
-      groupName: "nx monorepo",
+      // Lockfile maintenance has no release timestamp; pnpm's own
+      // minimumReleaseAge enforces the 3 days on every version it resolves.
+      matchUpdateTypes: ["lockFileMaintenance"],
+      minimumReleaseAge: null,
     },
     {
       // Auto-merge low-risk dev-dependency updates once CI passes.
@@ -66,16 +78,54 @@
     },
     {
       // Never auto-merge majors — they need a human (e.g. the vitest 3 -> 4
-      // bump that quietly broke the test mocks). Flag them for review.
+      // bump that quietly broke the test mocks). Flag them for review, and
+      // open them only once approved on the Dependency Dashboard.
       matchUpdateTypes: ["major"],
       automerge: false,
       addLabels: ["major-update"],
+      dependencyDashboardApproval: true,
     },
     {
       // Pulumi providers download a matching plugin binary at install; group
       // them so a bump and its peer move together and review stays coherent.
       matchPackageNames: ["/^@pulumi//"],
       groupName: "pulumi",
+    },
+    {
+      // vitest and its @vitest/* plugins must share a version (they drifted a
+      // major apart once: vitest 5 with coverage-v8 4).
+      matchPackageNames: ["vite", "vitest", "/^@vitest//"],
+      groupName: "vitest",
+    },
+    {
+      // Nx core + plugins must move in lockstep, or the workspace breaks. Nx is
+      // the release backbone (Nx Release drives versions, changelogs and the
+      // tags npm trusted publishing hangs off), so its updates never automerge
+      // and run `nx migrate` by hand. After the devDependencies rule above.
+      matchPackageNames: ["nx", "/^@nx//"],
+      groupName: "nx monorepo",
+      automerge: false,
+    },
+    {
+      // GitHub Actions: non-major updates automerge once the required checks
+      // are green (aligned with flow-04).
+      matchManagers: ["github-actions"],
+      matchUpdateTypes: ["minor", "patch", "digest"],
+      automerge: true,
+    },
+    {
+      // Pinning an action to its digest freezes code already run: no
+      // release-age delay, automerge.
+      matchUpdateTypes: ["pin", "pinDigest"],
+      minimumReleaseAge: null,
+      automerge: true,
+    },
+    {
+      // Shipped to consumers: runtime and peer dependencies of the published
+      // packages never automerge, whatever the update type. Last, so it wins.
+      matchFileNames: ["packages/*/package.json"],
+      matchDepTypes: ["dependencies", "peerDependencies"],
+      automerge: false,
     },
   ],
 }
