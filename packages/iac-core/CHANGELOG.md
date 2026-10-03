@@ -1,3 +1,30 @@
+## 0.4.0 (2026-10-03)
+
+### 🚀 Features
+
+- ⚠️  **iac-core:** zod 4 -- the zod peer is ^4.0.0 and the exported schemas are zod 4 types ([4c4566c](https://github.com/AdaptiveWorX/iac-core/commit/4c4566c))
+
+### 🩹 Fixes
+
+- **iac-core:** SecretManager never logs secret values ([e2a4a21](https://github.com/AdaptiveWorX/iac-core/commit/e2a4a21))
+
+### ⚠️  Breaking Changes
+
+- **iac-core:** zod 4 -- the zod peer is ^4.0.0 and the exported schemas are zod 4 types  ([4c4566c](https://github.com/AdaptiveWorX/iac-core/commit/4c4566c))
+  iac-core requires zod 4. The exported *Schema constants are
+  zod 4 types (z.ZodEnum<{...}> where zod 3 had z.ZodEnum<[...]>), and the
+  messages zod itself writes changed (e.g. "Required" is now "Invalid input:
+  expected string, received undefined"); the custom messages these schemas
+  declare are unchanged.
+
+### 🧱 Updated Dependencies
+
+- Updated @adaptiveworx/iac-schemas to 0.1.5
+
+### ❤️ Thank You
+
+- Lloyd Mangnall @lloydmangnall
+
 ## 0.3.2 (2026-06-08)
 
 ### 🩹 Fixes
