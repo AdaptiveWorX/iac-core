@@ -19,6 +19,7 @@ export {
 } from "./regional-compliance.js";
 export {
   AWS_NON_TAGGABLE_RESOURCES,
+  DEFAULT_REQUIRED_TAGS,
   type RequireTagsOptions,
   requireTagsPolicy,
 } from "./require-tags.js";

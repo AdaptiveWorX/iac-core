@@ -257,6 +257,10 @@ importers:
         version: 4.6.5
 
   packages/iac-policies:
+    dependencies:
+      '@adaptiveworx/iac-schemas':
+        specifier: workspace:^
+        version: link:../iac-schemas
     devDependencies:
       '@pulumi/policy':
         specifier: ^1.21.0
