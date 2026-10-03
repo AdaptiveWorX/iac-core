@@ -11,6 +11,13 @@ name: Release Tags
 #     creates tags
 #   → each tag push triggers `release.yml` → npm publish via Trusted Publishing
 #
+# Refused release: validate-release-manifest.ts refuses to tag a release
+# commit whose parent isn't the main commit it was prepared from (baseSha).
+# Main then carries untagged versions and nothing publishes. Recovery
+# (CONTRIBUTING.md, "A refused release"): merge a PR reverting the release
+# commit, titled `revert(release): …`, then dispatch Scheduled Release. Any
+# other failure: re-run this workflow (tagging is idempotent).
+#
 # Tag pushes need a non-default token because GitHub's anti-recursion
 # safeguard prevents the default GITHUB_TOKEN from triggering downstream
 # workflows. We use a dedicated GitHub App (RELEASE_APP_*) which is

@@ -75,3 +75,26 @@ export function checkReleaseCommitParent(
   }
   return undefined;
 }
+
+export interface PackageVersion {
+  readonly name: string;
+  readonly version: string;
+}
+
+/**
+ * Packages whose current version has no release tag: what main carries after
+ * Release Tags refused (or failed) to tag a merged release. prepare.sh
+ * refuses to start a new release on top of them. Returns an error message,
+ * or undefined when every version is tagged.
+ */
+export function checkNoUntaggedVersions(
+  packages: readonly PackageVersion[],
+  tagExists: (tag: string) => boolean
+): string | undefined {
+  const untagged = packages.filter(p => !tagExists(`${p.name}@${p.version}`));
+  if (untagged.length === 0) {
+    return undefined;
+  }
+  const list = untagged.map(p => `${p.name}@${p.version}`).join(", ");
+  return `main carries untagged versions (${list}): a merged release was never tagged. If Release Tags failed transiently, re-run it. If it refused a stale release, merge a PR reverting that release commit (title "revert(release): …"), then dispatch Scheduled Release again. See CONTRIBUTING.md, "A refused release".`;
+}

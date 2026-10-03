@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { checkReleaseCommitParent, checkReleasePrIsCurrent } from "./release-base.js";
+import {
+  checkNoUntaggedVersions,
+  checkReleaseCommitParent,
+  checkReleasePrIsCurrent,
+} from "./release-base.js";
 
 const A = "a".repeat(40);
 const B = "b".repeat(40);
@@ -43,5 +47,34 @@ describe("stale-release guard", () => {
     it("refuses to tag a manifest without a recorded base", () => {
       expect(checkReleaseCommitParent(manifest(), A)).toMatch(/no baseSha/);
     });
+  });
+});
+
+describe("prepare.sh refuses to release on top of untagged versions", () => {
+  const tags = new Set(["@adaptiveworx/iac-core@0.5.0", "@adaptiveworx/iac-schemas@0.1.6"]);
+  const tagExists = (tag: string) => tags.has(tag);
+
+  it("passes when every version is tagged", () => {
+    expect(
+      checkNoUntaggedVersions(
+        [
+          { name: "@adaptiveworx/iac-core", version: "0.5.0" },
+          { name: "@adaptiveworx/iac-schemas", version: "0.1.6" },
+        ],
+        tagExists
+      )
+    ).toBeUndefined();
+  });
+
+  it("names the untagged versions and the recovery (revert, then re-dispatch)", () => {
+    const message = checkNoUntaggedVersions(
+      [
+        { name: "@adaptiveworx/iac-core", version: "0.5.0" },
+        { name: "@adaptiveworx/iac-schemas", version: "0.2.0" },
+      ],
+      tagExists
+    );
+    expect(message).toMatch(/untagged versions \(@adaptiveworx\/iac-schemas@0\.2\.0\)/);
+    expect(message).toMatch(/revert\(release\).*dispatch Scheduled Release again/);
   });
 });

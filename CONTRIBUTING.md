@@ -376,6 +376,33 @@ dispatch Scheduled Release again. (Release #58 shipped #57's breaking
 change as a patch this way; `scripts/release/release-base.ts` exists to
 prevent a repeat.)
 
+### A refused release
+
+If a release PR merges after main moved on anyway, Release Tags fails with
+"Refusing to tag". Main then carries the release commit (bumped
+`package.json` versions, CHANGELOG entries, `.release/manifest.json`) with no
+tags, and nothing is published. To recover:
+
+1. Revert the release commit in a PR:
+   ```bash
+   git switch -c revert/release-$(date -u +%Y%m%d) origin/main
+   git revert <release-commit-sha>   # restores the latest tagged versions
+   git push -u origin HEAD
+   ```
+   Title the PR `revert(release): undo the untagged release <pkg>@<ver>, …`
+   (GitHub's default `Revert "…"` title fails the PR-title check). The
+   pre-commit version guard allows exactly this change: back to each
+   package's latest tagged version.
+2. Merge it (any strategy; its subject doesn't start with
+   `chore(release): publish`, so Release Tags ignores it).
+3. Dispatch **Scheduled Release**. It releases the reverted changes together
+   with everything that landed since; Nx ignores the reverted release commit.
+
+Until step 1 lands, Scheduled Release refuses to start
+(`scripts/release/check-untagged.ts`: "main carries untagged versions").
+If Release Tags failed for another reason (an outage, a token), don't
+revert: re-run the Release Tags run; tag creation is idempotent.
+
 ### Pre-releases
 
 Not supported by the CI flow; `release.yml` publishes to the `latest`

@@ -91,6 +91,11 @@ cleanup_failed_run() {
 trap cleanup_failed_run EXIT
 
 # 2. Run nx release. Pass through any extra args (after `--`) for manual specifiers.
+# No release on top of an untagged one (a release Release Tags refused or
+# failed to tag): that state needs recovery first (CONTRIBUTING.md,
+# "A refused release"). Runs after the tag resync above.
+pnpm exec tsx scripts/release/check-untagged.ts
+
 # The release is computed from this commit, which must be main's current tip.
 git fetch origin main >/dev/null 2>&1
 RELEASE_BASE_SHA=$(git rev-parse HEAD)
