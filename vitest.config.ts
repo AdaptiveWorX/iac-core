@@ -3,9 +3,30 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
+const packagesDir = fileURLToPath(new URL("./packages/", import.meta.url));
+
 export default defineConfig({
+  // Workspace packages resolve to their source, never to dist/: their
+  // package.json exports point at dist/, which a PR run of `nx affected` may
+  // not have built (or may have built from an older commit). Tests and
+  // coverage therefore always run against the code under review.
+  resolve: {
+    alias: [
+      // @adaptiveworx/iac-core/{config,schemas,types,utils,validation}/<path>
+      {
+        find: /^@adaptiveworx\/iac-core\/(config|schemas|types|utils|validation)\/(.+)$/,
+        replacement: `${packagesDir}iac-core/src/$1/$2.ts`,
+      },
+      // @adaptiveworx/<package> (each package's root export)
+      {
+        find: /^@adaptiveworx\/(iac-[a-z]+)$/,
+        replacement: `${packagesDir}$1/src/index.ts`,
+      },
+    ],
+  },
   test: {
     globals: true,
     environment: "node",
