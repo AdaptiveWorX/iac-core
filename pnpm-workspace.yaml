@@ -1,6 +1,23 @@
 packages:
-  - 'packages/*'
+  - "packages/*"
 
-onlyBuiltDependencies:
-  - esbuild
-  - nx
+# pnpm 12 reads its settings only from this file: the package.json "pnpm"
+# field and pnpm-specific .npmrc keys are ignored.
+autoInstallPeers: true
+strictPeerDependencies: false
+publicHoistPattern:
+  - "@types/*"
+  - "@biomejs/*"
+
+# Dependency build scripts: every package that ships one is decided here
+# explicitly (true = run it, false = skip it).
+allowBuilds:
+  esbuild: true
+  lefthook: true
+  nx: true
+  protobufjs: true
+
+# Supply-chain delay: no version younger than 3 days (4320 minutes) resolves,
+# and strict mode fails the install rather than falling back to a younger one.
+minimumReleaseAge: 4320
+minimumReleaseAgeStrict: true
