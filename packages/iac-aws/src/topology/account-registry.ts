@@ -199,7 +199,7 @@ export class AwsAccountRegistry {
     }
 
     const accountsJson = await this.secretManager.getOptionalSecret("AWS_ACCOUNTS", "{}", {
-      cloud: "aws",
+      provider: "aws",
       environment: env,
     });
     const accounts = parseAwsAccountsJson(accountsJson, env);
@@ -264,7 +264,7 @@ export class AwsAccountRegistry {
     try {
       // Re-read the raw JSON; the parsed accounts map strips `default`.
       const rawJson = await this.secretManager.getOptionalSecret("AWS_ACCOUNTS", "{}", {
-        cloud: "aws",
+        provider: "aws",
         environment: environment ?? "dev",
       });
       const parsed = JSON.parse(rawJson) as unknown;
