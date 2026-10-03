@@ -223,6 +223,7 @@
   },
   "cloudflare": {
     "aliases": {
+      "glb": "global",
       "global": "global"
     },
     "regions": ["global"]
