@@ -95,7 +95,7 @@
     }
   },
   "devDependencies": {
-    "@pulumi/pulumi": "^3.200.0",
+    "@pulumi/pulumi": "^3.266.0",
     "typescript": "^6.0.0",
     "zod": "^3",
     "zod-to-json-schema": "^3.24.6"

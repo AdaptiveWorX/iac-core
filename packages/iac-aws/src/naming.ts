@@ -46,4 +46,4 @@ export function buildCrossAccountPolicyName(prefix: string, environment: Environ
   return `${buildCrossAccountRoleName(prefix, environment)}-policy`;
 }
 
-export { GITHUB_OIDC_ROLE_SUFFIX, CROSS_ACCOUNT_ROLE_SUFFIX, FOUNDATION_ROLE_SUFFIX };
+export { CROSS_ACCOUNT_ROLE_SUFFIX, FOUNDATION_ROLE_SUFFIX, GITHUB_OIDC_ROLE_SUFFIX };

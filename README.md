@@ -102,11 +102,14 @@ pnpm format:check       # Check only
 
 ### Tooling
 
-- **pnpm@10** workspace
-- **Nx 22** for build orchestration, caching, affected graph, releases
-- **TypeScript 5.9+** with `@tsconfig/strictest`
-- **Vitest 3** for unit + integration tests
-- **Biome 2** for lint + format
+- **Node 26** (`.nvmrc`) and a **pnpm 12** workspace (settings in
+  `pnpm-workspace.yaml`: a strict 3-day `minimumReleaseAge`, an explicit
+  `allowBuilds` map)
+- **Nx 23** for build orchestration, caching, affected graph, releases
+- **TypeScript 6** with `@tsconfig/strictest` (TypeScript 7 waits on Nx:
+  Nx 23 reads tsconfigs through the TypeScript JS API, which 7 dropped)
+- **Vitest 5** for unit + integration tests
+- **Biome 2** for lint + format; **Renovate** for dependency updates
 
 ## Architecture & docs
 

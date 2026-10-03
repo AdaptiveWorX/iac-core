@@ -8,10 +8,13 @@ testing requirements, and the release process.
 
 ### Prerequisites
 
-- **Node.js ≥ 24.0.0** (engine-strict; lower versions will fail
+- **Node.js ≥ 26.0.0** (`.nvmrc`; engine-strict, lower versions fail
   `pnpm install`)
-- **pnpm ≥ 10.0.0** — install via [`corepack`](https://nodejs.org/api/corepack.html)
-  (`corepack enable`) so the repo's pinned `packageManager` field is honored
+- **pnpm ≥ 12.0.0** — the repo pins its exact version (with its sha512) in
+  `packageManager`, which pnpm itself honors. Its settings live in
+  `pnpm-workspace.yaml` (pnpm 12 reads no pnpm keys from `.npmrc`),
+  including a strict 3-day `minimumReleaseAge`: a version published less
+  than 3 days ago does not install.
 - A POSIX shell (macOS, Linux, WSL2)
 
 ### One-time setup
@@ -251,10 +254,10 @@ perf(iac-core): cache CIDR allocations across calls
 feat(iac-azure)!: rename FabricCapacity.skuTier to skuName
 
 docs(repo): clarify Nx Release flow in CONTRIBUTING.md
-chore(repo): upgrade pnpm to 10.30
+chore(repo): upgrade pnpm to 12.9
 ci(repo): cache pnpm store in release workflow
 refactor(repo): collapse tsconfig.lib.json files into one shared base
-build(repo): bump @types/node to 24.x
+build(repo): bump @types/node to 26.x
 ```
 
 ### Bad examples

@@ -52,13 +52,13 @@ jobs:
     steps:
       - name: Mint App token
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # App token so the branch push + PR are App-authored (App-authored
           # events DO trigger CI). fetch-depth: 0 so Nx can walk history +
@@ -80,37 +80,8 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Enable Corepack
+      - uses: ./.github/actions/setup
         if: steps.guard.outputs.skip == 'false'
-        run: corepack enable
-
-      - uses: actions/setup-node@v6
-        if: steps.guard.outputs.skip == 'false'
-        with:
-          node-version-file: .nvmrc
-
-      - uses: pnpm/action-setup@v6
-        if: steps.guard.outputs.skip == 'false'
-        with:
-          run_install: false
-
-      - name: Get pnpm store directory
-        if: steps.guard.outputs.skip == 'false'
-        shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Cache pnpm store
-        if: steps.guard.outputs.skip == 'false'
-        uses: actions/cache@v5
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-
-      - name: Install dependencies
-        if: steps.guard.outputs.skip == 'false'
-        run: pnpm install --frozen-lockfile
 
       - name: Configure git identity
         if: steps.guard.outputs.skip == 'false'

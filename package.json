@@ -14,7 +14,7 @@
   },
   "homepage": "https://github.com/AdaptiveWorX/iac-core#readme",
   "scripts": {
-    "prepare": "lefthook install",
+    "prepare": "lefthook install || echo \"lefthook: hook install skipped (core.hooksPath is set; hooks still run via the shared hooks path)\"",
     "nx": "nx",
     "build": "nx run-many -t build",
     "build:affected": "nx affected -t build",
@@ -51,20 +51,19 @@
   },
   "packageManager": "pnpm@12.8.1+sha512.f64ba907507f5ceafe06c8d38e6052d0179444580ec1279ddd5bfc11cb48aa8a2644b66598e07e761da84872a9fc57d5f902b87fa49d024198d558612aabbe45",
   "devDependencies": {
-    "@biomejs/biome": "2.2.5",
-    "@commitlint/cli": "^19.6.0",
-    "@commitlint/config-conventional": "^19.6.0",
+    "@biomejs/biome": "2.5.15",
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
     "@nx/devkit": "23.2.1",
     "@nx/js": "23.2.1",
     "@tsconfig/strictest": "^2.0.8",
     "@types/node": "26.6.3",
-    "@vitest/coverage-v8": "^4.1.8",
-    "@vitest/ui": "^4.1.8",
-    "lefthook": "^1.10.0",
+    "@vitest/coverage-v8": "5.0.3",
+    "@vitest/ui": "5.0.3",
+    "lefthook": "^2.1.15",
     "nx": "23.2.1",
-    "tsx": "^4.21.0",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
-    "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "^5.0.3"
+    "vitest": "5.0.3"
   }
 }

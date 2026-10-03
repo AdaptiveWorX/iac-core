@@ -34,30 +34,18 @@ jobs:
     steps:
       - name: Mint App token
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
       - name: Checkout (with App token so subsequent pushes are App-authored)
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           token: ${{ steps.app-token.outputs.token }}
           fetch-depth: 0
 
-      - name: Enable Corepack
-        run: corepack enable
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-
-      - uses: pnpm/action-setup@v6
-        with:
-          run_install: false
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
 
       - name: Validate release manifest
         run: pnpm exec tsx scripts/release/validate-release-manifest.ts

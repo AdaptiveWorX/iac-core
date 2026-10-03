@@ -210,10 +210,10 @@ export function parseStackName(stackName: string): {
       stackPurpose,
       concern,
       region,
-      ...(extractedOrg !== undefined ? { org: extractedOrg } : {}),
-      ...(extractedTenant !== undefined ? { tenant: extractedTenant } : {}),
-      ...(extractedCloud !== undefined ? { cloud: extractedCloud } : {}),
-      ...(extractedEnvironment !== undefined ? { environment: extractedEnvironment } : {}),
+      ...(extractedOrg === undefined ? {} : { org: extractedOrg }),
+      ...(extractedTenant === undefined ? {} : { tenant: extractedTenant }),
+      ...(extractedCloud === undefined ? {} : { cloud: extractedCloud }),
+      ...(extractedEnvironment === undefined ? {} : { environment: extractedEnvironment }),
     };
   } else if (parts.length === 4) {
     // 4-part: {account-purpose}-{stack-purpose}-{concern}-{region} OR {target-env}-{account-purpose}-{stack-purpose}-{region}
@@ -250,10 +250,10 @@ export function parseStackName(stackName: string): {
         accountPurpose,
         stackPurpose,
         region,
-        ...(extractedOrg !== undefined ? { org: extractedOrg } : {}),
-        ...(extractedTenant !== undefined ? { tenant: extractedTenant } : {}),
-        ...(extractedCloud !== undefined ? { cloud: extractedCloud } : {}),
-        ...(extractedEnvironment !== undefined ? { environment: extractedEnvironment } : {}),
+        ...(extractedOrg === undefined ? {} : { org: extractedOrg }),
+        ...(extractedTenant === undefined ? {} : { tenant: extractedTenant }),
+        ...(extractedCloud === undefined ? {} : { cloud: extractedCloud }),
+        ...(extractedEnvironment === undefined ? {} : { environment: extractedEnvironment }),
       };
     } else {
       const [accountPurposeRaw, stackPurposeRaw, concernRaw, regionRaw] = parts;
@@ -281,10 +281,10 @@ export function parseStackName(stackName: string): {
         stackPurpose,
         concern,
         region,
-        ...(extractedOrg !== undefined ? { org: extractedOrg } : {}),
-        ...(extractedTenant !== undefined ? { tenant: extractedTenant } : {}),
-        ...(extractedCloud !== undefined ? { cloud: extractedCloud } : {}),
-        ...(extractedEnvironment !== undefined ? { environment: extractedEnvironment } : {}),
+        ...(extractedOrg === undefined ? {} : { org: extractedOrg }),
+        ...(extractedTenant === undefined ? {} : { tenant: extractedTenant }),
+        ...(extractedCloud === undefined ? {} : { cloud: extractedCloud }),
+        ...(extractedEnvironment === undefined ? {} : { environment: extractedEnvironment }),
       };
     }
   } else if (parts.length === 3) {
@@ -311,10 +311,10 @@ export function parseStackName(stackName: string): {
       accountPurpose,
       stackPurpose,
       region,
-      ...(extractedOrg !== undefined ? { org: extractedOrg } : {}),
-      ...(extractedTenant !== undefined ? { tenant: extractedTenant } : {}),
-      ...(extractedCloud !== undefined ? { cloud: extractedCloud } : {}),
-      ...(extractedEnvironment !== undefined ? { environment: extractedEnvironment } : {}),
+      ...(extractedOrg === undefined ? {} : { org: extractedOrg }),
+      ...(extractedTenant === undefined ? {} : { tenant: extractedTenant }),
+      ...(extractedCloud === undefined ? {} : { cloud: extractedCloud }),
+      ...(extractedEnvironment === undefined ? {} : { environment: extractedEnvironment }),
     };
   } else {
     throw new Error(
