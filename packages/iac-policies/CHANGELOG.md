@@ -1,3 +1,18 @@
+## 0.2.3 (2026-10-03)
+
+### 🚀 Features
+
+- ⚠️  **iac-core:** one AWS region list, provider-aware config, Workload tag; drop iac-schemas generated/ ([#57](https://github.com/AdaptiveWorX/iac-core/pull/57))
+
+### ⚠️  Breaking Changes
+
+- **iac-core:** one AWS region list, provider-aware config, Workload tag; drop iac-schemas generated/  ([#57](https://github.com/AdaptiveWorX/iac-core/pull/57))
+  @adaptiveworx/iac-schemas/generated/* no longer exists.
+
+### ❤️ Thank You
+
+- Lloyd Mangnall @lloydmangnall
+
 ## 0.2.2 (2026-06-15)
 
 This was a version bump only for @adaptiveworx/iac-policies to align it with other projects, there were no code changes.
