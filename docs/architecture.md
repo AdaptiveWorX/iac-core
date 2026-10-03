@@ -199,23 +199,25 @@ land on `main` via PR (not direct push), and tag creation +
 publishing are fully automated downstream of the PR merge:
 
 ```
-release branch
-  └─ pnpm release:prepare    nx release + manifest + amend + tags-locally
-  └─ pnpm release:pr         push branch + open release PR
+release-schedule.yml (Monday cron or dispatch; the only way to prepare a release)
+  └─ prepare.sh              nx release + manifest (incl. baseSha) on release/<date>
+  └─ open-pr.sh              push branch + open release PR
        ↓
-release PR  →  rebase merge  →  main
+release PR  →  merge  →  main   (CI fails it once main moves past baseSha)
        ↓
-release-tags.yml     validates .release/manifest.json
+release-tags.yml     validates .release/manifest.json (refuses a release
+                     commit whose parent isn't baseSha)
                      creates + pushes per-package tags via GitHub App token
        ↓
 release.yml          per tag: builds + publishes via npm OIDC
 ```
 
-Three workflow files cooperate:
+Four workflow files cooperate:
 
 | Workflow | Trigger | Role |
 |---|---|---|
-| `ci.yml` | PR + push to main | Validates the release PR (lint, typecheck, test, build) |
+| `release-schedule.yml` | Monday cron or `workflow_dispatch` | Prepares the release (versions, changelogs, manifest) and opens the release PR |
+| `ci.yml` | PR + push to main | Validates the release PR (lint, typecheck, test, build) and that main hasn't moved past its `baseSha` |
 | `release-tags.yml` | push to main with `chore(release): publish` head-commit subject | Validates the manifest + creates/pushes per-package tags via a dedicated GitHub App |
 | `release.yml` | tag push matching `@adaptiveworx/iac-*@*` | Builds + publishes the package via npm OIDC Trusted Publishing |
 
@@ -234,8 +236,8 @@ tag protection ruleset (it can create release tags) and nothing else.
 - **Breaking changes land at major bumps**, signaled with `!:` or
   `BREAKING CHANGE:` in the commit body.
 - **Release commits go via PR like every other change.** No bypass
-  configured for direct main pushes. If the release PR's CI fails,
-  fix the underlying issue and re-push the release branch.
+  configured for direct main pushes. If the release PR's CI fails
+  because main moved on, close it and re-run Scheduled Release.
 - See [CONTRIBUTING.md](../CONTRIBUTING.md#releases) for the end-to-end
   release walkthrough.
 

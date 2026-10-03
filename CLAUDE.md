@@ -42,6 +42,10 @@ Claude Code on this repo.
   formatting + version-edit guard; commit-msg validates conventional
   commits; pre-push runs `nx affected`. Don't re-run the same checks
   manually before commit; hooks will surface what they need to.
+- **Releases happen only in CI.** Scheduled Release (Monday cron or
+  dispatch) → merge the release PR → Release Tags → Release. There is no
+  local release path; `pnpm release:dry` previews. Never merge a release PR
+  after main has moved past the commit it was prepared from (CI fails it).
 - **Don't create planning/decision/analysis docs unless asked.** Work
   from conversation context. Architectural decisions go in
   `docs/architecture.md`, transient plans in `docs/migration-plan.md`,

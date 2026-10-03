@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Prepare a release on a release-prep branch.
+# Prepare a release on a release-prep branch. CI only: the Scheduled Release
+# workflow (.github/workflows/release-schedule.yml) runs it; there is no local
+# release path.
 #
 # Sequence:
 #   1. Verify we're not on `main` (release commits land on main via PR, not direct push)
@@ -9,20 +11,25 @@
 #   4. Amend the chore(release) commit to include the manifest
 #   5. Re-create tags at the amended commit (amend changed the SHA)
 #
-# After this script: run `pnpm release:pr` to push the branch + open the
-# release PR.
+# The manifest records the main commit the release is computed from
+# (`baseSha`); CI and Release Tags refuse the release once main has moved past
+# it (scripts/release/release-base.ts).
 #
-# Usage:
-#   pnpm release:prepare [-- <nx release args>]
+# After this script the workflow runs scripts/release/open-pr.sh.
 #
-# Examples:
-#   pnpm release:prepare                                                # auto-mode
-#   pnpm release:prepare -- --projects=@adaptiveworx/iac-core --specifier=patch
-#   pnpm release:prepare -- --projects=@adaptiveworx/iac-policies --specifier=0.2.0
+# Usage (from the workflow):
+#   bash scripts/release/prepare.sh [<nx release args>]
+#   bash scripts/release/prepare.sh --projects=@adaptiveworx/iac-core --specifier=patch
 
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
+
+if [ "${GITHUB_ACTIONS:-}" != "true" ]; then
+  echo "error: releases are prepared only by the Scheduled Release workflow (Monday cron or" >&2
+  echo "workflow_dispatch). Preview locally with: pnpm release:dry" >&2
+  exit 1
+fi
 
 # nx's workspace-root detection looks for a `.git` directory and walks
 # up otherwise. Inside a git worktree, `.git` is a FILE pointing at the
@@ -32,35 +39,14 @@ cd "$(git rev-parse --show-toplevel)"
 # worktree's tree.
 export NX_WORKSPACE_ROOT_PATH="$(pwd)"
 
-# pnpm forwards the `--` separator from `pnpm release:prepare -- <args>` as a
-# literal first argument, which then lands in front of our flags as
-# `nx release --skip-publish -- --projects=…`. Past that `--`, nx treats
-# everything as positional and silently ignores --projects/--specifier,
-# versioning every project in auto mode. Drop a single leading `--` so the
-# flags reach nx as flags. (Calling this script directly also works.)
-if [ "${1:-}" = "--" ]; then
-  shift
-fi
 
-# 1. Branch guard.
+# 1. Branch guard: the workflow branches release/<date> from main first.
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-if [ "$BRANCH" = "main" ]; then
-  echo "error: refusing to run release:prepare on main." >&2
-  echo >&2
-  echo "Release commits land on main via PR. Create a release branch first:" >&2
-  echo "  git checkout -b release/\$(date +%Y%m%d-%H%M)" >&2
-  echo "Then re-run: pnpm release:prepare" >&2
-  exit 1
-fi
-
-# Accept release/<id> (manual) and worktree-release+<id> /
-# worktree-release/<id> (agent-driven via `claude --worktree`).
 case "$BRANCH" in
   release/*) ;;
-  worktree-release/*) ;;
-  worktree-release+*) ;;
   *)
-    echo "warning: branch '$BRANCH' is not a release branch. Continuing anyway." >&2
+    echo "error: prepare.sh runs on a release/* branch (the Scheduled Release workflow creates one); got '$BRANCH'." >&2
+    exit 1
     ;;
 esac
 
@@ -89,7 +75,7 @@ cleanup_failed_run() {
   local exit_code=$?
   if [ $exit_code -ne 0 ]; then
     echo >&2
-    echo "→ release:prepare failed (exit $exit_code). Cleaning up stray tags created during this run." >&2
+    echo "→ prepare.sh failed (exit $exit_code). Cleaning up stray tags created during this run." >&2
     local current_tags
     current_tags=$(mktemp)
     git tag --list >"$current_tags"
@@ -105,6 +91,15 @@ cleanup_failed_run() {
 trap cleanup_failed_run EXIT
 
 # 2. Run nx release. Pass through any extra args (after `--`) for manual specifiers.
+# The release is computed from this commit, which must be main's current tip.
+git fetch origin main >/dev/null 2>&1
+RELEASE_BASE_SHA=$(git rev-parse HEAD)
+if [ "$RELEASE_BASE_SHA" != "$(git rev-parse FETCH_HEAD)" ]; then
+  echo "error: HEAD ($RELEASE_BASE_SHA) is not main's tip; prepare a release from current main." >&2
+  exit 1
+fi
+export RELEASE_BASE_SHA
+
 echo "→ nx release --skip-publish $*"
 pnpm exec nx release --skip-publish "$@"
 
@@ -136,4 +131,4 @@ echo "  Pre-amend commit: $PRE_AMEND_COMMIT"
 echo "  Post-amend commit: $(git rev-parse HEAD)"
 echo "  Manifest: $(jq -r '.releases | length' .release/manifest.json) package(s)"
 echo
-echo "Next: pnpm release:pr"
+echo "Next: bash scripts/release/open-pr.sh"

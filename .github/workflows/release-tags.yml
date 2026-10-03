@@ -4,10 +4,11 @@ name: Release Tags
 # after a release PR merges to main.
 #
 # Flow:
-#   maintainer runs `pnpm release:prepare` → chore(release) commit on a release branch
-#   → `pnpm release:pr` → release PR
-#   → maintainer merges via rebase
-#   → THIS workflow fires on push to main, validates manifest, creates tags
+#   Scheduled Release (release-schedule.yml) → chore(release) commit on a release branch
+#   → release PR → maintainer merges it
+#   → THIS workflow fires on push to main, validates the manifest (including
+#     that the release commit sits on the main commit it was prepared from),
+#     creates tags
 #   → each tag push triggers `release.yml` → npm publish via Trusted Publishing
 #
 # Tag pushes need a non-default token because GitHub's anti-recursion

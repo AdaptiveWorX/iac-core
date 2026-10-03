@@ -12,7 +12,6 @@
       "Bash(pnpm -r publish*)",
       "Bash(pnpm nx release publish*)",
       "Bash(nx release publish*)",
-      "Bash(pnpm release:pr*)",
       "Bash(git push --force*)",
       "Bash(git push -f*)",
       "Bash(git push * --force*)",
