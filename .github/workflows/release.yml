@@ -79,7 +79,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '24'
+          node-version-file: .nvmrc
           # Intentionally NOT setting `registry-url:` — it makes
           # setup-node generate an .npmrc with `always-auth=true` and
           # a `${NODE_AUTH_TOKEN}` placeholder, which forces npm into
