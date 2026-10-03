@@ -13,8 +13,7 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { ZodSchema } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { z } from "zod";
 import { SCHEMA_CONFIG } from "../constants.js";
 import * as coreSchemas from "../core/core-schemas.js";
 
@@ -24,7 +23,7 @@ import * as coreSchemas from "../core/core-schemas.js";
 interface SchemaEntry {
   exportName: string;
   name: string;
-  schema: ZodSchema<unknown>;
+  schema: z.ZodType;
 }
 
 interface SchemaManifestEntry {
@@ -32,10 +31,8 @@ interface SchemaManifestEntry {
   file: string;
 }
 
-function isZodSchema(value: unknown): value is ZodSchema<unknown> {
-  return (
-    typeof value === "object" && value !== null && "_def" in (value as Record<string, unknown>)
-  );
+function isZodSchema(value: unknown): value is z.ZodType {
+  return value instanceof z.ZodType;
 }
 
 function collectSchemas(): SchemaEntry[] {
@@ -65,13 +62,11 @@ function generateJsonSchemas(): void {
   // Generate individual schema files
   for (const { name, schema } of schemaEntries) {
     try {
-      const jsonSchema = zodToJsonSchema(schema, {
-        name,
-        target: "jsonSchema7",
-        definitionPath: "$defs", // Native $defs format
-        definitions: {} as Record<string, ZodSchema<unknown>>,
-        errorMessages: true,
-        markdownDescription: true,
+      // zod 4's native JSON Schema emitter (zod-to-json-schema does not
+      // support zod 4). Refinements are not representable and are omitted.
+      const jsonSchema = z.toJSONSchema(schema, {
+        target: "draft-7",
+        unrepresentable: "any",
       });
 
       // Add agent-specific metadata using constants
@@ -250,7 +245,7 @@ function generateOpenApiSpec(): void {
       schemas: Object.fromEntries(
         schemaEntries.map(({ name, schema }) => [
           name,
-          zodToJsonSchema(schema, { target: "openApi3" }),
+          z.toJSONSchema(schema, { target: "openapi-3.0", unrepresentable: "any" }),
         ])
       ),
     },
