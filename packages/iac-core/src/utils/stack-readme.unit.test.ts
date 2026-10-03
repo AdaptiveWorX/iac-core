@@ -28,7 +28,7 @@ describe("stack-readme", () => {
       expect(readme).toContain("# adaptiveworx-aws-ops-iam-dev-us-east-1");
       expect(readme).toContain("## Stack Context");
       expect(readme).toContain("| Organization | adaptiveworx |");
-      expect(readme).toContain("| Cloud | aws |");
+      expect(readme).toContain("| Provider | aws |");
       expect(readme).toContain("| Account Purpose | ops |");
       expect(readme).toContain("| Stack Purpose | iam |");
       expect(readme).toContain("| Environment | dev |");
@@ -166,8 +166,8 @@ describe("stack-readme", () => {
       expect(readme).toContain("| Stack Purpose | vpc |");
     });
 
-    it("should handle all cloud providers", () => {
-      const clouds: CloudProvider[] = ["aws", "azure", "gcp", "cloudflare"];
+    it("should handle all providers", () => {
+      const clouds: CloudProvider[] = ["aws", "azure", "gcp", "cloudflare", "github", "infisical"];
 
       for (const cloud of clouds) {
         const context: StackContext = {
@@ -176,7 +176,7 @@ describe("stack-readme", () => {
         };
 
         const readme = generateStackReadme(context);
-        expect(readme).toContain(`| Cloud | ${cloud} |`);
+        expect(readme).toContain(`| Provider | ${cloud} |`);
       }
     });
 

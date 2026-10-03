@@ -10,6 +10,7 @@
  */
 
 import { z } from "zod";
+import { PROVIDER_DEFINITIONS, type Provider, ProviderSchema } from "../schemas/core/providers.js";
 import type { ValidationError, ValidationErrorCode, ValidationResult } from "../types/core.js";
 
 /**
@@ -371,6 +372,7 @@ export namespace ValidationPatterns {
     data: unknown,
     context: string = "cross-account-operation"
   ): ValidationResult<{
+    provider: Provider;
     sourceAccount: string;
     targetAccount: string;
     operation: "assume-role" | "share-resource" | "create-dns" | "access-secrets";
@@ -380,19 +382,28 @@ export namespace ValidationPatterns {
     AgentValidationService.validateWithContext(
       z
         .object({
-          sourceAccount: z
-            .string()
-            .length(12)
-            .regex(/^\d{12}$/),
-          targetAccount: z
-            .string()
-            .length(12)
-            .regex(/^\d{12}$/),
+          // Decides the account id shape (default aws: 12 digits).
+          provider: ProviderSchema.default("aws"),
+          sourceAccount: z.string(),
+          targetAccount: z.string(),
           operation: z.enum(["assume-role", "share-resource", "create-dns", "access-secrets"]),
           environment: z.enum(["dev", "stg", "prd", "sec"]),
           approvalRequired: z.boolean(),
         })
         .superRefine((parsedData, ctx) => {
+          const accountId = PROVIDER_DEFINITIONS[parsedData.provider].accountId;
+          for (const field of ["sourceAccount", "targetAccount"] as const) {
+            if (!accountId.pattern.test(parsedData[field])) {
+              ctx.addIssue({
+                code: "invalid_format",
+                format: "regex",
+                pattern: accountId.pattern.source,
+                input: parsedData[field],
+                message: `Must be valid ${accountId.description}`,
+                path: [field],
+              });
+            }
+          }
           if (parsedData.environment === "prd" && !parsedData.approvalRequired) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,

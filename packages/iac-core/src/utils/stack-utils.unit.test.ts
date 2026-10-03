@@ -68,6 +68,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       const result = parseProjectName("worx-aws-dev");
       expect(result).toEqual({
         tenant: "worx",
+        provider: "aws",
         cloud: "aws",
         environment: "dev",
       });
@@ -76,12 +77,14 @@ describe("Stack Utils - Comprehensive Coverage", () => {
     it("should parse different tenant/cloud/env combinations", () => {
       expect(parseProjectName("care-gcp-prd")).toEqual({
         tenant: "care",
+        provider: "gcp",
         cloud: "gcp",
         environment: "prd",
       });
 
       expect(parseProjectName("worx-azure-stg")).toEqual({
         tenant: "worx",
+        provider: "azure",
         cloud: "azure",
         environment: "stg",
       });
@@ -97,13 +100,13 @@ describe("Stack Utils - Comprehensive Coverage", () => {
 
     it("should throw error for invalid format with too few parts", () => {
       expect(() => parseProjectName("worx-aws")).toThrow(
-        "Invalid project name format: worx-aws. Expected: {tenant}-{cloud}-{env}"
+        "Invalid project name format: worx-aws. Expected: {tenant}-{provider}-{env}"
       );
     });
 
     it("should throw error for invalid format with too many parts", () => {
       expect(() => parseProjectName("worx-aws-dev-extra")).toThrow(
-        "Invalid project name format: worx-aws-dev-extra. Expected: {tenant}-{cloud}-{env}"
+        "Invalid project name format: worx-aws-dev-extra. Expected: {tenant}-{provider}-{env}"
       );
     });
 
@@ -245,6 +248,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       expect(result).toEqual({
         org: "adaptiveworx",
         tenant: "worx",
+        provider: "aws",
         cloud: "aws",
         environment: "dev",
         accountPurpose: "app",
@@ -258,6 +262,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       expect(result).toEqual({
         org: "adaptiveworx",
         tenant: "worx",
+        provider: "aws",
         cloud: "aws",
         environment: "dev",
         accountPurpose: "app",
@@ -272,6 +277,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       expect(result).toEqual({
         org: "adaptiveworx",
         tenant: "worx",
+        provider: "aws",
         cloud: "aws",
         environment: "sec",
         targetEnvironment: "dev",
@@ -286,6 +292,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       expect(result).toEqual({
         org: "adaptiveworx",
         tenant: "worx",
+        provider: "aws",
         cloud: "aws",
         environment: "sec",
         targetEnvironment: "dev",
@@ -301,6 +308,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       expect(result).toEqual({
         org: "adaptiveworx",
         tenant: "care",
+        provider: "gcp",
         cloud: "gcp",
         environment: "prd",
         accountPurpose: "app",
@@ -510,12 +518,15 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       expect(context.region).toBe("use1");
     });
 
-    it("should throw error for 5-part stack names (not supported by schema)", () => {
+    it("should detect context for 5-part stack names (one 3-5 segment rule)", () => {
       vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-sec");
       vi.mocked(pulumi.getStack).mockReturnValue("dev-ops-vpc-shared-use1");
 
-      // Schema validation only allows 3-part or 4-part stack names
-      expect(() => detectStackContext()).toThrow("Stack context detection failed");
+      // StackNameSchema, parseStackName and StackContextSchema share the 3-5 segment rule.
+      const context = detectStackContext();
+      expect(context.targetEnvironment).toBe("dev");
+      expect(context.concern).toBe("shared");
+      expect(context.stackPurpose).toBe("vpc");
     });
 
     it("should throw error for invalid project name", () => {
@@ -557,6 +568,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       const context: StackContext = {
         org: "adaptiveworx",
         tenant: "worx",
+        provider: "aws",
         cloud: "aws",
         accountPurpose: "app",
         stackPurpose: "web",
@@ -574,6 +586,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       const context: StackContext = {
         org: "adaptiveworx",
         tenant: "worx",
+        provider: "aws",
         cloud: "aws",
         accountPurpose: "app",
         stackPurpose: "iam",
@@ -608,6 +621,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       const invalidContext = {
         org: "",
         tenant: "worx",
+        provider: "aws",
         cloud: "aws",
         accountPurpose: "a",
         stackPurpose: "web",
@@ -845,6 +859,7 @@ describe("Stack Utils - Comprehensive Coverage", () => {
     const createContext = (overrides: Partial<StackContext>): StackContext => ({
       org: "adaptiveworx",
       tenant: "worx",
+      provider: "aws",
       cloud: "aws",
       accountPurpose: "app",
       stackPurpose: "web",

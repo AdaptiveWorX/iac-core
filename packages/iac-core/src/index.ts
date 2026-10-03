@@ -47,6 +47,8 @@ export {
   SCHEMA_VERSION,
 } from "./schemas/constants.js";
 export * from "./schemas/core/core-schemas.js";
+// Providers: the {provider} project segment, provider regions (glb), account references
+export * from "./schemas/core/providers.js";
 
 // Types — `AwsRegion` is sourced from ./schemas/core/core-schemas.js
 // (Zod-derived runtime + type) rather than ./types/core.js to avoid duplicate exports.
@@ -65,6 +67,7 @@ export type {
   StackContext,
   StackPurpose,
   StackPurposeClass,
+  StackRegion,
   ValidationError,
   ValidationErrorCode,
   ValidationResult,

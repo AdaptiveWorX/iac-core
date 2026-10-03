@@ -13,6 +13,16 @@ import {
 } from "../../src/utils/region-utils.js";
 
 describe("region-utils", () => {
+  describe("Cloudflare global region", () => {
+    it("resolves glb (the global region code) and global", () => {
+      expect(resolveRegion("cloudflare", "glb")).toBe("global");
+      expect(resolveRegion("cloudflare", "global")).toBe("global");
+      expect(isValidRegion("cloudflare", "glb")).toBe(true);
+      expect(isValidRegion("cloudflare", "use1")).toBe(false);
+      expect(isValidRegion("aws", "glb")).toBe(false);
+    });
+  });
+
   describe("resolveRegion", () => {
     describe("AWS", () => {
       it("resolves AWS region aliases to full names", () => {
