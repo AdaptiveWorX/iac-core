@@ -6,7 +6,11 @@
 
 import type { ResourceValidationArgs } from "@pulumi/policy";
 import { describe, expect, it, vi } from "vitest";
-import { AWS_NON_TAGGABLE_RESOURCES, requireTagsPolicy } from "./require-tags.js";
+import {
+  AWS_NON_TAGGABLE_RESOURCES,
+  DEFAULT_REQUIRED_TAGS,
+  requireTagsPolicy,
+} from "./require-tags.js";
 
 function makeArgs(
   type: string,
@@ -74,6 +78,30 @@ describe("requireTagsPolicy", () => {
     const p = requireTagsPolicy({ requiredTags: ["Env"] });
     const report = vi.fn();
     p.validateResource?.(makeArgs("pulumi:providers:aws", {}), report);
+    expect(report).not.toHaveBeenCalled();
+  });
+});
+
+describe("requireTagsPolicy defaults", () => {
+  it("requires Environment, Workload and ManagedBy when no tags are given", () => {
+    expect(DEFAULT_REQUIRED_TAGS).toEqual(["Environment", "Workload", "ManagedBy"]);
+    const p = requireTagsPolicy();
+    const report = vi.fn();
+    p.validateResource?.(
+      makeArgs("aws:s3/bucket:Bucket", { tags: { Environment: "dev", ManagedBy: "pulumi" } }),
+      report
+    );
+    expect(report).toHaveBeenCalledWith(expect.stringContaining("missing required tags: Workload"));
+  });
+
+  it("passes a resource carrying the default tags", () => {
+    const report = vi.fn();
+    requireTagsPolicy().validateResource?.(
+      makeArgs("aws:s3/bucket:Bucket", {
+        tags: { Environment: "dev", Workload: "flow", ManagedBy: "pulumi" },
+      }),
+      report
+    );
     expect(report).not.toHaveBeenCalled();
   });
 });
