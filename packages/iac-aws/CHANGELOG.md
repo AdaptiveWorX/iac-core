@@ -1,3 +1,13 @@
+## 0.3.3 (2026-10-04)
+
+### 🩹 Fixes
+
+- **iac-aws:** SharedVpc's public tier NACL admits all traffic from the VPC CIDR ([#63](https://github.com/AdaptiveWorX/iac-core/pull/63))
+
+### ❤️ Thank You
+
+- Lloyd Mangnall @lloydmangnall
+
 ## 0.3.2 (2026-10-03)
 
 ### 🚀 Features
