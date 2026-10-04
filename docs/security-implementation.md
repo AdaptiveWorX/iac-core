@@ -251,7 +251,7 @@ new aws.ec2.FlowLog({
 
 **Implementation**:
 - VPC endpoint security group: VPC CIDR only (no 0.0.0.0/0)
-- NACLs: Public tier allows only HTTP/HTTPS, Private tier allows only VPC + ephemeral
+- NACLs: Public tier allows the VPC CIDR (rule 95) plus HTTP/HTTPS and ephemeral from the internet; Private tier allows only VPC (rule 100) + ephemeral
 - Flow logs: Audit all traffic (detect unexpected patterns)
 
 **Validation**:
