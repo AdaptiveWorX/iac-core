@@ -25,3 +25,6 @@ coverage/
 .env.*.local
 
 .nx/migrate-runs
+
+# Agent worktrees (CLAUDE.md, "Working agreement")
+.claude/worktrees/
