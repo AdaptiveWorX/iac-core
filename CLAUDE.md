@@ -27,7 +27,6 @@ Claude Code on this repo.
 - **Roles:** agents draft, test, push branches and open PRs. They never merge, apply, dispatch or force-push; the EA does.
 - **Paths:** agents use absolute paths and `git -C`, never `cd` across repos, and confirm the repo before writing.
 - **Worktrees:** agents work in `<repo>/.claude/worktrees/<branch>`, never beside the repo, and remove the worktree and local branch when the PR merges or closes.
-- **Size:** smallest change that works; every PR report gives +/− lines; tooling over ~200 added lines needs the EA's OK first.
 - **Reports:** about 300 words at most; details go in the PR body.
 
 ## Claude-specific conventions
