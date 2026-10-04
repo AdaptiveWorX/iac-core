@@ -295,6 +295,17 @@ function cidrSubnet(cidr: string, newbits: number, netnum: number): string {
  * Convert AWS region to abbreviated form for resource naming
  * Examples: us-east-1 → use1, us-west-2 → usw2, eu-west-1 → euw1
  */
+/**
+ * NACL rule number of the public tier's inbound allow-all from the VPC CIDR. Below the public
+ * internet rules (100 HTTPS, 110 HTTP, 120 ephemeral) and distinct from 90, which iac-worx's
+ * dev-ops-vpc-use1 uses for the same rule at stack level until it adopts this one: the two can
+ * coexist during that move, so the consumer creates this rule before deleting its own.
+ */
+export const PUBLIC_TIER_VPC_INBOUND_RULE_NUMBER = 95;
+
+/** NACL rule number of the private/data tiers' inbound allow-all from the VPC CIDR. */
+export const PRIVATE_TIER_VPC_INBOUND_RULE_NUMBER = 100;
+
 function getRegionAbbr(region: string): string {
   const regionMap: Record<string, string> = {
     "us-east-1": "use1",
@@ -614,9 +625,30 @@ export class SharedVpc extends pulumi.ComponentResource {
         defaultOpts
       );
 
+      // Inbound: all protocols from the VPC CIDR. Security groups gate traffic inside the VPC;
+      // the NACL admits it on every tier (named `<env>-<tier>-nacl-vpc-in`).
+      const allowVpcInbound = (ruleNumber: number): aws.ec2.NetworkAclRule =>
+        new aws.ec2.NetworkAclRule(
+          `${args.environment}-${tier.name}-nacl-vpc-in`,
+          {
+            networkAclId: tierNacl.id,
+            ruleNumber,
+            protocol: "-1",
+            ruleAction: "allow",
+            cidrBlock: args.vpcCidr,
+            egress: false,
+          },
+          defaultOpts
+        );
+
       // NACL rules depend on tier type
       if (tier.routeToInternet) {
-        // Public tier NACL: Allow HTTP/HTTPS inbound, ephemeral outbound
+        // Public tier NACL: Allow VPC-internal, HTTP/HTTPS and ephemeral inbound; all outbound
+
+        // Inbound: All traffic from VPC CIDR. Without it, a public-subnet target (an ALB, a
+        // connector, a bastion) drops traffic from the VPC's other tiers on any port the
+        // internet rules below do not list (UDP, ICMP, TCP < 1024 other than 80/443).
+        allowVpcInbound(PUBLIC_TIER_VPC_INBOUND_RULE_NUMBER);
 
         // Inbound: HTTPS (443)
         new aws.ec2.NetworkAclRule(
@@ -683,18 +715,7 @@ export class SharedVpc extends pulumi.ComponentResource {
         // Private tier NACL: Allow VPC-internal + ephemeral, deny direct internet inbound
 
         // Inbound: All traffic from VPC CIDR
-        new aws.ec2.NetworkAclRule(
-          `${args.environment}-${tier.name}-nacl-vpc-in`,
-          {
-            networkAclId: tierNacl.id,
-            ruleNumber: 100,
-            protocol: "-1",
-            ruleAction: "allow",
-            cidrBlock: args.vpcCidr,
-            egress: false,
-          },
-          defaultOpts
-        );
+        allowVpcInbound(PRIVATE_TIER_VPC_INBOUND_RULE_NUMBER);
 
         // Inbound: Ephemeral ports from internet (for NAT return traffic)
         new aws.ec2.NetworkAclRule(
