@@ -1,6 +1,6 @@
 ### ⚠️ Note on 0.1.6
 
-0.1.6 also removed the `./generated/*` export (the pre-generated JSON Schemas, OpenAPI spec and `types.d.ts`): #57's breaking change, shipped as a patch because release #58 was prepared before #57 merged and merged after it. Nothing in AdaptiveWorX imported it. For JSON Schema, call zod 4's `z.toJSONSchema()` on iac-core's schemas. Releases now refuse to merge or tag once main has moved past the commit they were prepared from.
+0.1.6 also removed the `./generated/*` export (the pre-generated JSON Schemas, OpenAPI spec and `types.d.ts`): #57's breaking change, shipped as a patch because release #58 was prepared before #57 merged and merged after it. Nothing in AdaptiveWorX imported it. For JSON Schema, call zod 4's `z.toJSONSchema()` on iac-core's schemas. Release PRs must now be up to date with main to merge.
 
 ## 0.1.6 (2026-10-03)
 

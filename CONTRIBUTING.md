@@ -338,16 +338,15 @@ Scheduled Release (release-schedule.yml: Monday cron or workflow_dispatch)
   └─ branch release/<date> from main's tip
   └─ scripts/release/prepare.sh
         ├─ nx release --skip-publish (versions, CHANGELOGs, chore(release) commit)
-        └─ .release/manifest.json: package@version pairs + baseSha (the main commit)
+        └─ .release/manifest.json: package@version pairs
   └─ scripts/release/open-pr.sh → release PR
                 ↓
-        REVIEW + MERGE (squash keeps the chore(release): publish subject)
-        CI fails the release PR once main moves past baseSha
+        REVIEW + SQUASH MERGE (keeps the chore(release): publish subject;
+        the branch must be up to date with main)
                 ↓
 Release Tags (release-tags.yml)
   └─ fires on push to main, head_commit subject startsWith "chore(release): publish"
-  └─ validates .release/manifest.json; refuses to tag if the release commit's
-     parent isn't baseSha (it merged onto a later main)
+  └─ validates .release/manifest.json
   └─ creates + pushes per-package tags (idempotent)
                 ↓
 Release (release.yml)
@@ -368,40 +367,10 @@ names) and/or `specifier` (`patch`, `minor`, `major` or an exact version).
 
 ### A stale release PR
 
-A release PR is computed from one main commit (`baseSha` in
-`.release/manifest.json`). If anything merges to main before it does, its
-versions and changelogs no longer describe what would ship: CI fails it
-("re-run Scheduled Release") and Release Tags refuses to tag it. Close it and
-dispatch Scheduled Release again. (Release #58 shipped #57's breaking
-change as a patch this way; `scripts/release/release-base.ts` exists to
-prevent a repeat.)
-
-### A refused release
-
-If a release PR merges after main moved on anyway, Release Tags fails with
-"Refusing to tag". Main then carries the release commit (bumped
-`package.json` versions, CHANGELOG entries, `.release/manifest.json`) with no
-tags, and nothing is published. To recover:
-
-1. Revert the release commit in a PR:
-   ```bash
-   git switch -c revert/release-$(date -u +%Y%m%d) origin/main
-   git revert <release-commit-sha>   # restores the latest tagged versions
-   git push -u origin HEAD
-   ```
-   Title the PR `revert(release): undo the untagged release <pkg>@<ver>, …`
-   (GitHub's default `Revert "…"` title fails the PR-title check). The
-   pre-commit version guard allows exactly this change: back to each
-   package's latest tagged version.
-2. Merge it (any strategy; its subject doesn't start with
-   `chore(release): publish`, so Release Tags ignores it).
-3. Dispatch **Scheduled Release**. It releases the reverted changes together
-   with everything that landed since; Nx ignores the reverted release commit.
-
-Until step 1 lands, Scheduled Release refuses to start
-(`scripts/release/check-untagged.ts`: "main carries untagged versions").
-If Release Tags failed for another reason (an outage, a token), don't
-revert: re-run the Release Tags run; tag creation is idempotent.
+A release PR's versions and changelogs are computed from main as it was
+when Scheduled Release ran. The ruleset requires branches to be up to date
+before merging, so a release PR goes stale as soon as anything else merges.
+Don't update it: close it and dispatch Scheduled Release again.
 
 ### Pre-releases
 

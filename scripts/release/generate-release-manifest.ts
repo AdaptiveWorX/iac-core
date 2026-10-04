@@ -8,7 +8,6 @@
  *
  * Output shape:
  *   {
- *     "baseSha": "<the main commit the release was computed from>",
  *     "releases": [
  *       {
  *         "package": "@adaptiveworx/iac-policies",
@@ -63,16 +62,6 @@ function tagsAtHead(): string[] {
 }
 
 function main(): void {
-  // The main commit this release was computed from (prepare.sh exports it).
-  // CI and Release Tags refuse a release whose main has since moved on.
-  const baseSha = process.env.RELEASE_BASE_SHA?.trim() ?? "";
-  if (!/^[0-9a-f]{40}$/.test(baseSha)) {
-    console.error(
-      "error: RELEASE_BASE_SHA must be the full SHA of the main commit being released."
-    );
-    process.exit(1);
-  }
-
   const headTags = new Set(tagsAtHead());
   if (headTags.size === 0) {
     console.error("error: no tags at HEAD. Did `nx release` run?");
@@ -126,7 +115,7 @@ function main(): void {
   }
 
   mkdirSync(MANIFEST_DIR, { recursive: true });
-  writeFileSync(MANIFEST_PATH, `${JSON.stringify({ baseSha, releases }, null, 2)}\n`);
+  writeFileSync(MANIFEST_PATH, `${JSON.stringify({ releases }, null, 2)}\n`);
 
   console.log(`✓ wrote ${releases.length} release entrie(s) to .release/manifest.json:`);
   for (const r of releases) {
