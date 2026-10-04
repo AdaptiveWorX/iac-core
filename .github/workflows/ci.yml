@@ -52,14 +52,6 @@ jobs:
           echo "Running nx run-many (full validation on main)"
           pnpm nx run-many -t lint typecheck test build
 
-      # Stale-release guard (a): a release PR is valid only while main is
-      # still at the commit it was prepared from (.release/manifest.json
-      # baseSha). Otherwise its versions and changelogs miss what landed
-      # since; close it and re-run the Scheduled Release workflow.
-      - name: Release PR is based on current main
-        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'release/')
-        run: pnpm exec tsx scripts/release/check-release-pr.ts
-
       # Full-workspace coverage gate. Runs every time (not nx-affected) so the
       # ratchet floor in vitest.config.ts is enforced against the whole repo;
       # the suite is fast. Thresholds fail the build on regression.

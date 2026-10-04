@@ -200,13 +200,12 @@ publishing are fully automated downstream of the PR merge:
 
 ```
 release-schedule.yml (Monday cron or dispatch; the only way to prepare a release)
-  └─ prepare.sh              nx release + manifest (incl. baseSha) on release/<date>
+  └─ prepare.sh              nx release + manifest on release/<date>
   └─ open-pr.sh              push branch + open release PR
        ↓
-release PR  →  merge  →  main   (CI fails it once main moves past baseSha)
+release PR  →  squash merge (up to date with main)  →  main
        ↓
-release-tags.yml     validates .release/manifest.json (refuses a release
-                     commit whose parent isn't baseSha)
+release-tags.yml     validates .release/manifest.json
                      creates + pushes per-package tags via GitHub App token
        ↓
 release.yml          per tag: builds + publishes via npm OIDC
@@ -217,7 +216,7 @@ Four workflow files cooperate:
 | Workflow | Trigger | Role |
 |---|---|---|
 | `release-schedule.yml` | Monday cron or `workflow_dispatch` | Prepares the release (versions, changelogs, manifest) and opens the release PR |
-| `ci.yml` | PR + push to main | Validates the release PR (lint, typecheck, test, build) and that main hasn't moved past its `baseSha` |
+| `ci.yml` | PR + push to main | Validates the release PR (lint, typecheck, test, build) |
 | `release-tags.yml` | push to main with `chore(release): publish` head-commit subject | Validates the manifest + creates/pushes per-package tags via a dedicated GitHub App |
 | `release.yml` | tag push matching `@adaptiveworx/iac-*@*` | Builds + publishes the package via npm OIDC Trusted Publishing |
 
@@ -236,8 +235,8 @@ tag protection ruleset (it can create release tags) and nothing else.
 - **Breaking changes land at major bumps**, signaled with `!:` or
   `BREAKING CHANGE:` in the commit body.
 - **Release commits go via PR like every other change.** No bypass
-  configured for direct main pushes. If the release PR's CI fails
-  because main moved on, close it and re-run Scheduled Release.
+  configured for direct main pushes. If main moves on before the
+  release PR merges, close it and re-dispatch Scheduled Release.
 - See [CONTRIBUTING.md](../CONTRIBUTING.md#releases) for the end-to-end
   release walkthrough.
 

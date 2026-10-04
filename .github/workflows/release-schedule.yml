@@ -4,9 +4,8 @@ name: Scheduled Release
 # human merge it (the existing release-tags.yml -> release.yml pipeline does
 # the rest). This is the only way a release is prepared: it runs
 # scripts/release/prepare.sh + open-pr.sh (both CI-only; there is no local
-# release path). The manifest records the main commit the release was
-# computed from; CI fails the release PR once main moves past it, and
-# release-tags.yml refuses to tag it (scripts/release/release-base.ts).
+# release path). The ruleset requires the release PR to be up to date with
+# main; if main moves on first, close it and re-dispatch this workflow.
 #
 # Sizing is NOT fixed to "patch": Nx Release computes each package's bump from
 # its conventional commits since its last tag (fix -> patch, feat -> minor,
