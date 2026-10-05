@@ -25,6 +25,7 @@ Claude Code on this repo.
 - **Before infra work:** survey live state read-only (`worx-architect-ro*` profiles, the Cloudflare read API) and state which assumptions it confirmed.
 - **Decisions:** settle structural questions with the EA before work starts.
 - **Roles:** agents draft, test, push branches and open PRs. They never merge, apply, dispatch or force-push; the EA does.
+- **No loosening for progress:** never weaken a security control to get something working, not temporarily and not "just to test". Security controls include access policies, network and firewall rules, authentication, TLS, device posture, permissions, CI gates and git hooks. When progress seems to need it, stop and raise it with the EA. The answer is the principled fix or waiting, never the shortcut. Agents and the EA hold each other to this, so flag a loosening when you see one, including one the EA proposes. (`Pl.Architecture.Security.NoLooseningForProgress`)
 - **Paths:** agents use absolute paths and `git -C`, never `cd` across repos, and confirm the repo before writing.
 - **Worktrees:** agents work in `<repo>/.claude/worktrees/<branch>`, never beside the repo, and remove the worktree and local branch when the PR merges or closes.
 - **Reports:** about 300 words at most; details go in the PR body.
