@@ -149,7 +149,7 @@ export interface SharedVpcArgs {
    * internet-initiated inbound; required egress with its return traffic".
    * - false (default): the public NACL admits over IPv6 only the VPC's IPv6 block, ephemeral
    *   TCP/UDP return traffic and ICMPv6 Packet Too Big.
-   * - true: also 443 and 80 from ::/0, mirroring the IPv4 public rules.
+   * - true: also 443 and 80 from ::/0 (the IPv6 counterpart of `allowIpv4PublicIngress`).
    *
    * Public tiers always route `::/0` to the internet gateway when IPv6 is on, because that route
    * is also their IPv6 egress. So public-subnet IPv6 addresses are reachable inbound, subject to
@@ -158,6 +158,21 @@ export interface SharedVpcArgs {
    * unsolicited connections. This flag is an extra NACL layer, not a substitute for them.
    */
   allowIpv6PublicIngress?: boolean;
+
+  /**
+   * Admit internet-initiated IPv4 HTTPS/HTTP (443/80 from 0.0.0.0/0) through the public tier
+   * NACLs (rules 100 and 110). The IPv4 counterpart of `allowIpv6PublicIngress`.
+   * Opt in only for a production-facing edge (e.g. a public load balancer); the default keeps the
+   * posture "no internet-initiated inbound; required egress with its return traffic".
+   * - false (default): the public NACL admits over IPv4 only the VPC CIDR (rule 95) and ephemeral
+   *   TCP return traffic (rule 120). Targets in the public tier stay reachable from the VPC.
+   * - true: also 443 (rule 100) and 80 (rule 110) from 0.0.0.0/0.
+   *
+   * Before 0.5.0 these two rules were unconditional. Upgrading without the flag deletes the two rule entries; it
+   * touches no other resource. Security groups remain the stateful control: this flag is an extra
+   * NACL layer, not a substitute for them.
+   */
+  allowIpv4PublicIngress?: boolean;
 
   /**
    * Enable DNS hostnames in VPC
@@ -825,6 +840,7 @@ export class SharedVpc extends pulumi.ComponentResource {
     // NETWORK ACLs (NACLs)
     // ====================
 
+    const allowIpv4PublicIngress = args.allowIpv4PublicIngress ?? false;
     const allowIpv6PublicIngress = args.allowIpv6PublicIngress ?? false;
 
     // Create NACLs per tier for defense-in-depth (network-layer protection)
@@ -861,44 +877,47 @@ export class SharedVpc extends pulumi.ComponentResource {
 
       // NACL rules depend on tier type
       if (tier.routeToInternet) {
-        // Public tier NACL: Allow VPC-internal, HTTP/HTTPS and ephemeral inbound; all outbound
+        // Public tier NACL: Allow VPC-internal and ephemeral inbound (plus HTTP/HTTPS from the
+        // internet only with allowIpv4PublicIngress); all outbound
 
         // Inbound: All traffic from VPC CIDR. Without it, a public-subnet target (an ALB, a
         // connector, a bastion) drops traffic from the VPC's other tiers on any port the
-        // internet rules below do not list (UDP, ICMP, TCP < 1024 other than 80/443).
+        // internet rules below do not list (UDP, ICMP, TCP < 1024).
         allowVpcInbound(PUBLIC_TIER_VPC_INBOUND_RULE_NUMBER);
 
-        // Inbound: HTTPS (443)
-        new aws.ec2.NetworkAclRule(
-          `${args.environment}-${tier.name}-nacl-https-in`,
-          {
-            networkAclId: tierNacl.id,
-            ruleNumber: 100,
-            protocol: "tcp",
-            ruleAction: "allow",
-            cidrBlock: "0.0.0.0/0",
-            fromPort: 443,
-            toPort: 443,
-            egress: false,
-          },
-          defaultOpts
-        );
+        if (allowIpv4PublicIngress) {
+          // Inbound: HTTPS (443) from the internet (opt-in)
+          new aws.ec2.NetworkAclRule(
+            `${args.environment}-${tier.name}-nacl-https-in`,
+            {
+              networkAclId: tierNacl.id,
+              ruleNumber: 100,
+              protocol: "tcp",
+              ruleAction: "allow",
+              cidrBlock: "0.0.0.0/0",
+              fromPort: 443,
+              toPort: 443,
+              egress: false,
+            },
+            defaultOpts
+          );
 
-        // Inbound: HTTP (80) - for redirect to HTTPS
-        new aws.ec2.NetworkAclRule(
-          `${args.environment}-${tier.name}-nacl-http-in`,
-          {
-            networkAclId: tierNacl.id,
-            ruleNumber: 110,
-            protocol: "tcp",
-            ruleAction: "allow",
-            cidrBlock: "0.0.0.0/0",
-            fromPort: 80,
-            toPort: 80,
-            egress: false,
-          },
-          defaultOpts
-        );
+          // Inbound: HTTP (80) from the internet (opt-in) - for redirect to HTTPS
+          new aws.ec2.NetworkAclRule(
+            `${args.environment}-${tier.name}-nacl-http-in`,
+            {
+              networkAclId: tierNacl.id,
+              ruleNumber: 110,
+              protocol: "tcp",
+              ruleAction: "allow",
+              cidrBlock: "0.0.0.0/0",
+              fromPort: 80,
+              toPort: 80,
+              egress: false,
+            },
+            defaultOpts
+          );
+        }
 
         // Inbound: Ephemeral ports (for return traffic)
         new aws.ec2.NetworkAclRule(

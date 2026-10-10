@@ -58,6 +58,9 @@ tier NACL (numbered IPv4 counterpart + 1000, plus UDP return and ICMPv6 Packet T
 to the internet gateway on public tiers and to an egress-only gateway on private tiers, with or
 without NAT; dual-stack VPC endpoints where the service supports IPv6.
 
+- `allowIpv4PublicIngress` (default `false`, since 0.5.0): no internet-initiated IPv4 inbound on
+  the public tier. Set it to `true` only for a production-facing edge; it adds IPv4 443/80 inbound
+  (rules 100/110) to the public NACL.
 - `allowIpv6PublicIngress` (default `false`): no internet-initiated IPv6 inbound; the tiers keep
   their required egress and its return traffic. Set it to `true` only for a production-facing edge
   that must accept internet-initiated IPv6; it adds IPv6 443/80 inbound to the public NACL. The
@@ -70,6 +73,16 @@ without NAT; dual-stack VPC endpoints where the service supports IPv6.
 Details: [docs/security-implementation.md](https://github.com/AdaptiveWorX/iac-core/blob/main/docs/security-implementation.md).
 
 See each component's source for its full options interface.
+
+## Upgrading to 0.5.0
+
+**Who must act**: consumers with a public tier whose public subnets take internet-initiated
+HTTPS/HTTP over IPv4 (e.g. a public load balancer). Set `allowIpv4PublicIngress: true` for them.
+
+The public tier NACL's TCP 443 and 80 rules from `0.0.0.0/0` (rules 100 and 110) are now opt-in,
+symmetric with `allowIpv6PublicIngress`. Without the flag the next preview deletes those two rule
+entries per public tier and changes nothing else. The VPC CIDR rule (95) and the return-traffic
+rule (120) stay, so public-tier targets remain reachable from inside the VPC and keep their egress.
 
 ## Upgrading to 0.4.0
 
