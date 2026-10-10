@@ -23,6 +23,13 @@ name: Scheduled Release
 # so a release PR opened with it would never run CI (`validate`) and could
 # never satisfy the required status checks. The RELEASE_APP token is a separate
 # identity, so the PR runs CI normally — same reason release-tags.yml uses it.
+#
+# Signed commits: main's ruleset requires verified signatures on every commit a
+# PR introduces. The release commit nx makes here is local and unsigned, so
+# open-pr.sh never pushes it: scripts/release/push-signed-commit.ts re-creates it
+# on GitHub with GraphQL createCommitOnBranch and the App token, which GitHub
+# signs (no signing key exists), and fails unless the tree is identical and the
+# commit is verified.
 
 on:
   schedule:

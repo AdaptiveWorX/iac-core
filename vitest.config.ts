@@ -34,6 +34,8 @@ export default defineConfig({
       "packages/*/src/**/*.unit.test.{js,ts}",
       "packages/*/src/**/*.integration.test.{js,ts}",
       "packages/*/src/**/*.workflow.test.{js,ts}",
+      // Release tooling (run by the coverage gate on every PR)
+      "scripts/**/*.unit.test.ts",
     ],
     exclude: ["node_modules", "dist", "build", "**/dist/**"],
     coverage: {
