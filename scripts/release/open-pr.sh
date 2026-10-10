@@ -30,9 +30,12 @@ if [ ! -f "$MANIFEST" ]; then
   exit 1
 fi
 
-# Push branch.
-echo "→ pushing $BRANCH"
-git push -u origin "$BRANCH"
+# Publish the branch as a GitHub-signed commit: main's ruleset requires verified signatures on
+# every commit a PR introduces, and the local release commit is unsigned. push-signed-commit.ts
+# re-creates it through createCommitOnBranch with the App token (signed by GitHub; no key), and
+# fails unless the result has the identical tree and is verified. Never `git push` it.
+echo "→ publishing $BRANCH as a GitHub-signed commit"
+pnpm exec tsx scripts/release/push-signed-commit.ts
 
 # Build PR title + body from manifest.
 TITLE_TAGS=$(jq -r '[.releases[] | "\(.package | split("/")[1])@\(.version)"] | join(", ")' "$MANIFEST")

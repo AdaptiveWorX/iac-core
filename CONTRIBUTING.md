@@ -350,7 +350,9 @@ Scheduled Release (release-schedule.yml: Monday cron or workflow_dispatch)
   └─ scripts/release/prepare.sh
         ├─ nx release --skip-publish (versions, CHANGELOGs, chore(release) commit)
         └─ .release/manifest.json: package@version pairs
-  └─ scripts/release/open-pr.sh → release PR
+  └─ scripts/release/open-pr.sh → push-signed-commit.ts → release PR
+        (the release commit is re-created on GitHub with createCommitOnBranch and the
+        App token, so GitHub signs it: main requires verified signatures)
                 ↓
         REVIEW + SQUASH MERGE (keeps the chore(release): publish subject;
         the branch must be up to date with main)
