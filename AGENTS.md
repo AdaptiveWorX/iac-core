@@ -32,9 +32,13 @@ There is **no `iac-shared` package.** Don't propose one.
 
 Versioning is conventional-commit-driven via Nx Release. **Never edit
 a `version` field in any `package.json` by hand.** A pre-commit hook
-will reject the change anyway. `feat:` → minor, `fix:` → patch,
-`feat!:` / `BREAKING CHANGE:` → major. `chore:`, `ci:`, `docs:`,
-`refactor:`, `test:`, `style:`, `build:` never bump.
+will reject the change anyway. At ≥ 1.0: `feat:` → minor, `fix:` →
+patch, `!` / `BREAKING CHANGE:` → major. **Below 1.0 (every package
+today) Nx shifts each bump down one level: `feat:` → patch, breaking →
+minor.** So a change any consumer must act on carries `!` whatever its
+type, or it ships as a patch that `^0.y.z` ranges accept (iac-aws 0.3.4).
+`chore:`, `ci:`, `docs:`, `refactor:`, `test:`, `style:`, `build:` never
+bump unless marked `!`. Check the version with `pnpm release:dry`.
 
 Full release flow: [`CONTRIBUTING.md#releases`](./CONTRIBUTING.md#releases).
 
