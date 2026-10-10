@@ -22,8 +22,8 @@ IPv6; the offset also stays clear of the entries consumers add at stack level, e
 | Tier | Dir | IPv4 | IPv6 (`enableIpv6`) |
 |---|---|---|---|
 | public | in | 95: all from the VPC CIDR | 1095: all from the VPC's IPv6 block |
-| public | in | 100: TCP 443 from 0.0.0.0/0 | 1100: TCP 443 from ::/0 — only with `allowIpv6PublicIngress` |
-| public | in | 110: TCP 80 from 0.0.0.0/0 | 1110: TCP 80 from ::/0 — only with `allowIpv6PublicIngress` |
+| public | in | 100: TCP 443 from 0.0.0.0/0 — only with `allowIpv4PublicIngress` | 1100: TCP 443 from ::/0 — only with `allowIpv6PublicIngress` |
+| public | in | 110: TCP 80 from 0.0.0.0/0 — only with `allowIpv4PublicIngress` | 1110: TCP 80 from ::/0 — only with `allowIpv6PublicIngress` |
 | public | in | 120: TCP 1024–65535 from 0.0.0.0/0 | 1120: TCP 1024–65535 from ::/0 |
 | private/data | in | 100: all from the VPC CIDR | 1100: all from the VPC's IPv6 block |
 | private/data | in | 110: TCP 1024–65535 from 0.0.0.0/0 | 1110: TCP 1024–65535 from ::/0 |
@@ -37,7 +37,7 @@ large packets (path-MTU discovery). 1130 and 1150 are the IPv6 counterparts of t
 
 **Security Benefits**:
 - ✅ **Defense-in-depth**: Protects even if security groups misconfigured
-- ✅ **Public tier**: internet-initiated inbound limited to 443/80 over IPv4, and over IPv6 only on opt-in for a production-facing edge; otherwise the VPC itself plus return traffic for the tier's own egress
+- ✅ **Public tier**: no internet-initiated inbound by default, over IPv4 or IPv6: the VPC itself plus return traffic for the tier's own egress. 443/80 from the internet only on opt-in (`allowIpv4PublicIngress`, `allowIpv6PublicIngress`) for a production-facing edge
 - ✅ **Private tier**: Only VPC-internal traffic + return traffic (blocks direct internet inbound)
 - ✅ **Stateless**: Independent of connection state (can't be bypassed by connection hijacking)
 - ✅ **Per-tier isolation**: Supports custom tiers (e.g., HIPAA data tier with stricter rules)
@@ -444,6 +444,12 @@ services reach them through ZTNA. The default holds that posture over IPv6 as we
   groups (stateful, no ingress from `::/0`) refuse unsolicited connections. The flag is an extra
   NACL layer, not a substitute.
 
+**`allowIpv4PublicIngress`** (default **`false`**, since 0.5.0): the IPv4 counterpart, with the
+same posture. `false` leaves the public NACL admitting over IPv4 only the VPC CIDR (95) and
+ephemeral TCP return traffic (120); targets in the public tier stay reachable from inside the VPC.
+`true` adds TCP 443 (100) and 80 (110) from `0.0.0.0/0`. Opt in only for a production-facing edge.
+Before 0.5.0 rules 100 and 110 were unconditional.
+
 **Before 0.4.0** the flag defaulted to `true` and gated the public `::/0` route itself, which
 removed the public tiers' IPv6 egress when set to `false`; subnets had no IPv6 addresses at all,
 so neither setting had any effect in practice.
@@ -502,8 +508,8 @@ const vpc = new SharedVpc("dev-vpc", {
   natGatewayCount: 0,           // Save cost ($32/mo per NAT): private tiers reach only
                                 // VPC endpoints and IPv6-capable destinations
   enableIpv6: true,             // Dual-stack: a /64 on every subnet (default tiers' slots)
-  // allowIpv6PublicIngress stays false (the default): non-prod takes no internet-initiated
-  // inbound; required egress and its return traffic only
+  // allowIpv4PublicIngress and allowIpv6PublicIngress stay false (the defaults): non-prod takes
+  // no internet-initiated inbound; required egress and its return traffic only
   flowLogs: {
     enabled: true,
     trafficType: "ALL",
@@ -544,6 +550,7 @@ const vpc = new SharedVpc("care-prd-vpc", {
   vpcCidr: "10.240.0.0/16",
   natGatewayCount: 3,
   enableIpv6: true,              // Dual-stack; every custom tier below declares ipv6Slot
+  allowIpv4PublicIngress: false, // The default; opt in only for a production-facing edge
   allowIpv6PublicIngress: false, // The default; opt in only for a production-facing edge
   flowLogs: {
     enabled: true,
@@ -608,6 +615,18 @@ const vpc2 = new SharedVpc("test-vpc", {
 ---
 
 ## Migration Guide
+
+### Upgrading from 0.4.x to 0.5.0 (IPv4 public ingress is opt-in)
+
+**Breaking for every consumer with a public tier**: the public NACL no longer admits TCP 443 and 80
+from `0.0.0.0/0` unless `allowIpv4PublicIngress: true`. Before upgrading, check that nothing in the
+public subnets takes internet-initiated 80/443 (list the network interfaces there and their
+security groups' inbound rules). Anything that does, such as a public load balancer, needs the flag.
+
+**Expected preview** without the flag: delete `<env>-<tier>-nacl-https-in` (rule 100) and
+`<env>-<tier>-nacl-http-in` (rule 110) on each public tier, and nothing else. The rules carry no
+`protect`, so the deletes run without unprotecting anything. With `allowIpv4PublicIngress: true`
+the preview is empty.
 
 ### Upgrading from 0.3.x to 0.4.0 (IPv6 dual-stack)
 
