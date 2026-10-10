@@ -53,6 +53,17 @@ export interface SubnetTier {
    * - 8 = /24 (256 IPs) for small/isolated tiers
    */
   cidrBits?: number;
+
+  /**
+   * IPv6 slot of this tier, 0–15. Required on every tier when `enableIpv6` is true, and unique
+   * across tiers. Each subnet's /64 is carved from the VPC's IPv6 block as
+   * `netnum = ipv6Slot * 16 + azIndex`, where azIndex comes from the AZ letter (a=0 … p=15),
+   * not from list order. So adding an AZ or a tier never renumbers an existing subnet's /64.
+   * The slot is explicit, never derived from the tier's array position, because array position
+   * moves when tiers are inserted or reordered. Never change a live tier's slot: that moves its
+   * subnets' /64s.
+   */
+  ipv6Slot?: number;
 }
 
 /**
@@ -121,18 +132,30 @@ export interface SharedVpcArgs {
   natGatewayCount?: number;
 
   /**
-   * Enable IPv6 dual-stack
-   * Required if natGatewayCount = 0 (for IPv6 egress)
+   * Enable IPv6 dual-stack on everything. The VPC gets an Amazon-provided IPv6 block. Every
+   * subnet of every tier gets a /64 (see `SubnetTier.ipv6Slot`) and assigns IPv6 addresses to
+   * new network interfaces. Every tier NACL carries IPv6 rules. Public tiers route `::/0` to the
+   * internet gateway. Private tiers route `::/0` to an egress-only internet gateway, with or
+   * without NAT gateways. VPC endpoints are dual-stack where the service supports it.
+   *
+   * IPv6 egress does NOT reach IPv4-only destinations (github.com, ghcr.io). There is
+   * no DNS64/NAT64 here; NAT64 is a NAT gateway feature.
    */
   enableIpv6?: boolean;
 
   /**
-   * Allow IPv6 public ingress on public subnets
-   * - true (default): Public subnets get ::/0 → IGW route (globally routable IPv6)
-   * - false: No IPv6 public ingress (IPv6 egress-only for private subnets)
+   * Admit internet-initiated IPv6 HTTPS/HTTP (443/80 from ::/0) through the public tier NACLs.
+   * Opt in only for a production-facing edge; the default keeps the posture "no
+   * internet-initiated inbound; required egress with its return traffic".
+   * - false (default): the public NACL admits over IPv6 only the VPC's IPv6 block, ephemeral
+   *   TCP/UDP return traffic and ICMPv6 Packet Too Big.
+   * - true: also 443 and 80 from ::/0, mirroring the IPv4 public rules.
    *
-   * Security consideration: IPv6 addresses are globally routable by default.
-   * For compliance-sensitive workloads (e.g., HIPAA), set to false.
+   * Public tiers always route `::/0` to the internet gateway when IPv6 is on, because that route
+   * is also their IPv6 egress. So public-subnet IPv6 addresses are reachable inbound, subject to
+   * the NACL and the security group. The ephemeral return rule admits any TCP/UDP port 1024–65535
+   * from ::/0 (NACLs are stateless), so security groups are the control that refuses
+   * unsolicited connections. This flag is an extra NACL layer, not a substitute for them.
    */
   allowIpv6PublicIngress?: boolean;
 
@@ -151,7 +174,7 @@ export interface SharedVpcArgs {
    */
   flowLogs: {
     /**
-     * Enable flow logs (from Infisical FLOW_LOGS_ENABLED)
+     * Enable VPC flow logs (to an S3 bucket this component creates)
      */
     enabled: boolean;
 
@@ -164,7 +187,7 @@ export interface SharedVpcArgs {
     trafficType: "ALL" | "ACCEPT" | "REJECT";
 
     /**
-     * S3 retention in days (from Infisical RETENTION_DAYS)
+     * Days to keep flow log objects in the bucket before they expire (no expiry if unset)
      */
     retentionDays?: number;
 
@@ -291,10 +314,167 @@ function cidrSubnet(cidr: string, newbits: number, netnum: number): string {
   return `${newIp}/${newPrefix}`;
 }
 
+/** Number of IPv6 tier slots and AZ indexes: netnum = slot * 16 + azIndex. */
+export const IPV6_SLOT_COUNT = 16;
+
 /**
- * Convert AWS region to abbreviated form for resource naming
- * Examples: us-east-1 → use1, us-west-2 → usw2, eu-west-1 → euw1
+ * IPv6 NACL rules are numbered as their IPv4 counterpart + 1000. NACL rule numbers share one
+ * space per direction across IPv4 and IPv6. The offset keeps the IPv6 rules clear of the IPv4
+ * ones, including the entries consumers add at stack level (iac-worx: 90–150).
  */
+export const IPV6_NACL_RULE_OFFSET = 1000;
+
+/**
+ * Every tier's IPv6 NACL entries for UDP ephemeral return traffic and ICMPv6 Packet Too Big.
+ * They are the IPv6 counterparts of iac-worx's public-tier IPv4 rules 130 (UDP return) and 150
+ * (ICMP unreachable, for path-MTU discovery). Packet Too Big is mandatory for IPv6: routers do
+ * not fragment, so a dropped PTB black-holes large packets.
+ */
+export const IPV6_UDP_RETURN_RULE_NUMBER = 1130;
+export const IPV6_PACKET_TOO_BIG_RULE_NUMBER = 1150;
+
+/** Default tiers (3-tier: public/private/data), with their IPv6 slots. */
+export const DEFAULT_SUBNET_TIERS: readonly SubnetTier[] = [
+  { name: "public", routeToInternet: true, shareViaRam: false, ipv6Slot: 0 }, // Ops-only (NAT, LB)
+  { name: "private", routeToInternet: false, shareViaRam: true, ipv6Slot: 1 }, // Shared (app)
+  { name: "data", routeToInternet: false, shareViaRam: true, ipv6Slot: 2 }, // Shared (databases)
+];
+
+/**
+ * Index of an availability zone from its letter: us-east-1a → 0 … us-east-1p → 15.
+ * Derived from the name, not the AZ list order, so adding an AZ never shifts another's index.
+ */
+export function azIndexOf(az: string): number {
+  const letter = az.slice(-1);
+  const index = letter.charCodeAt(0) - "a".charCodeAt(0);
+  if (!/^[a-z]$/.test(letter) || index >= IPV6_SLOT_COUNT) {
+    throw new Error(
+      `Cannot derive an IPv6 AZ index from '${az}': expected a final letter a–p (a=0 … p=15).`
+    );
+  }
+  return index;
+}
+
+/**
+ * Validate IPv6 slots and AZ indexes before any resource is created (fail fast). Every tier
+ * declares an integer ipv6Slot 0–15, unique across tiers, and every AZ letter maps to a
+ * distinct index.
+ */
+export function validateIpv6Layout(
+  tiers: readonly SubnetTier[],
+  availabilityZones: string[]
+): void {
+  const seen = new Map<number, string>();
+  for (const tier of tiers) {
+    const slot = tier.ipv6Slot;
+    if (slot === undefined) {
+      throw new Error(
+        `Tier '${tier.name}' has no ipv6Slot. With enableIpv6, every tier must declare an explicit ` +
+          `ipv6Slot (0–${IPV6_SLOT_COUNT - 1}, unique). It fixes the tier's /64s; it is never ` +
+          "derived from array position."
+      );
+    }
+    if (!Number.isInteger(slot) || slot < 0 || slot >= IPV6_SLOT_COUNT) {
+      throw new Error(
+        `Tier '${tier.name}' has ipv6Slot ${slot}; expected an integer 0–${IPV6_SLOT_COUNT - 1}.`
+      );
+    }
+    const other = seen.get(slot);
+    if (other !== undefined) {
+      throw new Error(`Tiers '${other}' and '${tier.name}' both declare ipv6Slot ${slot}.`);
+    }
+    seen.set(slot, tier.name);
+  }
+  const azs = new Map<number, string>();
+  for (const az of availabilityZones) {
+    const index = azIndexOf(az);
+    const other = azs.get(index);
+    if (other !== undefined) {
+      throw new Error(`AZs '${other}' and '${az}' map to the same IPv6 AZ index ${index}.`);
+    }
+    azs.set(index, az);
+  }
+}
+
+/** Parse an IPv6 address (any RFC 4291 text form without an embedded IPv4 suffix) to a bigint. */
+function ipv6ToBigInt(address: string): bigint {
+  const halves = address.toLowerCase().split("::");
+  if (halves.length > 2) {
+    throw new Error(`Invalid IPv6 address: ${address}`);
+  }
+  const head = halves[0] === undefined || halves[0] === "" ? [] : halves[0].split(":");
+  const tail =
+    halves.length === 2 && halves[1] !== undefined && halves[1] !== "" ? halves[1].split(":") : [];
+  const missing = 8 - head.length - tail.length;
+  if ((halves.length === 1 && missing !== 0) || (halves.length === 2 && missing < 1)) {
+    throw new Error(`Invalid IPv6 address: ${address}`);
+  }
+  const groups = [...head, ...Array<string>(halves.length === 2 ? missing : 0).fill("0"), ...tail];
+  let value = 0n;
+  for (const group of groups) {
+    if (!/^[0-9a-f]{1,4}$/.test(group)) {
+      throw new Error(`Invalid IPv6 address: ${address}`);
+    }
+    value = (value << 16n) | BigInt(Number.parseInt(group, 16));
+  }
+  return value;
+}
+
+/** Format a bigint as an RFC 5952 canonical IPv6 address (lowercase, longest zero run as ::). */
+function bigIntToIpv6(value: bigint): string {
+  const groups: number[] = [];
+  for (let i = 7; i >= 0; i--) {
+    groups.push(Number((value >> BigInt(i * 16)) & 0xffffn));
+  }
+  let bestStart = -1;
+  let bestLength = 0;
+  for (let i = 0; i < 8; ) {
+    if (groups[i] !== 0) {
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j < 8 && groups[j] === 0) {
+      j++;
+    }
+    if (j - i > bestLength) {
+      bestStart = i;
+      bestLength = j - i;
+    }
+    i = j;
+  }
+  const hex = groups.map(g => g.toString(16));
+  if (bestLength < 2) {
+    return hex.join(":");
+  }
+  const head = hex.slice(0, bestStart).join(":");
+  const tail = hex.slice(bestStart + bestLength).join(":");
+  return `${head}::${tail}`;
+}
+
+/**
+ * The /64 of one subnet: netnum = ipv6Slot * 16 + azIndex within the VPC's IPv6 block
+ * (Amazon-provided blocks are /56, giving 256 /64s). Returns RFC 5952 canonical text, the form
+ * AWS reports, so the provider sees no spurious diff.
+ */
+export function ipv6SubnetCidr(vpcIpv6Cidr: string, ipv6Slot: number, azIndex: number): string {
+  const [address, prefixText] = vpcIpv6Cidr.split("/");
+  const prefix = Number.parseInt(prefixText ?? "", 10);
+  if (address === undefined || Number.isNaN(prefix) || prefix < 0 || prefix > 56) {
+    throw new Error(`Expected a VPC IPv6 block of /56 or larger, got '${vpcIpv6Cidr}'.`);
+  }
+  if (!Number.isInteger(ipv6Slot) || ipv6Slot < 0 || ipv6Slot >= IPV6_SLOT_COUNT) {
+    throw new Error(`ipv6Slot ${ipv6Slot} is outside 0–${IPV6_SLOT_COUNT - 1}.`);
+  }
+  if (!Number.isInteger(azIndex) || azIndex < 0 || azIndex >= IPV6_SLOT_COUNT) {
+    throw new Error(`AZ index ${azIndex} is outside 0–${IPV6_SLOT_COUNT - 1}.`);
+  }
+  const netnum = BigInt(ipv6Slot * IPV6_SLOT_COUNT + azIndex);
+  const hostBits = 128n - BigInt(prefix);
+  const base = (ipv6ToBigInt(address) >> hostBits) << hostBits;
+  return `${bigIntToIpv6(base | (netnum << 64n))}/64`;
+}
+
 /**
  * NACL rule number of the public tier's inbound allow-all from the VPC CIDR. Below the public
  * internet rules (100 HTTPS, 110 HTTP, 120 ephemeral) and distinct from 90, which iac-worx's
@@ -306,6 +486,10 @@ export const PUBLIC_TIER_VPC_INBOUND_RULE_NUMBER = 95;
 /** NACL rule number of the private/data tiers' inbound allow-all from the VPC CIDR. */
 export const PRIVATE_TIER_VPC_INBOUND_RULE_NUMBER = 100;
 
+/**
+ * Convert AWS region to abbreviated form for resource naming
+ * Examples: us-east-1 → use1, us-west-2 → usw2, eu-west-1 → euw1
+ */
 function getRegionAbbr(region: string): string {
   const regionMap: Record<string, string> = {
     "us-east-1": "use1",
@@ -343,7 +527,8 @@ function getAzAbbr(az: string): string {
  * SharedVpc Component
  *
  * Single unified component that creates:
- * - VPC with IPv4 (+ optional IPv6)
+ * - VPC with IPv4, optionally dual-stack (enableIpv6: a /64 on every subnet, IPv6 NACL rules,
+ * IGW and egress-only routes, dual-stack endpoints)
  * - Subnets across all AZs (public, private, data)
  * - Internet Gateway
  * - Optional NAT Gateways
@@ -364,6 +549,10 @@ export class SharedVpc extends pulumi.ComponentResource {
   public readonly natGatewayIds: pulumi.Output<string[]>;
   public readonly ramShareArn: pulumi.Output<string>;
   public readonly flowLogsBucketArn?: pulumi.Output<string>;
+  /** Each tier's subnet /64s, in availability-zone order (IPv6 only). */
+  public readonly subnetIpv6CidrBlocks?: pulumi.Output<Record<string, string[]>>;
+  /** Egress-only internet gateway of the private tiers (IPv6 with private tiers only). */
+  public readonly egressOnlyInternetGatewayId?: pulumi.Output<string>;
 
   constructor(name: string, args: SharedVpcArgs, opts?: pulumi.ComponentResourceOptions) {
     super("adaptiveworx:aws:SharedVpc", name, {}, opts);
@@ -387,6 +576,19 @@ export class SharedVpc extends pulumi.ComponentResource {
             `Example: For region 'us-west-2', valid AZs are 'us-west-2a', 'us-west-2b', etc.`
         );
       }
+    }
+
+    // Subnet tiers (default 3-tier: public/private/data, with IPv6 slots 0/1/2)
+    const subnetTiers: SubnetTier[] = args.subnetTiers ?? DEFAULT_SUBNET_TIERS.map(t => ({ ...t }));
+
+    // ====================
+    // IPv6 LAYOUT VALIDATION
+    // ====================
+    // Fail fast: with IPv6, every tier declares a unique explicit ipv6Slot and every AZ letter
+    // maps to a distinct index, so no subnet's /64 can depend on list order.
+    const ipv6 = args.enableIpv6 === true;
+    if (ipv6) {
+      validateIpv6Layout(subnetTiers, args.availabilityZones);
     }
 
     // Resource naming helpers
@@ -438,13 +640,6 @@ export class SharedVpc extends pulumi.ComponentResource {
 
     this.internetGatewayId = igw.id;
 
-    // Default subnet tiers (3-tier: public/private/data)
-    const subnetTiers: SubnetTier[] = args.subnetTiers ?? [
-      { name: "public", routeToInternet: true, shareViaRam: false }, // Ops-only (NAT, LB)
-      { name: "private", routeToInternet: false, shareViaRam: true }, // Shared (app workloads)
-      { name: "data", routeToInternet: false, shareViaRam: true }, // Shared (databases)
-    ];
-
     // Calculate subnet CIDRs for all tiers
     const tierCidrs = calculateSubnetCidrs(
       args.vpcCidr,
@@ -454,6 +649,7 @@ export class SharedVpc extends pulumi.ComponentResource {
 
     // Create subnets organized by tier
     const tierSubnets = new Map<string, aws.ec2.Subnet[]>();
+    const tierIpv6Cidrs: Record<string, pulumi.Output<string>[]> = {};
 
     // Create all subnets for all tiers
     for (const tier of subnetTiers) {
@@ -473,6 +669,22 @@ export class SharedVpc extends pulumi.ComponentResource {
           throw new Error(`Missing CIDR for tier ${tier.name}, AZ index ${i}`);
         }
 
+        // IPv6 /64: netnum = tier slot * 16 + AZ-letter index (validated above). Adding the
+        // block to an existing subnet is an in-place association (AssociateSubnetCidrBlock),
+        // not a replacement.
+        let ipv6Args:
+          | { ipv6CidrBlock: pulumi.Output<string>; assignIpv6AddressOnCreation: true }
+          | undefined;
+        if (ipv6) {
+          const slot = tier.ipv6Slot as number;
+          const azIndex = azIndexOf(az);
+          const ipv6CidrBlock = vpc.ipv6CidrBlock.apply(block =>
+            ipv6SubnetCidr(block, slot, azIndex)
+          );
+          ipv6Args = { ipv6CidrBlock, assignIpv6AddressOnCreation: true };
+          tierIpv6Cidrs[tier.name] = [...(tierIpv6Cidrs[tier.name] ?? []), ipv6CidrBlock];
+        }
+
         // Create subnet for this tier + AZ
         const subnetName = `${baseName}-${tier.name}-${azAbbr}`;
         const subnet = new aws.ec2.Subnet(
@@ -481,6 +693,7 @@ export class SharedVpc extends pulumi.ComponentResource {
             vpcId: vpc.id,
             cidrBlock: cidr,
             availabilityZone: az,
+            ...ipv6Args,
             mapPublicIpOnLaunch: tier.routeToInternet, // Public subnets get public IPs
             tags: {
               ...args.tags,
@@ -508,6 +721,10 @@ export class SharedVpc extends pulumi.ComponentResource {
     this.publicSubnetIds = pulumi.output(publicSubnets.map(s => s.id));
     this.privateSubnetIds = pulumi.output(privateSubnets.map(s => s.id));
     this.dataSubnetIds = pulumi.output(dataSubnets.map(s => s.id));
+    if (ipv6) {
+      this.subnetIpv6CidrBlocks = pulumi.output(tierIpv6Cidrs);
+    }
+    const allSubnets = [...tierSubnets.values()].flat();
 
     // NAT Gateways (if enabled)
     const natGateways: aws.ec2.NatGateway[] = [];
@@ -582,32 +799,33 @@ export class SharedVpc extends pulumi.ComponentResource {
 
     // Validate: Private subnets need egress (NAT Gateway or IPv6)
     const privateTiersExist = subnetTiers.some(tier => !tier.routeToInternet);
-    if (privateTiersExist && natGatewayCount === 0 && args.enableIpv6 !== true) {
+    if (privateTiersExist && natGatewayCount === 0 && !ipv6) {
       throw new Error(
-        "Invalid configuration: Private subnets require internet egress. " +
-          "NAT Gateway count is 0 and IPv6 is disabled. " +
-          "Private subnets will have NO internet access (deployments will fail). " +
-          "Fix: Set enableIpv6=true (IPv6 egress via eigw) OR natGatewayCount>0 (IPv4 egress via NAT)."
+        "Invalid configuration: private tiers have no internet egress " +
+          "(natGatewayCount is 0 and IPv6 is disabled). " +
+          "Fix: set natGatewayCount>0 (IPv4 egress via NAT gateways). enableIpv6=true alone gives " +
+          "IPv6-only egress, which cannot reach IPv4-only destinations (e.g. github.com, " +
+          "ghcr.io); it is valid only when private-tier workloads use VPC endpoints or " +
+          "IPv6-capable destinations exclusively."
       );
     }
 
-    // Warn about IPv6-only limitations (DNS64 not configured)
-    if (privateTiersExist && natGatewayCount === 0 && args.enableIpv6 === true) {
+    // IPv6-only egress: state the limit exactly (no DNS64/NAT64 here; NAT64 is a NAT gateway feature)
+    if (privateTiersExist && natGatewayCount === 0 && ipv6) {
       void pulumi.log.warn(
-        "IPv6-only egress mode detected (NAT Gateway count = 0, IPv6 enabled). " +
-          "IMPORTANT: IPv6-only workloads cannot reach IPv4-only services without DNS64/NAT64. " +
-          "Many AWS services and third-party APIs are IPv4-only. " +
-          "Current setup uses IPv6 egress-only gateway (eigw) for cost savings. " +
-          "If you need IPv4 compatibility: " +
-          "(1) Add natGatewayCount>0 for dual-stack egress, OR " +
-          "(2) Configure Route 53 Resolver DNS64 + NAT64 (not yet implemented in this component). " +
-          "For dev/test environments, IPv6-only is usually sufficient (AWS services support IPv6)."
+        "Private tiers have IPv6-only egress (egress-only internet gateway, no NAT gateway). " +
+          "They cannot reach IPv4-only destinations, e.g. github.com, api.github.com and ghcr.io, and " +
+          "there is no DNS64/NAT64 (NAT64 is a NAT gateway feature). This configuration is valid " +
+          "only when private-tier workloads reach the internet solely through VPC endpoints or " +
+          "IPv6-capable destinations. Otherwise set natGatewayCount>0."
       );
     }
 
     // ====================
     // NETWORK ACLs (NACLs)
     // ====================
+
+    const allowIpv6PublicIngress = args.allowIpv6PublicIngress ?? false;
 
     // Create NACLs per tier for defense-in-depth (network-layer protection)
     for (const tier of subnetTiers) {
@@ -748,6 +966,80 @@ export class SharedVpc extends pulumi.ComponentResource {
         );
       }
 
+      // IPv6 rules (every tier): numbered IPv4 counterpart + IPV6_NACL_RULE_OFFSET. Inbound: the
+      // VPC's IPv6 block (all protocols), ephemeral TCP and UDP return traffic, ICMPv6 Packet Too
+      // Big; on public tiers with allowIpv6PublicIngress also 443/80. Outbound: all to ::/0.
+      if (ipv6) {
+        const v6Rule = (
+          suffix: string,
+          rule: Omit<aws.ec2.NetworkAclRuleArgs, "networkAclId" | "ruleAction" | "cidrBlock">
+        ): aws.ec2.NetworkAclRule =>
+          new aws.ec2.NetworkAclRule(
+            `${args.environment}-${tier.name}-nacl-${suffix}-v6`,
+            { networkAclId: tierNacl.id, ruleAction: "allow", ...rule },
+            defaultOpts
+          );
+        const vpcInRule = tier.routeToInternet
+          ? PUBLIC_TIER_VPC_INBOUND_RULE_NUMBER
+          : PRIVATE_TIER_VPC_INBOUND_RULE_NUMBER;
+        const ephemeralInRule = tier.routeToInternet ? 120 : 110;
+
+        v6Rule("vpc-in", {
+          ruleNumber: vpcInRule + IPV6_NACL_RULE_OFFSET,
+          protocol: "-1",
+          ipv6CidrBlock: vpc.ipv6CidrBlock,
+          egress: false,
+        });
+        if (tier.routeToInternet && allowIpv6PublicIngress) {
+          v6Rule("https-in", {
+            ruleNumber: 100 + IPV6_NACL_RULE_OFFSET,
+            protocol: "tcp",
+            ipv6CidrBlock: "::/0",
+            fromPort: 443,
+            toPort: 443,
+            egress: false,
+          });
+          v6Rule("http-in", {
+            ruleNumber: 110 + IPV6_NACL_RULE_OFFSET,
+            protocol: "tcp",
+            ipv6CidrBlock: "::/0",
+            fromPort: 80,
+            toPort: 80,
+            egress: false,
+          });
+        }
+        v6Rule("ephemeral-in", {
+          ruleNumber: ephemeralInRule + IPV6_NACL_RULE_OFFSET,
+          protocol: "tcp",
+          ipv6CidrBlock: "::/0",
+          fromPort: 1024,
+          toPort: 65535,
+          egress: false,
+        });
+        v6Rule("udp-ephemeral-in", {
+          ruleNumber: IPV6_UDP_RETURN_RULE_NUMBER,
+          protocol: "udp",
+          ipv6CidrBlock: "::/0",
+          fromPort: 1024,
+          toPort: 65535,
+          egress: false,
+        });
+        v6Rule("packet-too-big-in", {
+          ruleNumber: IPV6_PACKET_TOO_BIG_RULE_NUMBER,
+          protocol: "58", // ICMPv6
+          ipv6CidrBlock: "::/0",
+          icmpType: 2, // Packet Too Big
+          icmpCode: -1,
+          egress: false,
+        });
+        v6Rule("all-out", {
+          ruleNumber: 100 + IPV6_NACL_RULE_OFFSET,
+          protocol: "-1",
+          ipv6CidrBlock: "::/0",
+          egress: true,
+        });
+      }
+
       // Associate NACL with all subnets in this tier
       const subnets = tierSubnets.get(tier.name);
       if (subnets === undefined) {
@@ -811,10 +1103,10 @@ export class SharedVpc extends pulumi.ComponentResource {
         defaultOpts
       );
 
-      // IPv6 route if enabled AND public ingress allowed
-      // Default: true (backward compatibility)
-      const allowIpv6PublicIngress = args.allowIpv6PublicIngress ?? true;
-      if (args.enableIpv6 === true && allowIpv6PublicIngress) {
+      // IPv6 default route to the internet gateway whenever IPv6 is on: it is the public tiers'
+      // IPv6 egress. Inbound exposure is governed by the NACL (allowIpv6PublicIngress) and the
+      // security groups, not by this route.
+      if (ipv6) {
         new aws.ec2.Route(
           `${args.environment}-public-route-ipv6`,
           {
@@ -855,6 +1147,25 @@ export class SharedVpc extends pulumi.ComponentResource {
     const privateTiers = subnetTiers.filter(tier => !tier.routeToInternet);
 
     if (privateTiers.length > 0) {
+      // IPv6 egress for private tiers: one egress-only internet gateway, routed from every
+      // private route table, with or without NAT gateways.
+      let eigw: aws.ec2.EgressOnlyInternetGateway | undefined;
+      if (ipv6) {
+        eigw = new aws.ec2.EgressOnlyInternetGateway(
+          `${args.environment}-eigw`,
+          {
+            vpcId: vpc.id,
+            tags: {
+              ...args.tags,
+              Name: `${args.environment}-eigw`,
+              Environment: args.environment,
+            },
+          },
+          defaultOpts
+        );
+        this.egressOnlyInternetGatewayId = eigw.id;
+      }
+
       if (natGateways.length > 0) {
         // NAT Gateway routing: per-AZ route tables for each private tier
         for (const tier of privateTiers) {
@@ -908,6 +1219,19 @@ export class SharedVpc extends pulumi.ComponentResource {
               defaultOpts
             );
 
+            // IPv6 route to the egress-only internet gateway
+            if (eigw !== undefined) {
+              new aws.ec2.Route(
+                `${args.environment}-${tier.name}-route-ipv6-${azSuffix}`,
+                {
+                  routeTableId: privateRt.id,
+                  destinationIpv6CidrBlock: "::/0",
+                  egressOnlyGatewayId: eigw.id,
+                },
+                defaultOpts
+              );
+            }
+
             // Associate subnet with route table
             new aws.ec2.RouteTableAssociation(
               `${args.environment}-${tier.name}-rta-${azSuffix}`,
@@ -941,21 +1265,8 @@ export class SharedVpc extends pulumi.ComponentResource {
         // Track route table ID for gateway endpoints
         allRouteTableIds.push(sharedRt.id);
 
-        // IPv6 egress-only gateway if IPv6 is enabled
-        if (args.enableIpv6 === true) {
-          const eigw = new aws.ec2.EgressOnlyInternetGateway(
-            `${args.environment}-eigw`,
-            {
-              vpcId: vpc.id,
-              tags: {
-                ...args.tags,
-                Name: `${args.environment}-eigw`,
-                Environment: args.environment,
-              },
-            },
-            defaultOpts
-          );
-
+        // IPv6 route to the egress-only internet gateway
+        if (eigw !== undefined) {
           new aws.ec2.Route(
             `${args.environment}-shared-route-ipv6`,
             {
@@ -1153,6 +1464,7 @@ export class SharedVpc extends pulumi.ComponentResource {
               fromPort: 443,
               toPort: 443,
               cidrBlocks: [args.vpcCidr],
+              ...(ipv6 ? { ipv6CidrBlocks: [vpc.ipv6CidrBlock] } : {}),
               description: "HTTPS from VPC",
             },
           ],
@@ -1179,6 +1491,37 @@ export class SharedVpc extends pulumi.ComponentResource {
       const gatewayEndpoints = ["s3", "dynamodb"];
       const interfaceEndpoints = args.vpcEndpoints.filter(ep => !gatewayEndpoints.includes(ep));
 
+      // IP address type per endpoint: with IPv6, "dualstack" where the service (of this
+      // endpoint type, in this region) lists ipv6 among its supported IP address types, else
+      // "ipv4". Read from AWS at deploy time (DescribeVpcEndpointServices), not from a hard-coded
+      // list, and logged per service. Without IPv6 the field is left unset, as before.
+      const ipAddressTypeOf = (
+        service: string,
+        serviceType: "Gateway" | "Interface"
+      ): { ipAddressType?: pulumi.Output<string> } => {
+        if (!ipv6) {
+          return {};
+        }
+        const ipAddressType = aws.ec2
+          .getVpcEndpointServiceOutput(
+            { serviceName: `com.amazonaws.${args.region}.${service}`, serviceType },
+            { parent: this }
+          )
+          .supportedIpAddressTypes.apply(types => {
+            const type = types.includes("ipv6") ? "dualstack" : "ipv4";
+            void pulumi.log.info(
+              `VPC endpoint ${service} (${serviceType}): supported IP address types ` +
+                `[${types.join(", ")}] → ${type}`,
+              this
+            );
+            return type;
+          });
+        return { ipAddressType };
+      };
+      // A dual-stack endpoint requires every subnet it serves to carry an IPv6 range, so the
+      // endpoints wait for the subnets.
+      const endpointOpts = ipv6 ? { ...defaultOpts, dependsOn: allSubnets } : defaultOpts;
+
       // Create gateway endpoints (free, VPC-wide via route tables)
       for (const service of gatewayEndpoints) {
         if (args.vpcEndpoints?.includes(service) === true) {
@@ -1189,6 +1532,7 @@ export class SharedVpc extends pulumi.ComponentResource {
               vpcId: vpc.id,
               serviceName: `com.amazonaws.${args.region}.${service}`,
               vpcEndpointType: "Gateway",
+              ...ipAddressTypeOf(service, "Gateway"),
               // Gateway endpoints update all associated route tables automatically
               routeTableIds: pulumi.all(allRouteTableIds).apply(ids => ids),
               tags: {
@@ -1199,7 +1543,7 @@ export class SharedVpc extends pulumi.ComponentResource {
                 Type: "gateway",
               },
             },
-            defaultOpts
+            endpointOpts
           );
         }
       }
@@ -1213,6 +1557,7 @@ export class SharedVpc extends pulumi.ComponentResource {
             vpcId: vpc.id,
             serviceName: `com.amazonaws.${args.region}.${service}`,
             vpcEndpointType: "Interface",
+            ...ipAddressTypeOf(service, "Interface"),
             subnetIds: privateSubnets.map(s => s.id),
             securityGroupIds: [vpcEndpointSg.id],
             privateDnsEnabled: true,
@@ -1224,7 +1569,7 @@ export class SharedVpc extends pulumi.ComponentResource {
               Type: "interface",
             },
           },
-          defaultOpts
+          endpointOpts
         );
       }
     }
@@ -1302,6 +1647,8 @@ export class SharedVpc extends pulumi.ComponentResource {
       natGatewayIds: this.natGatewayIds,
       ramShareArn: this.ramShareArn,
       flowLogsBucketArn: this.flowLogsBucketArn,
+      subnetIpv6CidrBlocks: this.subnetIpv6CidrBlocks,
+      egressOnlyInternetGatewayId: this.egressOnlyInternetGatewayId,
     });
   }
 }
