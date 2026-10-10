@@ -196,27 +196,38 @@ generation, so commit hygiene directly affects releases.
 The bump column reflects what's configured in
 [nx.json](./nx.json) under `release.version.conventionalCommitsConfig`.
 Only `feat`, `fix`, and `perf` move versions; everything else is
-maintenance and never bumps a published artifact.
+maintenance and never bumps a published artifact — unless it is marked
+breaking (below), which bumps whatever its type.
 
-| Type | Bump | Use for |
-|---|---|---|
-| `feat` | minor | New feature, new export, new public API |
-| `fix` | patch | Bug fix that doesn't change public API |
-| `perf` | patch | Performance improvement |
-| `refactor` | **none** | Internal restructure, no behavior change |
-| `docs` | none | Documentation only |
-| `test` | none | Test-only changes |
-| `build` | none | Build system, dependencies, tsconfig |
-| `ci` | none | CI configuration |
-| `chore` | none | Maintenance, repo plumbing, no public effect |
-| `style` | none | Formatting only |
+| Type | Bump (≥ 1.0) | Bump (0.x, every package today) | Use for |
+|---|---|---|---|
+| `feat` | minor | **patch** | New feature, new export, new public API |
+| `fix` | patch | patch | Bug fix that doesn't change public API |
+| `perf` | patch | patch | Performance improvement |
+| `refactor` | **none** | **none** | Internal restructure, no behavior change |
+| `docs` | none | none | Documentation only |
+| `test` | none | none | Test-only changes |
+| `build` | none | none | Build system, dependencies, tsconfig |
+| `ci` | none | none | CI configuration |
+| `chore` | none | none | Maintenance, repo plumbing, no public effect |
+| `style` | none | none | Formatting only |
 
 Add `!` before the colon (or `BREAKING CHANGE:` in the footer) for a
-**major** bump:
+breaking change — **major** at ≥ 1.0, **minor** at 0.x (0.3.4 → 0.4.0):
 
 ```
 feat(iac-aws)!: rename SharedVpc.tiers to SharedVpc.subnetTiers
 ```
+
+**Below 1.0, Nx shifts every bump down one level**
+(`adjustSemverBumpsForZeroMajorVersion`, Nx's default; nx.json does not
+override it): breaking → minor, `feat` → patch. Consumers pin `^0.y.z`,
+which admits patches only. So an unmarked `feat` that breaks consumers
+ships as a patch every `^` range accepts: that is how
+`@adaptiveworx/iac-aws` 0.3.4 shipped a breaking change. **If any consumer
+has to act — change its arguments, config or code, or accept a
+non-trivial preview — the commit carries `!`**, whatever its type. Check
+the computed version with `pnpm release:dry` before merging.
 
 ### Scopes — the rule that keeps releases sane
 
