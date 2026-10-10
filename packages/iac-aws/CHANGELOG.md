@@ -1,3 +1,22 @@
+## 0.4.0 (2026-10-10)
+
+### 🩹 Fixes
+
+- ⚠️  **iac-aws:** mark the SharedVpc IPv6 change as breaking (0.4.0); migration note ([72a22df](https://github.com/AdaptiveWorX/iac-core/commit/72a22df))
+
+### ⚠️  Breaking Changes
+
+- **iac-aws:** mark the SharedVpc IPv6 change as breaking (0.4.0); migration note  ([72a22df](https://github.com/AdaptiveWorX/iac-core/commit/72a22df))
+  SharedVpc with enableIpv6: true requires an explicit, unique ipv6Slot
+  (0-15) on every custom subnet tier, or construction fails. With the default tiers the
+  next preview enables IPv6 on every subnet, NACL, private route and endpoint (in-place
+  updates); review it per environment. allowIpv6PublicIngress now defaults to false and
+  the public ::/0 route is always present with IPv6.
+
+### ❤️ Thank You
+
+- Lloyd Mangnall @lloydmangnall
+
 ## 0.3.4 (2026-10-10)
 
 ### 🚀 Features
