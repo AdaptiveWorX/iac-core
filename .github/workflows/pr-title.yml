@@ -72,3 +72,18 @@ jobs:
           ignoreLabels: |
             bot
             ignore-semantic-pull-request
+      # Working agreement: the title is a conventional-commit subject of
+      # 60 characters max; detail goes in the body. The squash subject on
+      # `main` is the title, so this bounds what lands there. Applies to
+      # every PR, labelled or not. The title reaches the shell through an
+      # env var, never inline, so it cannot inject.
+      - name: Title length (60 max)
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          len=${#TITLE}
+          if [ "$len" -gt 60 ]; then
+            echo "::error::PR title is $len characters; the limit is 60. Move detail to the body."
+            exit 1
+          fi
+          echo "PR title is $len characters (limit 60)."

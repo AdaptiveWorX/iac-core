@@ -21,6 +21,7 @@ Claude Code on this repo.
   - Never mix auto-apply with manual-dispatch stacks, or a library with its consumer.
   - Batch non-deploying changes (CI, scripts, docs, guardrails, tests) into one tooling PR per session.
   - Urgent unblocking fixes stay small.
+- **PR title:** a conventional-commit subject, 60 characters max; detail goes in the body.
 - **PR body:** *Depends on* / *Followed by* / *Apply steps* / *Expected preview* (infra).
 - **Before infra work:** survey live state read-only (`worx-architect-ro*` profiles, the Cloudflare read API) and state which assumptions it confirmed.
 - **Decisions:** settle structural questions with the EA before work starts.
