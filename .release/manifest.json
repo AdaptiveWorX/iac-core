@@ -2,8 +2,8 @@
   "releases": [
     {
       "package": "@adaptiveworx/iac-aws",
-      "version": "0.3.3",
-      "tag": "@adaptiveworx/iac-aws@0.3.3",
+      "version": "0.3.4",
+      "tag": "@adaptiveworx/iac-aws@0.3.4",
       "directory": "packages/iac-aws"
     }
   ]

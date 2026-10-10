@@ -1,3 +1,13 @@
+## 0.3.4 (2026-10-10)
+
+### 🚀 Features
+
+- **iac-aws:** SharedVpc IPv6 dual-stack on every subnet, NACL, route and endpoint ([#67](https://github.com/AdaptiveWorX/iac-core/pull/67))
+
+### ❤️ Thank You
+
+- Lloyd Mangnall
+
 ## 0.3.3 (2026-10-04)
 
 ### 🩹 Fixes
