@@ -168,9 +168,9 @@ export interface SharedVpcArgs {
    *   TCP return traffic (rule 120). Targets in the public tier stay reachable from the VPC.
    * - true: also 443 (rule 100) and 80 (rule 110) from 0.0.0.0/0.
    *
-   * Before 0.5.0 these two rules were unconditional. Upgrading without the flag deletes the two rule entries; it
-   * touches no other resource. Security groups remain the stateful control: this flag is an extra
-   * NACL layer, not a substitute for them.
+   * Before 0.5.0 these two rules were unconditional. Upgrading without the flag deletes the two
+   * rule entries and touches no other resource. Security groups remain the stateful control: this
+   * flag is an extra NACL layer, not a substitute for them.
    */
   allowIpv4PublicIngress?: boolean;
 
