@@ -174,7 +174,7 @@ export interface SharedVpcArgs {
    */
   flowLogs: {
     /**
-     * Enable flow logs (from Infisical FLOW_LOGS_ENABLED)
+     * Enable VPC flow logs (to an S3 bucket this component creates)
      */
     enabled: boolean;
 
@@ -187,7 +187,7 @@ export interface SharedVpcArgs {
     trafficType: "ALL" | "ACCEPT" | "REJECT";
 
     /**
-     * S3 retention in days (from Infisical RETENTION_DAYS)
+     * Days to keep flow log objects in the bucket before they expire (no expiry if unset)
      */
     retentionDays?: number;
 
