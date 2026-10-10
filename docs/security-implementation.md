@@ -10,7 +10,7 @@ This document details the security controls implemented in the `SharedVpc` compo
 
 ### Layer 1: Network ACLs (NACLs) - Network Layer
 
-**Location**: `packages/iac-aws/src/shared-vpc.ts` (NETWORK ACLs section)
+**Location**: [`packages/iac-aws/src/shared-vpc.ts`](../packages/iac-aws/src/shared-vpc.ts), `SharedVpc` constructor, NETWORK ACLs section
 
 **Purpose**: Stateless, subnet-level traffic filtering (defense against misconfigured security groups)
 
@@ -37,7 +37,7 @@ large packets (path-MTU discovery). 1130 and 1150 are the IPv6 counterparts of t
 
 **Security Benefits**:
 - ✅ **Defense-in-depth**: Protects even if security groups misconfigured
-- ✅ **Public tier**: unsolicited inbound limited to 443/80 (IPv4 always; IPv6 only on opt-in) plus the VPC itself
+- ✅ **Public tier**: internet-initiated inbound limited to 443/80 over IPv4, and over IPv6 only on opt-in for a production-facing edge; otherwise the VPC itself plus return traffic for the tier's own egress
 - ✅ **Private tier**: Only VPC-internal traffic + return traffic (blocks direct internet inbound)
 - ✅ **Stateless**: Independent of connection state (can't be bypassed by connection hijacking)
 - ✅ **Per-tier isolation**: Supports custom tiers (e.g., HIPAA data tier with stricter rules)
@@ -54,7 +54,7 @@ large packets (path-MTU discovery). 1130 and 1150 are the IPv6 counterparts of t
 
 ### Layer 2: Security Groups - Instance Layer
 
-**Location**: [`src/aws/shared-vpc.ts:773-805`](../src/aws/shared-vpc.ts#L773-L805)
+**Location**: [`packages/iac-aws/src/shared-vpc.ts`](../packages/iac-aws/src/shared-vpc.ts), SECURITY RESOURCES section (`vpcEndpointSg`)
 
 **Purpose**: Stateful, instance-level traffic filtering (controls access to VPC endpoints)
 
@@ -100,7 +100,7 @@ const vpcEndpointSg = new aws.ec2.SecurityGroup({
 
 ### Layer 3: VPC Endpoints - Service Layer
 
-**Location**: [`src/aws/shared-vpc.ts:771-859`](../src/aws/shared-vpc.ts#L771-L859)
+**Location**: [`packages/iac-aws/src/shared-vpc.ts`](../packages/iac-aws/src/shared-vpc.ts), SECURITY RESOURCES section (`gatewayEndpoints`, `interfaceEndpoints`, `ipAddressTypeOf`)
 
 **Purpose**: PrivateLink isolation for AWS service communication (no internet traversal)
 
@@ -155,7 +155,7 @@ interfaceEndpoints.forEach((service) => {
 
 ### Layer 4: VPC Flow Logs - Audit Layer
 
-**Location**: [`src/aws/shared-vpc.ts:656-753`](../src/aws/shared-vpc.ts#L656-L753)
+**Location**: [`packages/iac-aws/src/shared-vpc.ts`](../packages/iac-aws/src/shared-vpc.ts), OPERATIONS RESOURCES section (`flowLogsBucket`, `aws.ec2.FlowLog`)
 
 **Purpose**: Audit trail for all network traffic (compliance + forensics)
 
@@ -427,13 +427,21 @@ an IPv6 address; new ones do (redeploy tasks, or assign addresses to instances e
 
 **`allowIpv6PublicIngress`** (default **`false`**):
 
+The posture the default encodes: **no internet-initiated inbound; required egress with its return
+traffic.** Non-production environments are never reachable from the internet; operators and
+services reach them through ZTNA. The default holds that posture over IPv6 as well as IPv4.
+
 - The public `::/0 → IGW` route exists whenever IPv6 is on, because it is the public tiers' IPv6
-  egress. Public-subnet IPv6 addresses are therefore reachable from the internet, subject to the
-  NACL and the security group.
-- `false`: the public NACL admits over IPv6 only the VPC's IPv6 block, ephemeral TCP/UDP return
-  traffic and ICMPv6 Packet Too Big.
-- `true`: it also admits TCP 443 and 80 from `::/0`, mirroring the IPv4 rules.
-- Security groups remain the control that refuses unsolicited connections; this flag is an extra
+  egress. With the route in place, the NACL and the security groups are what keep internet-initiated
+  IPv6 connections out.
+- `false` (default, and the only setting for non-production): the public NACL admits over IPv6
+  only the VPC's IPv6 block, ephemeral TCP/UDP return traffic for the tier's own egress, and ICMPv6
+  Packet Too Big (path-MTU discovery for that egress).
+- `true`: also admits TCP 443 and 80 from `::/0`, mirroring the IPv4 rules. Opt in only for a
+  production-facing edge (e.g. a public load balancer) that must accept internet-initiated IPv6
+  connections; it is not a normal pattern.
+- Being stateless, the return-traffic entries admit any packet to ports 1024–65535; security
+  groups (stateful, no ingress from `::/0`) refuse unsolicited connections. The flag is an extra
   NACL layer, not a substitute.
 
 **Before 0.4.0** the flag defaulted to `true` and gated the public `::/0` route itself, which
@@ -446,7 +454,7 @@ so neither setting had any effect in practice.
 
 **Issue**: Flow logs use default AWS format (missing critical security fields for threat detection).
 
-**Fix** ([`src/aws/shared-vpc.ts:167-180`](../src/aws/shared-vpc.ts#L167-L180)):
+**Fix** ([`packages/iac-aws/src/shared-vpc.ts`](../packages/iac-aws/src/shared-vpc.ts), `SharedVpcArgs.flowLogs.customFormat`):
 
 **New Parameter**:
 ```typescript
@@ -460,7 +468,7 @@ so neither setting had any effect in practice.
 customFormat?: string;
 ```
 
-**Default Security-Enhanced Format** ([`src/aws/shared-vpc.ts:943-952`](../src/aws/shared-vpc.ts#L943-L952)):
+**Default Security-Enhanced Format** ([`packages/iac-aws/src/shared-vpc.ts`](../packages/iac-aws/src/shared-vpc.ts), OPERATIONS RESOURCES section, `defaultSecurityFormat`):
 ```typescript
 const defaultSecurityFormat =
   "${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} " +
@@ -494,7 +502,8 @@ const vpc = new SharedVpc("dev-vpc", {
   natGatewayCount: 0,           // Save cost ($32/mo per NAT): private tiers reach only
                                 // VPC endpoints and IPv6-capable destinations
   enableIpv6: true,             // Dual-stack: a /64 on every subnet (default tiers' slots)
-  // allowIpv6PublicIngress defaults to false: no unsolicited IPv6 443/80 at the public NACL
+  // allowIpv6PublicIngress stays false (the default): non-prod takes no internet-initiated
+  // inbound; required egress and its return traffic only
   flowLogs: {
     enabled: true,
     trafficType: "ALL",
@@ -535,7 +544,7 @@ const vpc = new SharedVpc("care-prd-vpc", {
   vpcCidr: "10.240.0.0/16",
   natGatewayCount: 3,
   enableIpv6: true,              // Dual-stack; every custom tier below declares ipv6Slot
-  allowIpv6PublicIngress: false, // The default: no unsolicited IPv6 443/80 at the public NACL
+  allowIpv6PublicIngress: false, // The default; opt in only for a production-facing edge
   flowLogs: {
     enabled: true,
     trafficType: "ALL",
@@ -615,8 +624,9 @@ tiers carry slots 0/1/2. Without `enableIpv6`, nothing changes.
 - VPC endpoint security group: update (IPv6 ingress); endpoints: update `ipAddressType` where the
   service supports IPv6
 
-**Behavior change**: `allowIpv6PublicIngress` now defaults to `false` and only adds IPv6 443/80
-NACL rules; the public `::/0 → IGW` route is always present with IPv6.
+**Behavior change**: `allowIpv6PublicIngress` now defaults to `false` (no internet-initiated
+IPv6 inbound) and, when opted into for a production-facing edge, only adds IPv6 443/80 NACL rules;
+the public `::/0 → IGW` route is always present with IPv6 (it is egress).
 
 ### Upgrading from 0.2.0 to 0.3.0
 
@@ -659,7 +669,7 @@ flowLogs: {
 
 **Issue**: Route tables for shared subnets didn't have `ShareViaRam` tag, making cross-account audit harder.
 
-**Fix** ([`src/aws/shared-vpc.ts:760`](../src/aws/shared-vpc.ts#L760)):
+**Fix** ([`packages/iac-aws/src/shared-vpc.ts`](../packages/iac-aws/src/shared-vpc.ts), ROUTING RESOURCES section, private route table tags):
 
 ```typescript
 // Private route table with ShareViaRam tag
@@ -692,7 +702,7 @@ aws ec2 describe-route-tables \
 
 **Issue**: If `natGatewayCount=1` with 6 AZs, all 6 subnets share 1 NAT gateway (single point of failure). No warning issued.
 
-**Fix** ([`src/aws/shared-vpc.ts:479-488`](../src/aws/shared-vpc.ts#L479-L488)):
+**Fix** ([`packages/iac-aws/src/shared-vpc.ts`](../packages/iac-aws/src/shared-vpc.ts), HIGH AVAILABILITY VALIDATION section):
 
 ```typescript
 // Warn if NAT Gateway count < AZ count (not HA)

@@ -112,7 +112,7 @@ All controls should document the threat they mitigate:
 
 ### Example 1: S3 Encryption (Preventive Control)
 
-**Code** (`src/aws/shared-vpc.ts`):
+**Code** (`packages/iac-aws/src/shared-vpc.ts`):
 ```typescript
 /**
  * @compliance ISO27001:A.10.1.1 - Policy on cryptographic controls
@@ -135,7 +135,7 @@ new aws.s3.BucketServerSideEncryptionConfiguration(
 );
 ```
 
-**Test** (`src/aws/shared-vpc.unit.test.ts`):
+**Test** (`packages/iac-aws/src/shared-vpc.unit.test.ts`):
 ```typescript
 it("should enforce S3 encryption at rest", {
   meta: {
@@ -155,7 +155,7 @@ it("should enforce S3 encryption at rest", {
 
 ### Example 2: S3 Public Access Block (Preventive Control)
 
-**Code** (`src/aws/shared-vpc.ts`):
+**Code** (`packages/iac-aws/src/shared-vpc.ts`):
 ```typescript
 /**
  * @compliance ISO27001:A.13.1.3 - Segregation of networks
@@ -179,7 +179,7 @@ new aws.s3.BucketPublicAccessBlock(
 
 ### Example 3: VPC Flow Logs (Detective Control)
 
-**Code** (`src/aws/shared-vpc.ts`):
+**Code** (`packages/iac-aws/src/shared-vpc.ts`):
 ```typescript
 /**
  * @compliance ISO27001:A.12.4.1 - Event logging
@@ -232,7 +232,7 @@ yarn compliance:report
       "status": "implemented",
       "implementations": [
         {
-          "file": "src/aws/shared-vpc.ts",
+          "file": "packages/iac-aws/src/shared-vpc.ts",
           "line": 963,
           "type": "code",
           "severity": "critical",
@@ -241,7 +241,7 @@ yarn compliance:report
       ],
       "tests": [
         {
-          "file": "src/aws/shared-vpc.unit.test.ts",
+          "file": "packages/iac-aws/src/shared-vpc.unit.test.ts",
           "line": 192,
           "id": "s3-encryption-at-rest",
           "status": "passing",

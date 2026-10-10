@@ -144,7 +144,9 @@ export interface SharedVpcArgs {
   enableIpv6?: boolean;
 
   /**
-   * Admit unsolicited IPv6 HTTPS/HTTP (443/80 from ::/0) through the public tier NACLs.
+   * Admit internet-initiated IPv6 HTTPS/HTTP (443/80 from ::/0) through the public tier NACLs.
+   * Opt in only for a production-facing edge; the default keeps the posture "no
+   * internet-initiated inbound; required egress with its return traffic".
    * - false (default): the public NACL admits over IPv6 only the VPC's IPv6 block, ephemeral
    *   TCP/UDP return traffic and ICMPv6 Packet Too Big.
    * - true: also 443 and 80 from ::/0, mirroring the IPv4 public rules.

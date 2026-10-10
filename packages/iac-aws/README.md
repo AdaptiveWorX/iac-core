@@ -58,9 +58,11 @@ tier NACL (numbered IPv4 counterpart + 1000, plus UDP return and ICMPv6 Packet T
 to the internet gateway on public tiers and to an egress-only gateway on private tiers, with or
 without NAT; dual-stack VPC endpoints where the service supports IPv6.
 
-- `allowIpv6PublicIngress` (default `false`) only adds IPv6 443/80 inbound to the public NACL.
-  The public `::/0` route is always present (it is IPv6 egress), so security groups remain the
-  control on inbound IPv6.
+- `allowIpv6PublicIngress` (default `false`): no internet-initiated IPv6 inbound; the tiers keep
+  their required egress and its return traffic. Set it to `true` only for a production-facing edge
+  that must accept internet-initiated IPv6; it adds IPv6 443/80 inbound to the public NACL. The
+  public `::/0` route is always present (it is IPv6 egress), so security groups remain the control
+  on inbound IPv6.
 - IPv6 egress cannot reach IPv4-only destinations (e.g. `github.com`, `ghcr.io`), and there is no
   DNS64/NAT64. `natGatewayCount: 0` with private tiers is valid only when their workloads use VPC
   endpoints or IPv6-capable destinations exclusively.
