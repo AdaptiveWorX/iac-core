@@ -10,74 +10,42 @@ This document details the security controls implemented in the `SharedVpc` compo
 
 ### Layer 1: Network ACLs (NACLs) - Network Layer
 
-**Location**: [`src/aws/shared-vpc.ts:451-605`](../src/aws/shared-vpc.ts#L451-L605)
+**Location**: `packages/iac-aws/src/shared-vpc.ts` (NETWORK ACLs section)
 
 **Purpose**: Stateless, subnet-level traffic filtering (defense against misconfigured security groups)
 
-**Implementation**:
+**Implementation**: one NACL per tier. With `enableIpv6`, every IPv4 entry has an IPv6
+counterpart numbered **+1000** (NACL rule numbers share one space per direction across IPv4 and
+IPv6; the offset also stays clear of the entries consumers add at stack level, e.g. iac-worx
+90–150).
 
-```typescript
-// Per-tier NACLs for defense-in-depth
-for (const tier of subnetTiers) {
-  const tierNacl = new aws.ec2.NetworkAcl({ vpcId: vpc.id });
+| Tier | Dir | IPv4 | IPv6 (`enableIpv6`) |
+|---|---|---|---|
+| public | in | 95: all from the VPC CIDR | 1095: all from the VPC's IPv6 block |
+| public | in | 100: TCP 443 from 0.0.0.0/0 | 1100: TCP 443 from ::/0 — only with `allowIpv6PublicIngress` |
+| public | in | 110: TCP 80 from 0.0.0.0/0 | 1110: TCP 80 from ::/0 — only with `allowIpv6PublicIngress` |
+| public | in | 120: TCP 1024–65535 from 0.0.0.0/0 | 1120: TCP 1024–65535 from ::/0 |
+| private/data | in | 100: all from the VPC CIDR | 1100: all from the VPC's IPv6 block |
+| private/data | in | 110: TCP 1024–65535 from 0.0.0.0/0 | 1110: TCP 1024–65535 from ::/0 |
+| every tier | in | — | 1130: UDP 1024–65535 from ::/0 (return traffic) |
+| every tier | in | — | 1150: ICMPv6 type 2, Packet Too Big, from ::/0 |
+| every tier | out | 100: all to 0.0.0.0/0 | 1100: all to ::/0 |
 
-  if (tier.routeToInternet) {
-    // Public tier: HTTP/HTTPS inbound, ephemeral outbound
-    [443, 80].forEach((port) => {
-      new aws.ec2.NetworkAclRule({
-        protocol: "tcp",
-        fromPort: port,
-        toPort: port,
-        cidrBlock: "0.0.0.0/0",
-        ruleAction: "allow",
-        egress: false,
-      });
-    });
-
-    // Ephemeral ports for return traffic
-    new aws.ec2.NetworkAclRule({
-      protocol: "tcp",
-      fromPort: 1024,
-      toPort: 65535,
-      cidrBlock: "0.0.0.0/0",
-      egress: false,
-    });
-  } else {
-    // Private tier: VPC-internal + ephemeral only
-    new aws.ec2.NetworkAclRule({
-      protocol: "-1", // All protocols
-      cidrBlock: args.vpcCidr,
-      ruleAction: "allow",
-      egress: false,
-    });
-
-    new aws.ec2.NetworkAclRule({
-      protocol: "tcp",
-      fromPort: 1024,
-      toPort: 65535,
-      cidrBlock: "0.0.0.0/0",
-      egress: false,
-    });
-  }
-
-  // Outbound: Allow all (stateless - need explicit allow)
-  new aws.ec2.NetworkAclRule({
-    protocol: "-1",
-    cidrBlock: "0.0.0.0/0",
-    ruleAction: "allow",
-    egress: true,
-  });
-}
-```
+ICMPv6 Packet Too Big is mandatory: IPv6 routers do not fragment, so dropping it black-holes
+large packets (path-MTU discovery). 1130 and 1150 are the IPv6 counterparts of the IPv4 UDP-return
+(130) and ICMP-unreachable (150) entries iac-worx adds to its ZTNA connectors' tier.
 
 **Security Benefits**:
 - ✅ **Defense-in-depth**: Protects even if security groups misconfigured
-- ✅ **Public tier**: Only HTTP/HTTPS + ephemeral ports inbound (blocks SSH, RDP, database ports)
-- ✅ **Private tier**: Only VPC-internal traffic + NAT return traffic (blocks direct internet inbound)
+- ✅ **Public tier**: unsolicited inbound limited to 443/80 (IPv4 always; IPv6 only on opt-in) plus the VPC itself
+- ✅ **Private tier**: Only VPC-internal traffic + return traffic (blocks direct internet inbound)
 - ✅ **Stateless**: Independent of connection state (can't be bypassed by connection hijacking)
 - ✅ **Per-tier isolation**: Supports custom tiers (e.g., HIPAA data tier with stricter rules)
 
 **Limitations**:
+- ⚠️ Being stateless, the ephemeral return entries admit any TCP (and, for IPv6, UDP) packet to
+  ports 1024–65535 from anywhere. Security groups, which are stateful, are what refuse unsolicited
+  connections to those ports.
 - ⚠️ No deny rules for known bad actors (future: integrate with threat intelligence)
 - ⚠️ No geo-blocking (future: AWS Network Firewall for geo-restrictions)
 - ⚠️ No rate limiting (future: AWS WAF for application-layer rate limits)
@@ -238,14 +206,15 @@ new aws.ec2.FlowLog({
 ### 1. No Direct Internet Access for Private Subnets
 
 **Implementation**:
-- Private subnets route egress through NAT Gateway (public subnet)
-- NACLs block direct internet inbound traffic (ephemeral ports only for NAT return)
+- Private subnets route IPv4 egress through NAT Gateways (public subnet), and IPv6 egress
+  (`enableIpv6`) through an egress-only internet gateway, which admits no inbound connections
+- NACLs block direct internet inbound traffic (return traffic only)
 - VPC endpoints for AWS services (no internet traversal)
 
 **Validation**:
-- Private subnet route table has NO `0.0.0.0/0 → igw-*` route
+- Private subnet route table has NO `0.0.0.0/0 → igw-*` and NO `::/0 → igw-*` route
 - All AWS service traffic routes through VPC endpoints
-- NACL blocks all inbound except VPC CIDR + ephemeral ports
+- NACL blocks all inbound except the VPC's own blocks + return traffic
 
 ### 2. Least Privilege Access
 
@@ -415,76 +384,61 @@ it("should create gateway endpoint for S3 with all route tables", () => {
 
 ## Additional Security Fixes (High-Severity Issues)
 
-### 1. Egress Validation - NAT=0 Requires IPv6 ✅
+### 1. Egress Validation - Private Tiers Need an Egress Path ✅
 
 **Issue**: If `natGatewayCount=0` and `enableIpv6=false`, private subnets have zero internet access. Deployments succeed but workloads fail at runtime (silent failure).
 
-**Fix** ([`src/aws/shared-vpc.ts:451-464`](../src/aws/shared-vpc.ts#L451-L464)):
+**Fix**: construction fails with:
 
-```typescript
-// Validate: Private subnets need egress (NAT Gateway or IPv6)
-const privateTiersExist = subnetTiers.some(tier => !tier.routeToInternet);
-if (privateTiersExist && natGatewayCount === 0 && args.enableIpv6 !== true) {
-  throw new Error(
-    "Invalid configuration: Private subnets require internet egress. " +
-    "NAT Gateway count is 0 and IPv6 is disabled. " +
-    "Private subnets will have NO internet access (deployments will fail). " +
-    "Fix: Set enableIpv6=true (IPv6 egress via eigw) OR natGatewayCount>0 (IPv4 egress via NAT)."
-  );
-}
+```
+Invalid configuration: private tiers have no internet egress (natGatewayCount is 0 and IPv6 is
+disabled). Fix: set natGatewayCount>0 (IPv4 egress via NAT gateways). enableIpv6=true alone gives
+IPv6-only egress, which cannot reach IPv4-only destinations (e.g. github.com, ghcr.io); it is
+valid only when private-tier workloads use VPC endpoints or IPv6-capable destinations exclusively.
 ```
 
-**Impact**:
-- ✅ Fail-fast validation (error at pulumi preview, not runtime)
-- ✅ Clear error message with fix instructions
-- ✅ Prevents silent failures (workloads can't download packages, pull images, call APIs)
+`enableIpv6=true` with `natGatewayCount=0` is accepted, with a warning that states the same limit
+(see [IPv6-only egress](#9-ipv6-only-egress-no-dns64nat64)).
 
 ---
 
-### 2. IPv6 Public Ingress Control ✅
+### 2. IPv6 Dual-Stack and Public Ingress Control ✅
 
-**Issue**: If IPv6 enabled, public subnets automatically get `::/0 → IGW` route. This may be unintended for compliance-sensitive deployments (IPv6 addresses globally routable by default).
+**`enableIpv6: true` is dual-stack on everything**:
 
-**Fix** ([`src/aws/shared-vpc.ts:125-133`](../src/aws/shared-vpc.ts#L125-L133)):
+- The VPC gets an Amazon-provided /56.
+- Every subnet of every tier gets a /64 and assigns IPv6 addresses to new network interfaces
+  (`assignIpv6AddressOnCreation`). The /64 is `netnum = ipv6Slot * 16 + azIndex`: `ipv6Slot` is
+  explicit per tier (0–15, unique; required with IPv6; the default tiers use public 0, private 1,
+  data 2) and `azIndex` comes from the AZ letter (a=0 … p=15). Neither depends on list order, so
+  adding an AZ or a tier never renumbers an existing subnet. Never change a live tier's slot.
+- Every tier NACL carries IPv6 rules (Layer 1 table).
+- Public tiers route `::/0` to the internet gateway; private tiers route `::/0` to an egress-only
+  internet gateway, with or without NAT gateways.
+- VPC endpoints are `dualstack` where the service supports IPv6 (read from
+  DescribeVpcEndpointServices at deploy time and logged per service), `ipv4` otherwise. The
+  endpoint security group admits 443 from the VPC's IPv4 and IPv6 blocks.
+- Outputs: `vpcIpv6CidrBlock`, `subnetIpv6CidrBlocks` (tier → /64s in AZ order),
+  `egressOnlyInternetGatewayId`.
 
-**New Parameter**:
-```typescript
-/**
- * Allow IPv6 public ingress on public subnets
- * - true (default): Public subnets get ::/0 → IGW route (globally routable IPv6)
- * - false: No IPv6 public ingress (IPv6 egress-only for private subnets)
- *
- * Security consideration: IPv6 addresses are globally routable by default.
- * For compliance-sensitive workloads (e.g., HIPAA), set to false.
- */
-allowIpv6PublicIngress?: boolean;
-```
+Adding the /64 to an existing subnet is an in-place `AssociateSubnetCidrBlock` (the provider's
+`ipv6_cidr_block` is not ForceNew), never a replacement. Existing network interfaces do not gain
+an IPv6 address; new ones do (redeploy tasks, or assign addresses to instances explicitly).
 
-**Implementation** ([`src/aws/shared-vpc.ts:685-698`](../src/aws/shared-vpc.ts#L685-L698)):
-```typescript
-// IPv6 route if enabled AND public ingress allowed
-const allowIpv6PublicIngress = args.allowIpv6PublicIngress ?? true;
-if (args.enableIpv6 === true && allowIpv6PublicIngress) {
-  new aws.ec2.Route(
-    `${args.environment}-public-route-ipv6`,
-    {
-      routeTableId: publicRt.id,
-      destinationIpv6CidrBlock: "::/0",
-      gatewayId: igw.id,
-    },
-    defaultOpts
-  );
-}
-```
+**`allowIpv6PublicIngress`** (default **`false`**):
 
-**Benefits**:
-- ✅ Opt-out for IPv6 public accessibility (HIPAA compliance)
-- ✅ Backward compatible (defaults to `true`)
-- ✅ Explicit control over IPv6 routing
+- The public `::/0 → IGW` route exists whenever IPv6 is on, because it is the public tiers' IPv6
+  egress. Public-subnet IPv6 addresses are therefore reachable from the internet, subject to the
+  NACL and the security group.
+- `false`: the public NACL admits over IPv6 only the VPC's IPv6 block, ephemeral TCP/UDP return
+  traffic and ICMPv6 Packet Too Big.
+- `true`: it also admits TCP 443 and 80 from `::/0`, mirroring the IPv4 rules.
+- Security groups remain the control that refuses unsolicited connections; this flag is an extra
+  NACL layer, not a substitute.
 
-**Use Cases**:
-- **Default (`true`)**: Standard web applications need IPv6 public access
-- **Compliance (`false`)**: HIPAA/healthcare workloads with PHI data shouldn't be IPv6-accessible
+**Before 0.4.0** the flag defaulted to `true` and gated the public `::/0` route itself, which
+removed the public tiers' IPv6 egress when set to `false`; subnets had no IPv6 addresses at all,
+so neither setting had any effect in practice.
 
 ---
 
@@ -537,9 +491,10 @@ const defaultSecurityFormat =
 const vpc = new SharedVpc("dev-vpc", {
   environment: "dev",
   vpcCidr: "10.224.0.0/16",
-  natGatewayCount: 0,           // Save cost ($32/mo per NAT)
-  enableIpv6: true,             // Required for private subnet egress
-  allowIpv6PublicIngress: true, // Standard dev workflow
+  natGatewayCount: 0,           // Save cost ($32/mo per NAT): private tiers reach only
+                                // VPC endpoints and IPv6-capable destinations
+  enableIpv6: true,             // Dual-stack: a /64 on every subnet (default tiers' slots)
+  // allowIpv6PublicIngress defaults to false: no unsolicited IPv6 443/80 at the public NACL
   flowLogs: {
     enabled: true,
     trafficType: "ALL",
@@ -579,8 +534,8 @@ const vpc = new SharedVpc("care-prd-vpc", {
   environment: "prd",
   vpcCidr: "10.240.0.0/16",
   natGatewayCount: 3,
-  enableIpv6: true,              // Enable for future-proofing
-  allowIpv6PublicIngress: false, // ⚠️ Block IPv6 public access (HIPAA compliance)
+  enableIpv6: true,              // Dual-stack; every custom tier below declares ipv6Slot
+  allowIpv6PublicIngress: false, // The default: no unsolicited IPv6 443/80 at the public NACL
   flowLogs: {
     enabled: true,
     trafficType: "ALL",
@@ -596,10 +551,10 @@ const vpc = new SharedVpc("care-prd-vpc", {
     "kms",                       // Encryption key management
   ],
   subnetTiers: [
-    { name: "public", routeToInternet: true, shareViaRam: false },
-    { name: "app", routeToInternet: false, shareViaRam: true },
-    { name: "hipaa-data", routeToInternet: false, shareViaRam: true },
-    { name: "phi-isolated", routeToInternet: false, shareViaRam: true, cidrBits: 8 },
+    { name: "public", routeToInternet: true, shareViaRam: false, ipv6Slot: 0 },
+    { name: "app", routeToInternet: false, shareViaRam: true, ipv6Slot: 1 },
+    { name: "hipaa-data", routeToInternet: false, shareViaRam: true, ipv6Slot: 2 },
+    { name: "phi-isolated", routeToInternet: false, shareViaRam: true, cidrBits: 8, ipv6Slot: 3 },
   ],
 });
 ```
@@ -610,39 +565,16 @@ const vpc = new SharedVpc("care-prd-vpc", {
 
 ### Test 1: Egress Validation
 
-```typescript
-// Should throw error
-expect(() => {
-  new SharedVpc("test-vpc", {
-    natGatewayCount: 0,
-    enableIpv6: false,  // ❌ Invalid: no egress path
-  });
-}).toThrow(/Private subnets require internet egress/);
+Covered by `packages/iac-aws/src/shared-vpc.unit.test.ts` under Pulumi mocks: no NAT and no IPv6
+with private tiers throws; no NAT with IPv6 warns that IPv4-only destinations are unreachable.
 
-// Should succeed
-const vpc = new SharedVpc("test-vpc", {
-  natGatewayCount: 0,
-  enableIpv6: true,   // ✅ Valid: IPv6 egress via eigw
-});
-```
+### Test 2: IPv6 Dual-Stack and Public Ingress Control
 
-### Test 2: IPv6 Public Ingress Control
-
-```typescript
-// Default: IPv6 public ingress allowed
-const vpc1 = new SharedVpc("test-vpc", {
-  enableIpv6: true,
-  // allowIpv6PublicIngress defaults to true
-});
-// Verify: public route table has ::/0 → IGW
-
-// Compliance: IPv6 egress-only
-const vpc2 = new SharedVpc("test-vpc", {
-  enableIpv6: true,
-  allowIpv6PublicIngress: false,  // ✅ No ::/0 route in public RT
-});
-// Verify: NO ::/0 → IGW route, only eigw for private subnets
-```
+Covered by `shared-vpc.unit.test.ts` (every subnet's /64 and assign-on-create; every tier's IPv6
+NACL rules in both directions; `::/0` routes to the IGW and the egress-only gateway with and
+without NAT; dual-stack endpoints; nothing IPv6 without `enableIpv6`; slot validation) and
+`shared-vpc.ipv6-layout.unit.test.ts` (the /64 scheme; adding an AZ or a tier keeps every
+existing /64).
 
 ### Test 3: Flow Log Format
 
@@ -667,6 +599,24 @@ const vpc2 = new SharedVpc("test-vpc", {
 ---
 
 ## Migration Guide
+
+### Upgrading from 0.3.x to 0.4.0 (IPv6 dual-stack)
+
+**Breaking for `enableIpv6: true` with custom `subnetTiers`**: every tier must declare a unique
+`ipv6Slot` (0–15), or construction fails. Pick the slots once and never change them. The default
+tiers carry slots 0/1/2. Without `enableIpv6`, nothing changes.
+
+**Expected preview of a live `enableIpv6: true` VPC** (all in place; subnets must show
+**update**, never replace):
+- every subnet: update (`ipv6CidrBlock`, `assignIpv6AddressOnCreation`)
+- every tier NACL: create the IPv6 rules (1095/1100…1150)
+- with NAT gateways: create the egress-only gateway and a `::/0` route per private route table
+- if `allowIpv6PublicIngress: false` was set: create the public `::/0 → IGW` route
+- VPC endpoint security group: update (IPv6 ingress); endpoints: update `ipAddressType` where the
+  service supports IPv6
+
+**Behavior change**: `allowIpv6PublicIngress` now defaults to `false` and only adds IPv6 443/80
+NACL rules; the public `::/0 → IGW` route is always present with IPv6.
 
 ### Upgrading from 0.2.0 to 0.3.0
 
@@ -786,55 +736,31 @@ const natGw = natGateways[natIndex];
 
 ---
 
-### 9. DNS64 for IPv6-Only Workloads ✅
+### 9. IPv6-Only Egress (No DNS64/NAT64)
 
-**Issue**: If `natGatewayCount=0` (IPv6-only egress), workloads can't reach IPv4-only services without DNS64/NAT64.
+**Issue**: with `natGatewayCount=0` and `enableIpv6=true`, private tiers egress over IPv6 only
+(egress-only internet gateway). IPv6 egress reaches only destinations that publish IPv6 (AAAA)
+addresses. It cannot reach IPv4-only destinations — for example `github.com`, `api.github.com` and
+`ghcr.io` publish no AAAA records (checked 2026-10-09) — and an IPv4-only workload cannot use IPv6
+egress at all.
 
-**Fix** ([`src/aws/shared-vpc.ts:505-517`](../src/aws/shared-vpc.ts#L505-L517)):
+There is no DNS64/NAT64: NAT64 is a NAT gateway feature, so with no NAT gateway DNS64 would only
+synthesize addresses that route nowhere.
 
-```typescript
-// Warn about IPv6-only limitations (DNS64 not configured)
-if (privateTiersExist && natGatewayCount === 0 && args.enableIpv6 === true) {
-  void pulumi.log.warn(
-    "IPv6-only egress mode detected (NAT Gateway count = 0, IPv6 enabled). " +
-    "IMPORTANT: IPv6-only workloads cannot reach IPv4-only services without DNS64/NAT64. " +
-    "Many AWS services and third-party APIs are IPv4-only. " +
-    "Current setup uses IPv6 egress-only gateway (eigw) for cost savings. " +
-    "If you need IPv4 compatibility: " +
-    "(1) Add natGatewayCount>0 for dual-stack egress, OR " +
-    "(2) Configure Route 53 Resolver DNS64 + NAT64 (not yet implemented in this component). " +
-    "For dev/test environments, IPv6-only is usually sufficient (AWS services support IPv6)."
-  );
-}
+**The rule**: `natGatewayCount=0` with private tiers is valid only when private-tier workloads
+reach the internet solely through VPC endpoints or IPv6-capable destinations. Otherwise set
+`natGatewayCount>0`. The component warns:
+
+```
+Private tiers have IPv6-only egress (egress-only internet gateway, no NAT gateway). They cannot
+reach IPv4-only destinations, e.g. github.com, api.github.com and ghcr.io, and there is no
+DNS64/NAT64 (NAT64 is a NAT gateway feature). This configuration is valid only when private-tier
+workloads reach the internet solely through VPC endpoints or IPv6-capable destinations. Otherwise
+set natGatewayCount>0.
 ```
 
-**Benefits**:
-- ✅ **Awareness**: Developers know about IPv4 limitations upfront
-- ✅ **Actionable**: Two clear paths forward (NAT Gateway or DNS64)
-- ✅ **Cost transparency**: IPv6-only = FREE, but has limitations
-
-**IPv6-Only Compatibility Matrix**:
-
-| Service | IPv6 Support | IPv6-Only Compatible? |
-|---------|--------------|------------------------|
-| **AWS Services** |||
-| S3 | ✅ Full | ✅ Yes (via VPC endpoint or public IPv6) |
-| DynamoDB | ✅ Full | ✅ Yes (via VPC endpoint or public IPv6) |
-| ECR | ✅ Full | ✅ Yes (interface VPC endpoint with IPv6) |
-| Secrets Manager | ✅ Full | ✅ Yes (interface VPC endpoint with IPv6) |
-| CloudWatch Logs | ✅ Full | ✅ Yes (interface VPC endpoint with IPv6) |
-| RDS | ⚠️ Partial | ⚠️ Dual-stack only (needs IPv4 address) |
-| Lambda | ⚠️ Partial | ⚠️ Dual-stack only (needs IPv4 address) |
-| **Third-Party APIs** |||
-| GitHub API | ❌ IPv4-only | ❌ No (needs NAT64 or NAT Gateway) |
-| npm registry | ❌ IPv4-only | ❌ No (needs NAT64 or NAT Gateway) |
-| Docker Hub | ❌ IPv4-only | ❌ No (needs NAT64 or NAT Gateway) |
-| Most SaaS APIs | ❌ IPv4-only | ❌ No (needs NAT64 or NAT Gateway) |
-
-**Recommendation**:
-- **Dev/test**: IPv6-only acceptable (most AWS services work, can add NAT Gateway if needed)
-- **Production**: Use NAT Gateways (`natGatewayCount >= 1`) for IPv4 compatibility
-- **Future**: DNS64/NAT64 support planned for cost-optimized IPv4 compatibility
+Check a destination before relying on IPv6-only egress: `dig +short AAAA <host>` must return an
+address for every host the workload contacts (including redirects, auth and blob/CDN hosts).
 
 ---
 
@@ -846,14 +772,14 @@ if (privateTiersExist && natGatewayCount === 0 && args.enableIpv6 === true) {
 3. ✅ No VPC Endpoint Security Group
 
 ### High-Severity Issues (3)
-4. ✅ No IPv6 Egress Validation (NAT=0 requires IPv6)
-5. ✅ Uncontrolled IPv6 Public Ingress
+4. ✅ Private-Tier Egress Validation (NAT=0 without IPv6 fails)
+5. ✅ IPv6 Dual-Stack and Public Ingress Control
 6. ✅ No Flow Log Format Customization
 
 ### Medium-Severity Issues (3)
 7. ✅ No Route Table Tagging for RAM-Shared Subnets
 8. ✅ NAT Gateway High Availability Warning
-9. ✅ DNS64 for IPv6-Only Workloads (documentation + warning)
+9. ✅ IPv6-Only Egress Limits Stated (no DNS64/NAT64; validation + warning)
 
 **Total**: 9 security issues fixed ✅
 

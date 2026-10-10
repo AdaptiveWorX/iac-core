@@ -24,7 +24,11 @@ pulumi.runtime.setMocks(
       if (args.type === "aws:ec2/networkAclRule:NetworkAclRule") {
         rules.push({ name: args.name, inputs: args.inputs });
       }
-      return { id: `${args.name}-id`, state: { ...args.inputs, arn: `arn:mock:${args.name}` } };
+      const state: Record<string, unknown> = { ...args.inputs, arn: `arn:mock:${args.name}` };
+      if (args.type === "aws:ec2/vpc:Vpc") {
+        state["ipv6CidrBlock"] = "2001:db8:1234:5600::/56";
+      }
+      return { id: `${args.name}-id`, state };
     },
     call: args => ({ ...args.inputs }),
   },
@@ -66,8 +70,14 @@ describe("SharedVpc NACL: inbound from the VPC CIDR", () => {
 
   const vpcInbound = (tier: string) =>
     rules.find(r => r.name === `dev-${tier}-nacl-vpc-in`)?.inputs;
+  // IPv4 entries only: the IPv6 counterparts (+1000) are covered in shared-vpc.unit.test.ts.
   const ingressOf = (tier: string) =>
-    rules.filter(r => r.name.startsWith(`dev-${tier}-nacl-`) && r.inputs["egress"] === false);
+    rules.filter(
+      r =>
+        r.name.startsWith(`dev-${tier}-nacl-`) &&
+        r.inputs["egress"] === false &&
+        r.inputs["ipv6CidrBlock"] === undefined
+    );
 
   it("the public tier admits all protocols from the VPC CIDR at rule 95", () => {
     expect(PUBLIC_RULE).toBe(95);

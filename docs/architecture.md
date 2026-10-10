@@ -121,7 +121,7 @@ Production-tested Pulumi components for AWS:
 
 | Component | Purpose |
 |---|---|
-| `SharedVpc` | Multi-tier VPC with NAT, flow logs, RAM sharing, configurable per-tier CIDR, optional VPC endpoints |
+| `SharedVpc` | Multi-tier VPC with NAT, flow logs, RAM sharing, configurable per-tier CIDR, optional VPC endpoints, optional IPv6 dual-stack on every subnet |
 | `CrossAccountIAMRoles` | Cross-account Pulumi role + foundation access role (product-line architecture) |
 | `GitHubActionsOIDC` | OIDC provider + GitHub Actions deploy role |
 | IAM policy helpers | Composable policy document builders |

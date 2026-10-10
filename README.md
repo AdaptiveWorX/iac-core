@@ -46,15 +46,22 @@ required.
 import { SharedVpc, GitHubActionsOIDC } from "@adaptiveworx/iac-aws";
 
 const vpc = new SharedVpc("dev-use1", {
-  productLine: "worx",
   environment: "dev",
   region: "us-east-1",
-  cidrBlock: "10.10.0.0/16",
-  tiers: [
-    { name: "public",  routeToInternet: true,  shareViaRam: false },
-    { name: "private", routeToInternet: false, shareViaRam: true  },
-    { name: "data",    routeToInternet: false, shareViaRam: true  },
+  accountId: "123456789012",
+  orgPrefix: "worx",
+  vpcCidr: "10.10.0.0/16",
+  availabilityZones: ["us-east-1a", "us-east-1b", "us-east-1c"],
+  natGatewayCount: 3,
+  enableIpv6: true,
+  subnetTiers: [
+    { name: "public",  routeToInternet: true,  shareViaRam: false, ipv6Slot: 0 },
+    { name: "private", routeToInternet: false, shareViaRam: true,  ipv6Slot: 1 },
+    { name: "data",    routeToInternet: false, shareViaRam: true,  ipv6Slot: 2 },
   ],
+  flowLogs: { enabled: true, trafficType: "ALL" },
+  sharedAccounts: {},
+  tags: {},
 });
 
 const oidc = new GitHubActionsOIDC("github-actions", {
