@@ -71,9 +71,31 @@ Details: [docs/security-implementation.md](https://github.com/AdaptiveWorX/iac-c
 
 See each component's source for its full options interface.
 
+## Upgrading to 0.4.0
+
+0.4.0 is the release that marks the SharedVpc IPv6 change as breaking. The change itself first
+shipped in **0.3.4**, which is deprecated: it was released as a patch although it breaks some
+consumers. Pin to 0.3.3 or move to 0.4.0; don't use 0.3.4.
+
+**Who must act**: consumers that set `enableIpv6: true`.
+
+- **Custom `subnetTiers`**: every tier must declare `ipv6Slot` (an integer 0–15, unique across
+  tiers). Without it the component throws at construction, so nothing is deployed. Choose the
+  slots once and never change them: a tier's slot fixes its subnets' /64s.
+- **Default tiers**: they carry slots 0/1/2, so construction succeeds, but the next preview turns
+  on IPv6 everywhere. Every subnet gains a /64 and assign-on-create (in-place updates, never
+  replacements), every tier NACL gains IPv6 rules, private tiers gain an egress-only gateway route,
+  and endpoints become dual-stack. Review it as a deliberate network change, per environment.
+- `allowIpv6PublicIngress` now defaults to `false`, and the public `::/0` route is always present
+  with IPv6 (see [SharedVpc and IPv6](#sharedvpc-and-ipv6)).
+
+Consumers without `enableIpv6` see no change.
+
 ## Versioning & releases
 
-This package ships independent semver. See the
+This package ships independent semver. Below 1.0, a breaking change bumps the minor version
+(0.3.x → 0.4.0) and features and fixes bump the patch. Breaking changes are marked (`!`), so a
+`^0.y.z` range never admits one. See the
 [root CHANGELOG conventions](https://github.com/AdaptiveWorX/iac-core/blob/main/CONTRIBUTING.md#releases)
 and this package's [CHANGELOG.md](./CHANGELOG.md).
 
