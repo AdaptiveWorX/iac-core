@@ -1,3 +1,21 @@
+## 0.5.0 (2026-10-11)
+
+### 🩹 Fixes
+
+- ⚠️  **iac-aws:** SharedVpc public IPv4 443/80 ingress is opt-in (allowIpv4PublicIngress) ([24decba](https://github.com/AdaptiveWorX/iac-core/commit/24decba))
+
+### ⚠️  Breaking Changes
+
+- **iac-aws:** SharedVpc public IPv4 443/80 ingress is opt-in (allowIpv4PublicIngress)  ([24decba](https://github.com/AdaptiveWorX/iac-core/commit/24decba))
+  consumers with a public tier lose the IPv4 443/80 inbound NACL entries
+  (rules 100 and 110) on their next preview unless they set allowIpv4PublicIngress: true.
+  Set it for any public subnet that takes internet-initiated HTTPS/HTTP (e.g. a public load
+  balancer). No other resource changes.
+
+### ❤️ Thank You
+
+- Lloyd Mangnall @lloydmangnall
+
 ## 0.4.0 (2026-10-10)
 
 ### 🩹 Fixes
