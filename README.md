@@ -55,12 +55,12 @@ const vpc = new SharedVpc("dev-use1", {
   natGatewayCount: 3,
   enableIpv6: true,
   subnetTiers: [
-    { name: "public",  routeToInternet: true,  shareViaRam: false, ipv6Slot: 0 },
-    { name: "private", routeToInternet: false, shareViaRam: true,  ipv6Slot: 1 },
-    { name: "data",    routeToInternet: false, shareViaRam: true,  ipv6Slot: 2 },
+    { name: "public",  role: "load-balancers", routeToInternet: true,  shareWith: [],              ipv6Slot: 0 },
+    { name: "private", role: "app-services",   routeToInternet: false, shareWith: ["worx-app-dev"], ipv6Slot: 1 },
+    { name: "data",    role: "data-stores",    routeToInternet: false, shareWith: ["worx-app-dev"], ipv6Slot: 2 },
   ],
   flowLogs: { enabled: true, trafficType: "ALL" },
-  sharedAccounts: {},
+  sharedAccounts: { "111111111111": "worx-app-dev" },
   tags: {},
 });
 

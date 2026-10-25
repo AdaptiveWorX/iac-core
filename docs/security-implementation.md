@@ -567,10 +567,10 @@ const vpc = new SharedVpc("care-prd-vpc", {
     "kms",                       // Encryption key management
   ],
   subnetTiers: [
-    { name: "public", routeToInternet: true, shareViaRam: false, ipv6Slot: 0 },
-    { name: "app", routeToInternet: false, shareViaRam: true, ipv6Slot: 1 },
-    { name: "hipaa-data", routeToInternet: false, shareViaRam: true, ipv6Slot: 2 },
-    { name: "phi-isolated", routeToInternet: false, shareViaRam: true, cidrBits: 8, ipv6Slot: 3 },
+    { name: "public", role: "load-balancers", routeToInternet: true, shareWith: [], ipv6Slot: 0 },
+    { name: "app", role: "app-services", routeToInternet: false, shareWith: ["care-app-prd"], ipv6Slot: 1 },
+    { name: "hipaa-data", role: "phi-stores", routeToInternet: false, shareWith: ["care-phi-prd"], ipv6Slot: 2 },
+    { name: "phi-isolated", role: "phi-isolated", routeToInternet: false, shareWith: [], cidrBits: 8, ipv6Slot: 3 },
   ],
 });
 ```
@@ -697,7 +697,7 @@ const privateRt = new aws.ec2.RouteTable({
     ...args.tags,
     Tier: tier.name,
     Type: "private",
-    ShareViaRam: tier.shareViaRam.toString(), // ← Audit visibility
+    ShareViaRam: String(tierShareTargets(tier).length > 0), // ← Audit visibility (tier.shareWith)
   },
 });
 ```
