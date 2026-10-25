@@ -433,7 +433,9 @@ describe("naming grammar", () => {
     });
 
     it("rejects a malformed project name", () => {
-      for (const project of ["worx-aws", "worx-aws-sec-x", "Worx-aws-sec", "worx_aws_sec"]) {
+      // Four segments is the account grammar ({tenant}-{provider}-{account-purpose}-{env});
+      // five is malformed in both grammars
+      for (const project of ["worx-aws", "worx-aws-ops-sec-x", "Worx-aws-sec", "worx_aws_sec"]) {
         expect(ProjectNameSchema.safeParse(project).success).toBe(false);
       }
       expect(() => parseProjectName("worx-cloudflare")).toThrow("{tenant}-{provider}-{env}");

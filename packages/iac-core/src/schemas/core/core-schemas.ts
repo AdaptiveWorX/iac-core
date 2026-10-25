@@ -191,15 +191,19 @@ export const OrgPrefixSchema = z
   });
 
 /**
- * Project name: {tenant}-{provider}-{env}, where provider is one of
- * {@link ProviderSchema} (e.g. worx-aws-dev, worx-cloudflare-sec, care-gcp-prd).
+ * Project name, in one of two grammars (Pl.Architecture.Meta.NamingConventionsAcrossPlatforms 9):
+ *   account (4 segments): {tenant}-{provider}-{account-purpose}-{env}   worx-aws-ops-sec
+ *   legacy  (3 segments): {tenant}-{provider}-{env}                     worx-aws-sec
+ * The provider is one of {@link ProviderSchema}. The legacy grammar is read until every
+ * project is renamed (see NameAliasMap in utils/stack-utils).
  */
 export const ProjectNameSchema = z
   .string()
   .min(7, "Project name too short")
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Project name must be kebab-case")
-  .refine(val => val.split("-").length === 3, {
-    message: "Project name must follow pattern: {tenant}-{provider}-{env}",
+  .refine(val => [3, 4].includes(val.split("-").length), {
+    message:
+      "Project name must follow pattern: {tenant}-{provider}-{account-purpose}-{env} (or the legacy {tenant}-{provider}-{env})",
   })
   .refine(val => ProviderSchema.safeParse(val.split("-")[1]).success, {
     message: `Project name's provider segment must be one of: ${ProviderSchema.options.join(", ")}`,
@@ -269,8 +273,11 @@ export const StackContextSchema = z
     }
     const fullRegion = resolveProviderRegion(provider, data.region);
 
-    // Agent guardrail: Validate project name consistency
-    const expectedProjectName = `${data.tenant}-${provider}-${data.environment}`;
+    // Agent guardrail: Validate project name consistency (the account grammar has 4 segments)
+    const accountGrammar = data.projectName.split("-").length === 4;
+    const expectedProjectName = accountGrammar
+      ? `${data.tenant}-${provider}-${data.accountPurpose}-${data.environment}`
+      : `${data.tenant}-${provider}-${data.environment}`;
     if (data.projectName !== expectedProjectName) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -284,7 +291,11 @@ export const StackContextSchema = z
     const hasTargetEnv = data.targetEnvironment !== undefined;
     const hasConcern = data.concern !== undefined && data.concern.trim() !== "";
 
-    if (hasTargetEnv && hasConcern) {
+    if (accountGrammar) {
+      // Fixed position: {target-env}-{stack-purpose}[-{concern}]-{region}; the target
+      // environment is the project's own unless the stack is centralized
+      expectedStackName = `${data.targetEnvironment ?? data.environment}-${data.stackPurpose}${hasConcern ? `-${data.concern}` : ""}-${data.region}`;
+    } else if (hasTargetEnv && hasConcern) {
       // 5-part: target-account-stack-concern-region
       expectedStackName = `${data.targetEnvironment}-${data.accountPurpose}-${data.stackPurpose}-${data.concern}-${data.region}`;
     } else if (hasTargetEnv) {
