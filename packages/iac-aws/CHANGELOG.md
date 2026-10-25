@@ -1,3 +1,13 @@
+## 0.5.1 (2026-10-25)
+
+### 🚀 Features
+
+- **iac-aws:** tier aliases and roles for SharedVpc renames ([#75](https://github.com/AdaptiveWorX/iac-core/pull/75))
+
+### ❤️ Thank You
+
+- Lloyd Mangnall @lloydmangnall
+
 ## 0.5.0 (2026-10-11)
 
 ### 🩹 Fixes
