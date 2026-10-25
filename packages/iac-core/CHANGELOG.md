@@ -1,3 +1,13 @@
+## 0.5.1 (2026-10-25)
+
+### 🚀 Features
+
+- **iac-core:** stack and project names read both grammars through one map ([5462acf](https://github.com/AdaptiveWorX/iac-core/commit/5462acf))
+
+### ❤️ Thank You
+
+- Lloyd Mangnall @lloydmangnall
+
 ## 0.5.0 (2026-10-03)
 
 ### 🚀 Features
