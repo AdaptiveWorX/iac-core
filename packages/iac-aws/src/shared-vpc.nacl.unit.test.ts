@@ -33,7 +33,10 @@ pulumi.runtime.setMocks(
       }
       return { id: `${args.name}-id`, state };
     },
-    call: args => ({ ...args.inputs }),
+    call: args =>
+      args.token === "aws:index/getAvailabilityZones:getAvailabilityZones"
+        ? { names: ["us-east-1a", "us-east-1b"], zoneIds: ["use1-az1", "use1-az2"] }
+        : { ...args.inputs },
   },
   "iac-aws",
   "test",
