@@ -98,9 +98,27 @@ async function settle(): Promise<void> {
 }
 
 const OLD = (shared: [boolean, boolean, boolean]) => [
-  { name: "public", routeToInternet: true, shareViaRam: shared[0], ipv6Slot: 0 },
-  { name: "private", routeToInternet: false, shareViaRam: shared[1], ipv6Slot: 1 },
-  { name: "data", routeToInternet: false, shareViaRam: shared[2], ipv6Slot: 2 },
+  {
+    name: "public",
+    role: "public",
+    routeToInternet: true,
+    shareWith: shared[0] ? ["app-dev"] : [],
+    ipv6Slot: 0,
+  },
+  {
+    name: "private",
+    role: "private",
+    routeToInternet: false,
+    shareWith: shared[1] ? ["app-dev"] : [],
+    ipv6Slot: 1,
+  },
+  {
+    name: "data",
+    role: "data",
+    routeToInternet: false,
+    shareWith: shared[2] ? ["app-dev"] : [],
+    ipv6Slot: 2,
+  },
 ];
 
 /**
@@ -147,7 +165,7 @@ beforeAll(async () => {
       name: "edge",
       role: "ztna-connectors",
       routeToInternet: true,
-      shareViaRam: true,
+      shareWith: ["app-dev"],
       ipv6Slot: 0,
       formerNames: ["public"],
     },
@@ -155,7 +173,7 @@ beforeAll(async () => {
       name: "flow",
       role: "flow-hosts",
       routeToInternet: false,
-      shareViaRam: true,
+      shareWith: ["app-dev"],
       ipv6Slot: 1,
       formerNames: ["private"],
     },
@@ -163,7 +181,7 @@ beforeAll(async () => {
       name: "analytics",
       role: "analytics",
       routeToInternet: false,
-      shareViaRam: true,
+      shareWith: ["app-dev"],
       ipv6Slot: 2,
       formerNames: ["data"],
     },
@@ -238,15 +256,21 @@ beforeAll(async () => {
       name: "edge",
       role: "ztna-connectors",
       routeToInternet: true,
-      shareViaRam: false,
+      shareWith: [],
       ipv6Slot: 0,
     },
-    { name: "flow", role: "flow-hosts", routeToInternet: false, shareViaRam: true, ipv6Slot: 1 },
+    {
+      name: "flow",
+      role: "flow-hosts",
+      routeToInternet: false,
+      shareWith: ["app-dev"],
+      ipv6Slot: 1,
+    },
     {
       name: "analytics",
       role: "analytics",
       routeToInternet: false,
-      shareViaRam: true,
+      shareWith: ["app-dev"],
       ipv6Slot: 2,
     },
   ]);
@@ -388,22 +412,25 @@ describe("sharing is per tier and fails closed", () => {
     expect(shares).toEqual(["s6-vpc-share", "s6-vpc-share-analytics-dev", "s6-vpc-share-app-dev"]);
   });
 
-  it("refuses a tier that gives both shareWith and shareViaRam, or neither", () => {
+  it("refuses the removed shareViaRam, a tier without shareWith, and a tier without a role", () => {
+    const legacy = { name: "x", role: "x", routeToInternet: false, shareViaRam: true };
     expect(() =>
-      mod.validateTierSharing(
-        [{ name: "x", routeToInternet: false, shareViaRam: true, shareWith: [] }],
-        {}
-      )
-    ).toThrow(/exactly one/);
-    expect(() => mod.validateTierSharing([{ name: "x", routeToInternet: false }], {})).toThrow(
-      /exactly one/
-    );
+      mod.validateTierSharing([legacy as unknown as import("./shared-vpc.js").SubnetTier], {})
+    ).toThrow(/shareViaRam, removed in 0.6.0/);
+    const noShare = { name: "x", role: "x", routeToInternet: false };
+    expect(() =>
+      mod.validateTierSharing([noShare as unknown as import("./shared-vpc.js").SubnetTier], {})
+    ).toThrow(/must give shareWith/);
+    const noRole = { name: "x", routeToInternet: false, shareWith: [] };
+    expect(() =>
+      mod.validateTierSharing([noRole as unknown as import("./shared-vpc.js").SubnetTier], {})
+    ).toThrow(/must name its role/);
   });
 
   it("refuses an account that is not in sharedAccounts", () => {
     expect(() =>
       mod.validateTierSharing(
-        [{ name: "x", routeToInternet: false, shareWith: ["nobody"] }],
+        [{ name: "x", role: "x", routeToInternet: false, shareWith: ["nobody"] }],
         ACCOUNTS
       )
     ).toThrow(/not in sharedAccounts/);
@@ -413,8 +440,14 @@ describe("sharing is per tier and fails closed", () => {
     expect(() =>
       mod.validateTierSharing(
         [
-          { name: "edge", routeToInternet: true, shareWith: [], formerNames: ["public"] },
-          { name: "public", routeToInternet: true, shareWith: [] },
+          {
+            name: "edge",
+            role: "ztna-connectors",
+            routeToInternet: true,
+            shareWith: [],
+            formerNames: ["public"],
+          },
+          { name: "public", role: "public", routeToInternet: true, shareWith: [] },
         ],
         {}
       )
@@ -425,7 +458,13 @@ describe("sharing is per tier and fails closed", () => {
 describe("helpers", () => {
   it("tierNamed finds a tier by its former name", () => {
     const tiers = [
-      { name: "flow", routeToInternet: false, shareWith: [], formerNames: ["private"] },
+      {
+        name: "flow",
+        role: "flow-hosts",
+        routeToInternet: false,
+        shareWith: [],
+        formerNames: ["private"],
+      },
     ];
     expect(mod.tierNamed(tiers, "private")?.name).toBe("flow");
     expect(mod.tierNamed(tiers, "data")).toBeUndefined();
@@ -434,33 +473,48 @@ describe("helpers", () => {
   it("legacyRamAssociationNames counts subnets across the old shared tiers", () => {
     const tier = {
       name: "flow",
+      role: "flow-hosts",
       routeToInternet: false,
       shareWith: ["a"],
       formerNames: ["private"],
     };
     expect(
-      mod.legacyRamAssociationNames("dev", ["public", "private", "data"], [tier], tier, 3, 6)
+      mod.legacyRamAssociationNames(
+        "dev",
+        ["public", "private", "data"],
+        [tier],
+        tier,
+        3,
+        6,
+        ACCOUNTS
+      )
     ).toEqual(["dev-ram-private-9"]);
-    expect(mod.legacyRamAssociationNames("dev", ["data"], [tier], tier, 0, 6)).toEqual([]);
+    expect(mod.legacyRamAssociationNames("dev", ["data"], [tier], tier, 0, 6, ACCOUNTS)).toEqual(
+      []
+    );
   });
 
-  it("without a layout, a renamed shareViaRam tier gets its index under every name", () => {
+  it("without a layout, a renamed tier in the main share gets its index under every name", () => {
     const edge = {
       name: "edge",
+      role: "ztna-connectors",
       routeToInternet: true,
-      shareViaRam: false,
+      shareWith: [],
       formerNames: ["public"],
     };
     const flow = {
       name: "flow",
+      role: "flow-hosts",
       routeToInternet: false,
-      shareViaRam: true,
+      shareWith: ["app-dev"],
       formerNames: ["private"],
     };
-    expect(mod.legacyRamAssociationNames("dev", undefined, [edge, flow], flow, 1, 6)).toEqual([
-      "dev-ram-flow-1",
-      "dev-ram-private-1",
-    ]);
-    expect(mod.legacyRamAssociationNames("dev", undefined, [edge, flow], edge, 0, 6)).toEqual([]);
+    const accounts = { "111111111111": "app-dev" };
+    expect(
+      mod.legacyRamAssociationNames("dev", undefined, [edge, flow], flow, 1, 6, accounts)
+    ).toEqual(["dev-ram-flow-1", "dev-ram-private-1"]);
+    expect(
+      mod.legacyRamAssociationNames("dev", undefined, [edge, flow], edge, 0, 6, accounts)
+    ).toEqual([]);
   });
 });

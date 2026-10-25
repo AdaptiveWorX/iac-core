@@ -11,12 +11,14 @@
 import { describe, expect, it } from "vitest";
 import {
   azIndexOf,
-  DEFAULT_SUBNET_TIERS,
+  defaultSubnetTiers,
   IPV6_SLOT_COUNT,
   ipv6SubnetCidr,
   type SubnetTier,
   validateIpv6Layout,
 } from "./shared-vpc.js";
+
+const DEFAULT_TIERS = defaultSubnetTiers({});
 
 // IPv6 documentation prefix (RFC 3849), never a live block.
 const VPC_V6 = "2001:db8:1234:5600::/56";
@@ -84,25 +86,20 @@ describe("stability: adding an AZ or a tier never renumbers an existing subnet",
     }
     return out;
   };
-  const before = layout(DEFAULT_SUBNET_TIERS, ["us-east-1a", "us-east-1b", "us-east-1c"]);
+  const before = layout(DEFAULT_TIERS, ["us-east-1a", "us-east-1b", "us-east-1c"]);
 
   it("adding an AZ (in any list position) keeps every existing /64", () => {
-    const after = layout(DEFAULT_SUBNET_TIERS, [
-      "us-east-1d",
-      "us-east-1a",
-      "us-east-1b",
-      "us-east-1c",
-    ]);
+    const after = layout(DEFAULT_TIERS, ["us-east-1d", "us-east-1a", "us-east-1b", "us-east-1c"]);
     for (const [key, cidr] of before) {
       expect(after.get(key)).toBe(cidr);
     }
   });
 
   it("inserting a tier (anywhere in the array) keeps every existing /64", () => {
-    const [publicTier, privateTier, dataTier] = DEFAULT_SUBNET_TIERS;
+    const [publicTier, privateTier, dataTier] = DEFAULT_TIERS;
     const tiers = [
       publicTier,
-      { name: "dmz", routeToInternet: true, shareViaRam: false, ipv6Slot: 3 },
+      { name: "dmz", routeToInternet: true, role: "test", shareWith: [], ipv6Slot: 3 },
       privateTier,
       dataTier,
     ] as SubnetTier[];
@@ -117,28 +114,28 @@ describe("validateIpv6Layout", () => {
   const azs = ["us-east-1a", "us-east-1b"];
 
   it("accepts the default tiers (slots 0, 1, 2)", () => {
-    expect(DEFAULT_SUBNET_TIERS.map(t => t.ipv6Slot)).toEqual([0, 1, 2]);
-    expect(() => validateIpv6Layout(DEFAULT_SUBNET_TIERS, azs)).not.toThrow();
+    expect(DEFAULT_TIERS.map(t => t.ipv6Slot)).toEqual([0, 1, 2]);
+    expect(() => validateIpv6Layout(DEFAULT_TIERS, azs)).not.toThrow();
   });
 
   it("rejects a tier without an explicit ipv6Slot (no array-position default)", () => {
     const tiers: SubnetTier[] = [
-      { name: "public", routeToInternet: true, shareViaRam: false, ipv6Slot: 0 },
-      { name: "private", routeToInternet: false, shareViaRam: true },
+      { name: "public", routeToInternet: true, role: "test", shareWith: [], ipv6Slot: 0 },
+      { name: "private", routeToInternet: false, role: "test", shareWith: ["shared"] },
     ];
     expect(() => validateIpv6Layout(tiers, azs)).toThrow(/'private' has no ipv6Slot/);
   });
 
   it("rejects duplicate, out-of-range and non-integer slots", () => {
     const dup: SubnetTier[] = [
-      { name: "a", routeToInternet: true, shareViaRam: false, ipv6Slot: 1 },
-      { name: "b", routeToInternet: false, shareViaRam: true, ipv6Slot: 1 },
+      { name: "a", routeToInternet: true, role: "test", shareWith: [], ipv6Slot: 1 },
+      { name: "b", routeToInternet: false, role: "test", shareWith: ["shared"], ipv6Slot: 1 },
     ];
     expect(() => validateIpv6Layout(dup, azs)).toThrow(/both declare ipv6Slot 1/);
     for (const bad of [16, -1, 1.5]) {
       expect(() =>
         validateIpv6Layout(
-          [{ name: "a", routeToInternet: true, shareViaRam: false, ipv6Slot: bad }],
+          [{ name: "a", routeToInternet: true, role: "test", shareWith: [], ipv6Slot: bad }],
           azs
         )
       ).toThrow(/integer 0–15/);
@@ -146,8 +143,8 @@ describe("validateIpv6Layout", () => {
   });
 
   it("rejects AZs that map to the same index", () => {
-    expect(() =>
-      validateIpv6Layout(DEFAULT_SUBNET_TIERS, ["us-east-1a", "us-east-1-bos-1a"])
-    ).toThrow(/same IPv6 AZ index 0/);
+    expect(() => validateIpv6Layout(DEFAULT_TIERS, ["us-east-1a", "us-east-1-bos-1a"])).toThrow(
+      /same IPv6 AZ index 0/
+    );
   });
 });

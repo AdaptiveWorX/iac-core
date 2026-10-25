@@ -40,24 +40,17 @@ export interface SubnetTier {
   /**
    * The workload role this tier holds (e.g. "ztna-connectors", "flow-hosts", "analytics"):
    * which workloads may have an interface here. Tagged `Role` on the tier's subnets and NACL,
-   * so a tier's /64s can serve as a network identity. Optional for one release (a tier without
-   * it logs a deprecation warning); required after that.
+   * so a tier's /64s can serve as a network identity. Required (0.6.0).
    */
-  role?: string;
-
-  /**
-   * Deprecated: use `shareWith`. Share this tier via AWS RAM with every account in
-   * `sharedAccounts` (true) or with none (false). Give exactly one of `shareViaRam` and
-   * `shareWith`.
-   */
-  shareViaRam?: boolean;
+  role: string;
 
   /**
    * The accounts this tier's subnets are shared with through AWS RAM, by their names in
    * `sharedAccounts` (e.g. ["worx-app-dev"]). Empty: the owner account only. Every name must be
-   * in `sharedAccounts` (fail closed). Give exactly one of `shareViaRam` and `shareWith`.
+   * in `sharedAccounts` (fail closed). Required (0.6.0: it replaces the removed `shareViaRam`;
+   * `shareViaRam: true` is `shareWith` naming every account in `sharedAccounts`).
    */
-  shareWith?: string[];
+  shareWith: string[];
 
   /**
    * Names this tier was applied under before a rename. Every resource SharedVpc names after the
@@ -125,22 +118,23 @@ export interface SharedVpcArgs {
   availabilityZones: string[];
 
   /**
-   * Subnet tier configuration (optional, defaults to 3-tier: public/private/data)
-   * Allows custom network isolation patterns per tenant/compliance requirement
+   * Subnet tier configuration (optional, defaults to 3-tier: public/private/data, see
+   * {@link defaultSubnetTiers}). Allows custom network isolation patterns per tenant/compliance
+   * requirement. Tiers are named by the workloads they hold.
    *
-   * Default (if not specified):
+   * Example (a shared dev VPC whose app account is worx-app-dev):
    * [
-   *   { name: "public", routeToInternet: true, shareViaRam: false },
-   *   { name: "private", routeToInternet: false, shareViaRam: true },
-   *   { name: "data", routeToInternet: false, shareViaRam: true }
+   *   { name: "edge", role: "ztna-connectors", routeToInternet: true, shareWith: [], ipv6Slot: 0 },
+   *   { name: "flow", role: "flow-hosts", routeToInternet: false, shareWith: ["worx-app-dev"], ipv6Slot: 1 },
+   *   { name: "analytics", role: "analytics", routeToInternet: false, shareWith: [], ipv6Slot: 2 }
    * ]
    *
    * Healthcare tenant example:
    * [
-   *   { name: "public", routeToInternet: true, shareViaRam: false },
-   *   { name: "app", routeToInternet: false, shareViaRam: true },
-   *   { name: "hipaa-data", routeToInternet: false, shareViaRam: true },
-   *   { name: "phi-isolated", routeToInternet: false, shareViaRam: true, cidrBits: 8 }
+   *   { name: "public", role: "load-balancers", routeToInternet: true, shareWith: [] },
+   *   { name: "app", role: "app-services", routeToInternet: false, shareWith: ["care-app-prd"] },
+   *   { name: "hipaa-data", role: "phi-stores", routeToInternet: false, shareWith: ["care-phi-prd"] },
+   *   { name: "phi-isolated", role: "phi-isolated", routeToInternet: false, shareWith: [], cidrBits: 8 }
    * ]
    */
   subnetTiers?: SubnetTier[];
@@ -255,11 +249,12 @@ export interface SharedVpcArgs {
    * before 0.6.0, in tier order. Before 0.6.0 each subnet's RAM association was named by a running
    * index across the shared tiers (`<env>-ram-<tier>-<n>`); it is now named by tier and AZ
    * (`<env>-ram-<tier>-<azLetter>`) and carries its old name as an alias. Without this list the
-   * old names are derived from the tiers that still set `shareViaRam: true` (under their current
-   * and former names), which is right for a stack that keeps its sharing as it was, renamed or
-   * not. A stack that moves to `shareWith`, or stops sharing a tier,
-   * in the same apply must list its old layout here (e.g. ["public", "private", "data"]), or
-   * every association it keeps is deleted and recreated, which briefly unshares the subnet.
+   * old names are derived from the tiers in the main share (those whose `shareWith` names every
+   * account in `sharedAccounts`, what `shareViaRam: true` meant), under their current and former
+   * names, which is right for a stack that keeps its sharing as it was, renamed or not. A stack
+   * that narrows or stops sharing a tier in the same apply must list its old layout here (e.g.
+   * ["public", "private", "data"]), or every association it keeps is deleted and recreated,
+   * which briefly unshares the subnet.
    */
   legacyRamSharedTiers?: string[];
 
@@ -390,12 +385,18 @@ export const IPV6_NACL_RULE_OFFSET = 1000;
 export const IPV6_UDP_RETURN_RULE_NUMBER = 1130;
 export const IPV6_PACKET_TOO_BIG_RULE_NUMBER = 1150;
 
-/** Default tiers (3-tier: public/private/data), with their IPv6 slots. */
-export const DEFAULT_SUBNET_TIERS: readonly SubnetTier[] = [
-  { name: "public", role: "public", routeToInternet: true, shareViaRam: false, ipv6Slot: 0 }, // Ops-only (NAT, LB)
-  { name: "private", role: "private", routeToInternet: false, shareViaRam: true, ipv6Slot: 1 }, // Shared (app)
-  { name: "data", role: "data", routeToInternet: false, shareViaRam: true, ipv6Slot: 2 }, // Shared (databases)
-];
+/**
+ * Default tiers (3-tier: public/private/data), with their IPv6 slots: public kept in the owner
+ * account (NAT, load balancers), private and data shared with every account in `sharedAccounts`.
+ */
+export function defaultSubnetTiers(sharedAccounts: Readonly<Record<string, string>>): SubnetTier[] {
+  const every = [...new Set(Object.values(sharedAccounts))].sort();
+  return [
+    { name: "public", role: "public", routeToInternet: true, shareWith: [], ipv6Slot: 0 },
+    { name: "private", role: "private", routeToInternet: false, shareWith: every, ipv6Slot: 1 },
+    { name: "data", role: "data", routeToInternet: false, shareWith: [...every], ipv6Slot: 2 },
+  ];
+}
 
 /**
  * The aliases of one resource SharedVpc names after a tier: one per former name, built with the
@@ -414,9 +415,10 @@ export function tierNamed(tiers: readonly SubnetTier[], name: string): SubnetTie
 }
 
 /**
- * Validate tier names and sharing before any resource is created (fail closed): names and
- * former names are unique across tiers; every tier gives exactly one of `shareViaRam` and
- * `shareWith`; every `shareWith` name is an account in `sharedAccounts`.
+ * Validate tier names, roles and sharing before any resource is created (fail closed): names
+ * and former names are unique across tiers; every tier names its role and the accounts it is
+ * shared with (`shareViaRam` was removed in 0.6.0); every `shareWith` name is an account in
+ * `sharedAccounts`.
  */
 export function validateTierSharing(
   tiers: readonly SubnetTier[],
@@ -431,16 +433,22 @@ export function validateTierSharing(
       }
       names.set(name, tier.name);
     }
-    const legacy = tier.shareViaRam !== undefined;
-    const explicit = tier.shareWith !== undefined;
-    if (legacy === explicit) {
+    if (typeof tier.role !== "string" || tier.role.trim() === "") {
+      throw new Error(`Tier '${tier.name}' must name its role: the workloads it holds.`);
+    }
+    if ("shareViaRam" in tier) {
       throw new Error(
-        `Tier '${tier.name}' must give exactly one of shareWith (the accounts it is shared with) ` +
-          "and the deprecated shareViaRam."
+        `Tier '${tier.name}' sets shareViaRam, removed in 0.6.0: use shareWith (every account in ` +
+          "sharedAccounts for shareViaRam: true, [] for false)."
+      );
+    }
+    if (!Array.isArray(tier.shareWith)) {
+      throw new Error(
+        `Tier '${tier.name}' must give shareWith: the accounts it is shared with ([] for none).`
       );
     }
     const known = new Set(Object.values(sharedAccounts));
-    for (const account of tier.shareWith ?? []) {
+    for (const account of tier.shareWith) {
       if (!known.has(account)) {
         throw new Error(
           `Tier '${tier.name}' shares with '${account}', which is not in sharedAccounts.`
@@ -450,15 +458,19 @@ export function validateTierSharing(
   }
 }
 
-/** The account names a tier's subnets are shared with (shareViaRam: every shared account). */
-export function tierShareTargets(
+/** The account names a tier's subnets are shared with, sorted and without repeats. */
+export function tierShareTargets(tier: SubnetTier): string[] {
+  return [...new Set(tier.shareWith)].sort();
+}
+
+/** True when a tier is in the main share: its `shareWith` names every account in `sharedAccounts`. */
+export function isInMainShare(
   tier: SubnetTier,
   sharedAccounts: Readonly<Record<string, string>>
-): string[] {
-  if (tier.shareWith !== undefined) {
-    return [...new Set(tier.shareWith)].sort();
-  }
-  return tier.shareViaRam === true ? [...new Set(Object.values(sharedAccounts))].sort() : [];
+): boolean {
+  const every = [...new Set(Object.values(sharedAccounts))].sort();
+  const targets = tierShareTargets(tier);
+  return targets.length > 0 && targets.join() === every.join();
 }
 
 /**
@@ -466,8 +478,9 @@ export function tierShareTargets(
  * across the tiers that were in the main share, in tier order, `azCount` subnets each.
  * - With `legacySharedTiers` (the old layout, by the names then applied): the one name for the
  *   tier's position in it, or none when the tier was not in it.
- * - Without it: the tier's position among the tiers that set `shareViaRam: true`, under each of
- *   its current and former names (the state holds one of them; extra aliases match nothing).
+ * - Without it: the tier's position among the tiers in the main share ({@link isInMainShare},
+ *   what `shareViaRam: true` meant), under each of its current and former names (the state
+ *   holds one of them; extra aliases match nothing).
  */
 export function legacyRamAssociationNames(
   environment: string,
@@ -475,7 +488,8 @@ export function legacyRamAssociationNames(
   tiers: readonly SubnetTier[],
   tier: SubnetTier,
   azPosition: number,
-  azCount: number
+  azCount: number,
+  sharedAccounts: Readonly<Record<string, string>>
 ): string[] {
   const names = [tier.name, ...(tier.formerNames ?? [])];
   if (legacySharedTiers !== undefined) {
@@ -485,7 +499,7 @@ export function legacyRamAssociationNames(
       ? []
       : [`${environment}-ram-${name}-${position * azCount + azPosition}`];
   }
-  const position = tiers.filter(t => t.shareViaRam === true).indexOf(tier);
+  const position = tiers.filter(t => isInMainShare(t, sharedAccounts)).indexOf(tier);
   return position < 0
     ? []
     : names.map(n => `${environment}-ram-${n}-${position * azCount + azPosition}`);
@@ -732,17 +746,8 @@ export class SharedVpc extends pulumi.ComponentResource {
     }
 
     // Subnet tiers (default 3-tier: public/private/data, with IPv6 slots 0/1/2)
-    const subnetTiers: SubnetTier[] = args.subnetTiers ?? DEFAULT_SUBNET_TIERS.map(t => ({ ...t }));
+    const subnetTiers: SubnetTier[] = args.subnetTiers ?? defaultSubnetTiers(args.sharedAccounts);
     validateTierSharing(subnetTiers, args.sharedAccounts);
-    for (const tier of subnetTiers) {
-      if (tier.role === undefined) {
-        void pulumi.log.warn(
-          `Tier '${tier.name}' declares no role. role becomes required after this release: name ` +
-            "the workloads the tier holds.",
-          this
-        );
-      }
-    }
     // Options for a resource named after a tier: its former names ride along as aliases.
     const tierOpts = <O extends pulumi.CustomResourceOptions>(
       tier: SubnetTier,
@@ -892,7 +897,7 @@ export class SharedVpc extends pulumi.ComponentResource {
               Tier: tier.name,
               ...(tier.role === undefined ? {} : { Role: tier.role }),
               Type: tier.routeToInternet ? "public" : "private",
-              ShareViaRam: String(tierShareTargets(tier, args.sharedAccounts).length > 0),
+              ShareViaRam: String(tierShareTargets(tier).length > 0),
               AZ: az,
               AzId: zoneIdOf(az),
             },
@@ -1404,7 +1409,7 @@ export class SharedVpc extends pulumi.ComponentResource {
                   Environment: args.environment,
                   Tier: tier.name,
                   Type: "private",
-                  ShareViaRam: String(tierShareTargets(tier, args.sharedAccounts).length > 0),
+                  ShareViaRam: String(tierShareTargets(tier).length > 0),
                 },
               },
               tierOpts(tier, defaultOpts, t => `${args.environment}-${t}-rt-${azSuffix}`)
@@ -1461,7 +1466,7 @@ export class SharedVpc extends pulumi.ComponentResource {
               Name: sharedRtName,
               Environment: args.environment,
               Type: "shared",
-              SharedByTiers: privateTiers.map(t => t.name).join(","),
+              SharedByTiers: privateTiers.map(t => t.name).join("+"),
             },
           },
           defaultOpts
@@ -1807,17 +1812,13 @@ export class SharedVpc extends pulumi.ComponentResource {
     this.ramShareArn = ramShare.arn;
 
     // Each tier's subnets go to the share whose principals are exactly the tier's accounts: the
-    // main share (every account in sharedAccounts, and every shareViaRam tier), or a share of
-    // their own for a narrower set. A tier sharing with no account is in no share.
-    const allAccounts = [...new Set(Object.values(args.sharedAccounts))].sort();
+    // main share (every account in sharedAccounts), or a share of their own for a narrower
+    // set. A tier sharing with no account is in no share.
     const accountIds = new Map(Object.entries(args.sharedAccounts).map(([id, n]) => [n, id]));
     const narrowShares = new Map<string, aws.ram.ResourceShare>();
     const shareFor = (tier: SubnetTier): pulumi.Output<string> | undefined => {
-      const targets = tierShareTargets(tier, args.sharedAccounts);
-      if (
-        tier.shareViaRam === true ||
-        (targets.length > 0 && targets.join() === allAccounts.join())
-      ) {
+      const targets = tierShareTargets(tier);
+      if (isInMainShare(tier, args.sharedAccounts)) {
         return ramShare.arn;
       }
       if (targets.length === 0) {
@@ -1868,7 +1869,8 @@ export class SharedVpc extends pulumi.ComponentResource {
           subnetTiers,
           tier,
           i,
-          args.availabilityZones.length
+          args.availabilityZones.length,
+          args.sharedAccounts
         );
         const aliases = [
           ...tierAliases(tier, t => `${args.environment}-ram-${t}-${azSuffix}`),
