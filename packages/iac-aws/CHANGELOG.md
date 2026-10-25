@@ -1,3 +1,26 @@
+## 0.6.0 (2026-10-25)
+
+### 🚀 Features
+
+- ⚠️  **iac-aws:** SharedVpc tiers require role; shareViaRam removed ([a0c8972](https://github.com/AdaptiveWorX/iac-core/commit/a0c8972))
+
+### ⚠️  Breaking Changes
+
+- **iac-aws:** SharedVpc tiers require role; shareViaRam removed  ([a0c8972](https://github.com/AdaptiveWorX/iac-core/commit/a0c8972))
+  a SubnetTier without role or shareWith, or with shareViaRam, is refused. With
+  no sharedAccounts, the default private and data tiers are no longer associated with the main
+  share (sharing with no principal shared nothing). Consumers: iac-worx dev-ops-vpc-usw2,
+  stg-ops-vpc-use1, stg-ops-vpc-usw2 and prd-ops-vpc-use1 still set shareViaRam. dev-ops-vpc-use1
+  already uses role and shareWith (#151).
+
+### 🧱 Updated Dependencies
+
+- Updated @adaptiveworx/iac-core to 0.5.1
+
+### ❤️ Thank You
+
+- Lloyd Mangnall @lloydmangnall
+
 ## 0.5.1 (2026-10-25)
 
 ### 🚀 Features
