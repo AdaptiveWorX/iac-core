@@ -23,6 +23,15 @@ const resources: Captured[] = [];
 // IPv6 documentation prefix (RFC 3849), never a live block.
 const VPC_V6 = "2001:db8:1234:5600::/56";
 const VPC_CIDR = "10.224.0.0/16";
+// Zones the getAvailabilityZones mock reports, with made-up zone IDs (use1-az1 … ).
+const ZONE_NAMES = [
+  "us-east-1a",
+  "us-east-1b",
+  "us-east-1c",
+  "us-east-1d",
+  "us-east-1e",
+  "us-east-1f",
+];
 
 pulumi.runtime.setMocks(
   {
@@ -38,6 +47,9 @@ pulumi.runtime.setMocks(
       return { id: `${args.name}-id`, state };
     },
     call: args => {
+      if (args.token === "aws:index/getAvailabilityZones:getAvailabilityZones") {
+        return { names: ZONE_NAMES, zoneIds: ZONE_NAMES.map((_, i) => `use1-az${i + 1}`) };
+      }
       if (args.token === "aws:ec2/getVpcEndpointService:getVpcEndpointService") {
         const name = String(args.inputs["serviceName"]);
         return {
