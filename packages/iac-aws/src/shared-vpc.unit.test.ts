@@ -105,6 +105,8 @@ beforeAll(async () => {
   // Dev shape: IPv6, no NAT, default tiers, endpoints incl. one IPv4-only service
   const dev = new mod.SharedVpc("v6dev", {
     ...baseArgs("v6dev"),
+    // The default tiers share private and data with every shared account
+    sharedAccounts: { "111111111111": "app-dev" },
     availabilityZones: ["us-east-1a", "us-east-1b"],
     natGatewayCount: 0,
     enableIpv6: true,
@@ -348,8 +350,8 @@ describe("Construction-time validation", () => {
           natGatewayCount: 1,
           enableIpv6: true,
           subnetTiers: [
-            { name: "public", routeToInternet: true, shareViaRam: false, ipv6Slot: 0 },
-            { name: "private", routeToInternet: false, shareViaRam: true },
+            { name: "public", role: "public", routeToInternet: true, shareWith: [], ipv6Slot: 0 },
+            { name: "private", role: "private", routeToInternet: false, shareWith: [] },
           ],
         })
     ).toThrow(/'private' has no ipv6Slot/);
@@ -364,8 +366,14 @@ describe("Construction-time validation", () => {
           natGatewayCount: 1,
           enableIpv6: true,
           subnetTiers: [
-            { name: "public", routeToInternet: true, shareViaRam: false, ipv6Slot: 0 },
-            { name: "private", routeToInternet: false, shareViaRam: true, ipv6Slot: 0 },
+            { name: "public", role: "public", routeToInternet: true, shareWith: [], ipv6Slot: 0 },
+            {
+              name: "private",
+              role: "private",
+              routeToInternet: false,
+              shareWith: [],
+              ipv6Slot: 0,
+            },
           ],
         })
     ).toThrow(/both declare ipv6Slot 0/);
@@ -378,7 +386,7 @@ describe("Construction-time validation", () => {
           ...baseArgs("v4tiers"),
           availabilityZones: ["us-east-1a"],
           natGatewayCount: 1,
-          subnetTiers: [{ name: "public", routeToInternet: true, shareViaRam: false }],
+          subnetTiers: [{ name: "public", role: "public", routeToInternet: true, shareWith: [] }],
         })
     ).not.toThrow();
   });
@@ -538,7 +546,13 @@ describe("Security controls", () => {
     });
   });
 
-  it("shares only shareViaRam tiers, never to external principals", {
+  it("tags the shared route table with a SharedByTiers value AWS accepts (tiers joined by +)", () => {
+    const tags = named("v6dev-shared-rt")?.["tags"] as Record<string, string> | undefined;
+    expect(tags?.["SharedByTiers"]).toBe("private+data");
+    expect(tags?.["SharedByTiers"]).toMatch(/^[\p{L}\p{Z}\p{N}_.:/=+\-@]*$/u);
+  });
+
+  it("shares only the tiers whose shareWith names accounts, never to external principals", {
     meta: {
       id: "ram-sharing-tier-isolation",
       compliance: ["ISO27001:A.13.1.3", "ISO27001:A.9.4.1"],

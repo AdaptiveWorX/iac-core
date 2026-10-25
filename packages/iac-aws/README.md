@@ -76,11 +76,13 @@ Details: [docs/security-implementation.md](https://github.com/AdaptiveWorX/iac-c
 ### Tier roles, sharing and renames
 
 - `role` names the workloads a tier holds. It is tagged `Role` on the tier's subnets and NACL.
-  Optional in this release (a tier without it logs a warning), required after.
+  Required (0.6.0).
 - `shareWith` lists the accounts (by their names in `sharedAccounts`) a tier's subnets are shared
   with through RAM. A tier sharing with every account goes in the main share; a narrower set gets
-  a share of its own; `[]` shares with no account. `shareViaRam` is deprecated. Every tier gives
-  exactly one of the two, and every `shareWith` name must be in `sharedAccounts` (fail closed).
+  a share of its own; `[]` shares with no account. Required (0.6.0); every name must be in
+  `sharedAccounts` (fail closed). `shareViaRam` was removed in 0.6.0 and is refused: replace
+  `shareViaRam: true` with every account in `sharedAccounts`, `false` with `[]`. The default tiers
+  (`defaultSubnetTiers(sharedAccounts)`) share private and data with every account.
 - `formerNames` renames a tier without replacing anything: every resource named after the tier
   carries its old logical name as a Pulumi alias, so the preview shows tag updates only. The
   standard outputs (`publicSubnetIds`, `privateSubnetIds`, `dataSubnetIds`) and NAT placement
