@@ -170,7 +170,7 @@ See [`@adaptiveworx/iac-policies` README](https://github.com/AdaptiveWorX/iac-co
 | Multi-account org structure | `OrganizationConfig` + `AWSAccountRegistry` |
 | Secret management | `SecretManager` (Infisical with env-var fallback) |
 | Region aliasing | `resolveRegion` + `@adaptiveworx/iac-schemas` |
-| Stack naming + parsing | `parseStackName` / `generateStackName` |
+| Stack naming + parsing | `parseStackIdentity` / `projectNameOf` / `stackNameOf` |
 | Non-overlapping CIDR allocation | `calculateVpcCidr` / `getVpcCidr` |
 | Compliance enforcement | `@adaptiveworx/iac-policies` (CrossGuard pack) |
 
