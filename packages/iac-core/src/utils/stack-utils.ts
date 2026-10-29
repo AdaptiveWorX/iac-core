@@ -30,40 +30,24 @@ function requirePulumiOrg(): string {
   return value;
 }
 
-/** Options for {@link detectStackContext}. */
-export interface DetectStackContextOptions {
-  /**
-   * The consumer's one declared map from legacy names to account-grammar names
-   * (Pl.Architecture.Meta.NamingConventionsAcrossPlatforms names-migrate-through-an-alias-map).
-   * Given, a legacy-grammar name must be a key of the map: a legacy name the map doesn't
-   * declare is refused, so no new legacy name appears while the renames are under way.
-   */
-  readonly nameAliases?: NameAliasMap;
-}
+/** The project grammar, named in every refusal. */
+const PROJECT_GRAMMAR = "{tenant}-{provider}-{account-purpose}-{env}";
+
+/** The stack grammar, named in every refusal. */
+const STACK_GRAMMAR = "{target-env}-{stack-purpose}[-{concern}]-{region}";
 
 /**
  * Detect stack context from current Pulumi project and stack
  * Agent guardrail: Comprehensive validation with structured error handling
- * Reads both grammars (Pl.Architecture.Meta.NamingConventionsAcrossPlatforms 9):
- *   account: {org}/{tenant}-{provider}-{account-purpose}-{env}/{target-env}-{stack-purpose}[-{concern}]-{region}
- *            (e.g. adaptiveworx/worx-aws-ops-sec/sec-iam-github-use1)
- *   legacy:  {org}/{tenant}-{provider}-{env}/[{target-env}-]{account-purpose}-{stack-purpose}[-{concern}]-{region}
- *            (e.g. adaptiveworx/worx-aws-sec/ops-iam-github-use1)
- * A legacy name and its account-grammar name give the same context apart from the names.
+ * Reads the account grammar (Pl.Architecture.Meta.NamingConventionsAcrossPlatforms), and only it:
+ *   {org}/{tenant}-{provider}-{account-purpose}-{env}/{target-env}-{stack-purpose}[-{concern}]-{region}
+ *   (e.g. adaptiveworx/worx-aws-ops-sec/sec-iam-github-use1)
+ * A name in any other grammar is refused.
  */
-export function detectStackContext(options: DetectStackContextOptions = {}): StackContext {
+export function detectStackContext(): StackContext {
   try {
-    const projectName = pulumi.getProject(); // e.g., "worx-aws-ops-sec" or legacy "worx-aws-sec"
-    const stackName = pulumi.getStack(); // e.g., "sec-iam-github-use1" or legacy "ops-iam-github-use1"
-
-    if (options.nameAliases !== undefined && !isAccountGrammarProject(projectName)) {
-      const key = `${projectName}/${stackName}`;
-      if (options.nameAliases[key] === undefined) {
-        throw new Error(
-          `Legacy name ${key} is not in the name alias map: a legacy name is read only while its rename is declared`
-        );
-      }
-    }
+    const projectName = pulumi.getProject(); // e.g., "worx-aws-ops-sec"
+    const stackName = pulumi.getStack(); // e.g., "sec-iam-github-use1"
 
     const parsed = parseStackIdentity(projectName, stackName);
     const { tenant, provider, environment } = parsed;
@@ -113,243 +97,7 @@ export function validateStackContext(context: StackContext): void {
   void pulumi.log.info("✅ Stack context validation passed");
 }
 
-/**
- * Parse project name components with validation
- * Agent guardrail: Ensures consistent project naming
- * Format: {tenant}-{provider}-{env} (e.g., "worx-aws-dev", "worx-cloudflare-sec").
- * Splits only; StackContextSchema / ProjectNameSchema validate the provider.
- */
-export function parseProjectName(projectName: string): {
-  tenant: string;
-  provider: string;
-  environment: string;
-} {
-  const parts = projectName.split("-");
-
-  if (parts.length !== 3) {
-    throw new Error(
-      `Invalid project name format: ${projectName}. Expected: {tenant}-{provider}-{env}`
-    );
-  }
-
-  const [tenantRaw, providerRaw, environmentRaw] = parts;
-
-  if (tenantRaw === undefined || providerRaw === undefined || environmentRaw === undefined) {
-    throw new Error(`Incomplete project name components: ${projectName}`);
-  }
-
-  const tenant = tenantRaw.trim();
-  const provider = providerRaw.trim();
-  const environment = environmentRaw.trim();
-
-  if ([tenant, provider, environment].some(part => part.length === 0)) {
-    throw new Error(`Incomplete project name components: ${projectName}`);
-  }
-
-  return { tenant, provider, environment };
-}
-
-/**
- * Parse stack name components with validation for 3-part, 4-part, or 5-part naming
- * Agent guardrail: Ensures consistent stack naming across deployments
- * 3-part: {account-purpose}-{stack-purpose}-{region}
- * 4-part: {account-purpose}-{stack-purpose}-{concern}-{region} OR {target-env}-{account-purpose}-{stack-purpose}-{region}
- * 5-part: {target-env}-{account-purpose}-{stack-purpose}-{concern}-{region}
- */
-export function parseStackName(stackName: string): {
-  accountPurpose: string;
-  stackPurpose: string;
-  region: string;
-  concern?: string;
-  targetEnvironment?: string;
-  org?: string;
-  tenant?: string;
-  provider?: string;
-  environment?: string;
-} {
-  // Handle full Pulumi stack format: org/project/stack or org/tenant-provider-env/stack
-  let actualStackName = stackName;
-  let extractedOrg: string | undefined;
-  let extractedTenant: string | undefined;
-  let extractedProvider: string | undefined;
-  let extractedEnvironment: string | undefined;
-
-  if (stackName.includes("/")) {
-    const pathParts = stackName.split("/");
-    if (pathParts.length === 3) {
-      const org = pathParts[0];
-      const projectName = pathParts[1];
-      const stack = pathParts[2];
-
-      if (org !== undefined && projectName !== undefined && stack !== undefined) {
-        extractedOrg = org;
-        actualStackName = stack;
-
-        // Parse project name: {tenant}-{provider}-{env}
-        const projectParts = projectName.split("-");
-        if (projectParts.length === 3) {
-          extractedTenant = projectParts[0];
-          extractedProvider = projectParts[1];
-          extractedEnvironment = projectParts[2];
-        }
-      }
-    }
-  }
-
-  const parts = actualStackName.split("-");
-
-  if (parts.length === 5) {
-    // 5-part: {target-env}-{account-purpose}-{stack-purpose}-{concern}-{region}
-    const [targetEnvRaw, accountPurposeRaw, stackPurposeRaw, concernRaw, regionRaw] = parts;
-
-    if (
-      targetEnvRaw === undefined ||
-      accountPurposeRaw === undefined ||
-      stackPurposeRaw === undefined ||
-      concernRaw === undefined ||
-      regionRaw === undefined
-    ) {
-      throw new Error(`Incomplete stack name components: ${stackName}`);
-    }
-
-    const targetEnvironment = targetEnvRaw.trim();
-    const accountPurpose = accountPurposeRaw.trim();
-    const stackPurpose = stackPurposeRaw.trim();
-    const concern = concernRaw.trim();
-    const region = regionRaw.trim();
-
-    if (
-      [targetEnvironment, accountPurpose, stackPurpose, concern, region].some(
-        part => part.length === 0
-      )
-    ) {
-      throw new Error(`Incomplete stack name components: ${stackName}`);
-    }
-
-    return {
-      targetEnvironment,
-      accountPurpose,
-      stackPurpose,
-      concern,
-      region,
-      ...(extractedOrg === undefined ? {} : { org: extractedOrg }),
-      ...(extractedTenant === undefined ? {} : { tenant: extractedTenant }),
-      ...(extractedProvider === undefined ? {} : { provider: extractedProvider }),
-      ...(extractedEnvironment === undefined ? {} : { environment: extractedEnvironment }),
-    };
-  } else if (parts.length === 4) {
-    // 4-part: {account-purpose}-{stack-purpose}-{concern}-{region} OR {target-env}-{account-purpose}-{stack-purpose}-{region}
-    // Heuristic: if first part is a valid environment, it's a 4-part centralized (no concern)
-    const potentialTargetEnv = parts[0];
-    if (
-      potentialTargetEnv !== undefined &&
-      ["dev", "stg", "prd", "sec"].includes(potentialTargetEnv)
-    ) {
-      const [targetEnvRaw, accountPurposeRaw, stackPurposeRaw, regionRaw] = parts;
-
-      if (
-        targetEnvRaw === undefined ||
-        accountPurposeRaw === undefined ||
-        stackPurposeRaw === undefined ||
-        regionRaw === undefined
-      ) {
-        throw new Error(`Incomplete stack name components: ${stackName}`);
-      }
-
-      const targetEnvironment = targetEnvRaw.trim();
-      const accountPurpose = accountPurposeRaw.trim();
-      const stackPurpose = stackPurposeRaw.trim();
-      const region = regionRaw.trim();
-
-      if (
-        [targetEnvironment, accountPurpose, stackPurpose, region].some(part => part.length === 0)
-      ) {
-        throw new Error(`Incomplete stack name components: ${stackName}`);
-      }
-
-      return {
-        targetEnvironment,
-        accountPurpose,
-        stackPurpose,
-        region,
-        ...(extractedOrg === undefined ? {} : { org: extractedOrg }),
-        ...(extractedTenant === undefined ? {} : { tenant: extractedTenant }),
-        ...(extractedProvider === undefined ? {} : { provider: extractedProvider }),
-        ...(extractedEnvironment === undefined ? {} : { environment: extractedEnvironment }),
-      };
-    } else {
-      const [accountPurposeRaw, stackPurposeRaw, concernRaw, regionRaw] = parts;
-
-      if (
-        accountPurposeRaw === undefined ||
-        stackPurposeRaw === undefined ||
-        concernRaw === undefined ||
-        regionRaw === undefined
-      ) {
-        throw new Error(`Incomplete stack name components: ${stackName}`);
-      }
-
-      const accountPurpose = accountPurposeRaw.trim();
-      const stackPurpose = stackPurposeRaw.trim();
-      const concern = concernRaw.trim();
-      const region = regionRaw.trim();
-
-      if ([accountPurpose, stackPurpose, concern, region].some(part => part.length === 0)) {
-        throw new Error(`Incomplete stack name components: ${stackName}`);
-      }
-
-      return {
-        accountPurpose,
-        stackPurpose,
-        concern,
-        region,
-        ...(extractedOrg === undefined ? {} : { org: extractedOrg }),
-        ...(extractedTenant === undefined ? {} : { tenant: extractedTenant }),
-        ...(extractedProvider === undefined ? {} : { provider: extractedProvider }),
-        ...(extractedEnvironment === undefined ? {} : { environment: extractedEnvironment }),
-      };
-    }
-  } else if (parts.length === 3) {
-    // 3-part: regular resource
-    const [accountPurposeRaw, stackPurposeRaw, regionRaw] = parts;
-
-    if (
-      accountPurposeRaw === undefined ||
-      stackPurposeRaw === undefined ||
-      regionRaw === undefined
-    ) {
-      throw new Error(`Incomplete stack name components: ${stackName}`);
-    }
-
-    const accountPurpose = accountPurposeRaw.trim();
-    const stackPurpose = stackPurposeRaw.trim();
-    const region = regionRaw.trim();
-
-    if ([accountPurpose, stackPurpose, region].some(part => part.length === 0)) {
-      throw new Error(`Incomplete stack name components: ${stackName}`);
-    }
-
-    return {
-      accountPurpose,
-      stackPurpose,
-      region,
-      ...(extractedOrg === undefined ? {} : { org: extractedOrg }),
-      ...(extractedTenant === undefined ? {} : { tenant: extractedTenant }),
-      ...(extractedProvider === undefined ? {} : { provider: extractedProvider }),
-      ...(extractedEnvironment === undefined ? {} : { environment: extractedEnvironment }),
-    };
-  } else {
-    throw new Error(
-      `Invalid stack name format: ${stackName}. ` +
-        "Expected: {account-purpose}-{stack-purpose}-{region}, " +
-        "{account-purpose}-{stack-purpose}-{concern}-{region}, " +
-        "{target-env}-{account-purpose}-{stack-purpose}-{region}, or " +
-        "{target-env}-{account-purpose}-{stack-purpose}-{concern}-{region}"
-    );
-  }
-}
-
-/** The components a project and stack name carry, whichever grammar they use. */
+/** The components a project and stack name carry. */
 export interface StackIdentity {
   readonly tenant: string;
   readonly provider: string;
@@ -368,27 +116,17 @@ export function isAccountGrammarProject(projectName: string): boolean {
 }
 
 /**
- * Parse a project and stack name in either grammar. The project decides the grammar: four
- * segments is the account grammar (fixed-position stack, target environment always first),
- * three is the legacy grammar ({@link parseStackName}).
+ * Parse a project and stack name in the account grammar
+ * (Pl.Architecture.Meta.NamingConventionsAcrossPlatforms): project
+ * {tenant}-{provider}-{account-purpose}-{env}, stack {target-env}-{stack-purpose}[-{concern}]-{region}.
+ * The stack is fixed-position, its target environment always first. Any other project or stack is
+ * refused with an error naming the expected grammar. It reads positions only:
+ * {@link detectStackContext} and StackContextSchema check what the components mean.
  */
 export function parseStackIdentity(projectName: string, stackName: string): StackIdentity {
   if (!isAccountGrammarProject(projectName)) {
-    const { tenant, provider, environment } = parseProjectName(projectName);
-    const { accountPurpose, stackPurpose, region, concern, targetEnvironment } =
-      parseStackName(stackName);
-    return {
-      tenant,
-      provider,
-      accountPurpose,
-      environment,
-      stackPurpose,
-      region,
-      ...(concern === undefined ? {} : { concern }),
-      ...(targetEnvironment === undefined ? {} : { targetEnvironment }),
-    };
+    throw new Error(`Invalid project name format: ${projectName}. Expected: ${PROJECT_GRAMMAR}`);
   }
-
   const projectParts = projectName.split("-").map(part => part.trim());
   const [tenant, provider, accountPurpose, environment] = projectParts;
   if (
@@ -398,17 +136,17 @@ export function parseStackIdentity(projectName: string, stackName: string): Stac
     environment === undefined ||
     projectParts.some(part => part.length === 0)
   ) {
-    throw new Error(`Incomplete project name components: ${projectName}`);
+    throw new Error(
+      `Incomplete project name components: ${projectName}. Expected: ${PROJECT_GRAMMAR}`
+    );
   }
 
   const stackParts = stackName.split("-").map(part => part.trim());
   if (stackParts.length !== 3 && stackParts.length !== 4) {
-    throw new Error(
-      `Invalid stack name format: ${stackName}. Expected: {target-env}-{stack-purpose}[-{concern}]-{region}`
-    );
+    throw new Error(`Invalid stack name format: ${stackName}. Expected: ${STACK_GRAMMAR}`);
   }
   if (stackParts.some(part => part.length === 0)) {
-    throw new Error(`Incomplete stack name components: ${stackName}`);
+    throw new Error(`Incomplete stack name components: ${stackName}. Expected: ${STACK_GRAMMAR}`);
   }
   const targetEnv = stackParts[0] as string;
   const stackPurpose = stackParts[1] as string;
@@ -432,150 +170,14 @@ export function projectNameOf(identity: StackIdentity): string {
   return `${identity.tenant}-${identity.provider}-${identity.accountPurpose}-${identity.environment}`;
 }
 
-/** The account-grammar stack name: {target-env}-{stack-purpose}[-{concern}]-{region}. */
+/**
+ * The account-grammar stack name: {target-env}-{stack-purpose}[-{concern}]-{region}. A fully
+ * qualified stack reference is `${org}/${projectNameOf(identity)}/${stackNameOf(identity)}`.
+ */
 export function stackNameOf(identity: StackIdentity): string {
   const concern =
     identity.concern !== undefined && identity.concern !== "" ? `-${identity.concern}` : "";
   return `${identity.targetEnvironment ?? identity.environment}-${identity.stackPurpose}${concern}-${identity.region}`;
-}
-
-/**
- * A consumer's one declared map from legacy names to account-grammar names, each side a
- * `{project}/{stack}` pair: `"worx-aws-sec/ops-iam-github-use1": "worx-aws-ops-sec/sec-iam-github-use1"`.
- * It lives with the consumer (iac-core holds no tenant's names) and is removed when the last
- * rename is applied (names-migrate-through-an-alias-map).
- */
-export type NameAliasMap = Readonly<Record<string, string>>;
-
-function splitQualified(name: string): { project: string; stack: string } {
-  const parts = name.split("/");
-  if (parts.length !== 2 || parts[0] === "" || parts[1] === "") {
-    throw new Error(`Expected {project}/{stack}, got '${name}'`);
-  }
-  return { project: parts[0] as string, stack: parts[1] as string };
-}
-
-/**
- * Check a name alias map, failing closed on the first problem: every key is a legacy name,
- * every value an account-grammar name; both sides parse to the same identity; no two keys
- * name the same target; and every stack of one legacy project moves to the same new project.
- */
-export function validateNameAliases(map: NameAliasMap): void {
-  const targets = new Set<string>();
-  const projectMoves = new Map<string, string>();
-  for (const [from, to] of Object.entries(map)) {
-    const old = splitQualified(from);
-    const next = splitQualified(to);
-    if (isAccountGrammarProject(old.project)) {
-      throw new Error(`Alias key ${from} is already an account-grammar name`);
-    }
-    if (!isAccountGrammarProject(next.project)) {
-      throw new Error(`Alias target ${to} is not an account-grammar name`);
-    }
-    const oldIdentity = parseStackIdentity(old.project, old.stack);
-    const newIdentity = parseStackIdentity(next.project, next.stack);
-    if (projectNameOf(oldIdentity) !== next.project || stackNameOf(oldIdentity) !== next.stack) {
-      throw new Error(
-        `Alias ${from} -> ${to} changes what the name means: it parses to ${projectNameOf(oldIdentity)}/${stackNameOf(oldIdentity)}`
-      );
-    }
-    if (JSON.stringify(oldIdentity) !== JSON.stringify(newIdentity)) {
-      throw new Error(`Alias ${from} -> ${to}: the two names parse to different identities`);
-    }
-    if (targets.has(to)) {
-      throw new Error(`Alias target ${to} is named by more than one legacy name`);
-    }
-    targets.add(to);
-    const movedTo = projectMoves.get(old.project);
-    if (movedTo !== undefined && movedTo !== next.project) {
-      throw new Error(`Legacy project ${old.project} moves to both ${movedTo} and ${next.project}`);
-    }
-    projectMoves.set(old.project, next.project);
-  }
-}
-
-/**
- * The account-grammar `{project}/{stack}` for a name in either grammar: a legacy name through
- * the map (refused when the map doesn't declare it), an account-grammar name as it is.
- */
-export function canonicalStackName(name: string, map: NameAliasMap): string {
-  const { project } = splitQualified(name);
-  if (isAccountGrammarProject(project)) {
-    return name;
-  }
-  const target = map[name];
-  if (target === undefined) {
-    throw new Error(`Legacy name ${name} is not in the name alias map`);
-  }
-  return target;
-}
-
-/**
- * Generate stack name from components
- * Agent utility: Ensures consistent stack naming with 3-part, 4-part, or 5-part convention
- * (the legacy grammar; {@link stackNameOf} builds the account grammar)
- */
-export function generateStackName(
-  accountPurpose: string,
-  stackPurpose: string,
-  region: string,
-  concern?: string,
-  targetEnvironment?: string
-): string {
-  const parts: string[] = [];
-
-  if (targetEnvironment !== undefined && targetEnvironment !== "") {
-    parts.push(targetEnvironment);
-  }
-
-  parts.push(accountPurpose, stackPurpose);
-
-  if (concern !== undefined && concern !== "") {
-    parts.push(concern);
-  }
-
-  parts.push(region);
-
-  return parts.join("-");
-}
-
-/**
- * Build a fully qualified Pulumi stack reference:
- * `{org}/{tenant}-{provider}-{env}/{stack}` (e.g. adaptiveworx/worx-cloudflare-sec/ops-ztna-glb).
- */
-export function buildStackReference(args: {
-  readonly org: string;
-  readonly tenant: string;
-  readonly provider: string;
-  readonly environment: string;
-  readonly accountPurpose: string;
-  readonly stackPurpose: string;
-  readonly region: string;
-  readonly concern?: string;
-  readonly targetEnvironment?: string;
-}): string {
-  const projectName = `${args.tenant}-${args.provider}-${args.environment}`;
-  const stackName = generateStackName(
-    args.accountPurpose,
-    args.stackPurpose,
-    args.region,
-    args.concern,
-    args.targetEnvironment
-  );
-  return `${args.org}/${projectName}/${stackName}`;
-}
-
-/**
- * Validate stack name format
- * Agent guardrail: Pre-deployment validation
- */
-export function isValidStackName(stackName: string): boolean {
-  try {
-    parseStackName(stackName);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /**

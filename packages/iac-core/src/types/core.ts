@@ -62,11 +62,11 @@ export type StackPurpose = string;
 
 /**
  * Stack context interface - contains all information needed to identify deployment target
- * Architecture: {org}/{tenant}-{provider}-{env}/[{target-env}-]{account-purpose}-{stack-purpose}[-{concern}]-{region}
+ * Architecture: {org}/{tenant}-{provider}-{account-purpose}-{env}/{target-env}-{stack-purpose}[-{concern}]-{region}
  *
- * Project: {tenant}-{provider}-{env} (e.g., worx-aws-dev, worx-cloudflare-sec)
- * Stack: {account-purpose}-{stack-purpose}[-{concern}]-{region} (e.g., ops-iam-github-use1, ops-ztna-glb)
- * Stack (centralized): {target-env}-{account-purpose}-{stack-purpose}[-{concern}]-{region} (e.g., dev-ops-vpc-use1)
+ * Project: {tenant}-{provider}-{account-purpose}-{env} (e.g., worx-aws-app-dev, worx-cloudflare-ops-sec)
+ * Stack: {target-env}-{stack-purpose}[-{concern}]-{region} (e.g., sec-iam-github-use1, sec-ztna-glb);
+ *   the target environment is the project's own, or the one a centralized stack serves (e.g., dev-vpc-use1)
  *
  * Org: Pulumi Cloud organization (always "adaptiveworx")
  * Tenant: Multi-tenant identifier (worx, care, etc.) - each tenant can have different compliance requirements
@@ -75,7 +75,7 @@ export type StackPurpose = string;
 export interface StackContext {
   readonly org: string;
   readonly tenant: string;
-  /** The project's provider: the `{provider}` segment of `{tenant}-{provider}-{env}`. */
+  /** The project's provider: the `{provider}` segment of `{tenant}-{provider}-{account-purpose}-{env}`. */
   readonly provider: Provider;
   readonly accountPurpose: AccountPurpose;
   readonly stackPurpose: StackPurpose;

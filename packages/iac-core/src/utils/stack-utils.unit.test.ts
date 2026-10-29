@@ -45,13 +45,9 @@ vi.mock("./region-utils.js", () => ({
 import * as pulumi from "@pulumi/pulumi";
 import {
   detectStackContext,
-  generateStackName,
   getComplianceRequirements,
   getEnvironmentConfig,
   getStackPurposeClass,
-  isValidStackName,
-  parseProjectName,
-  parseStackName,
   validateCrossAccountOperation,
   validateStackContext,
 } from "./stack-utils.js";
@@ -59,338 +55,6 @@ import {
 describe("Stack Utils - Comprehensive Coverage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  describe("parseProjectName", () => {
-    it("should parse valid 3-part project names", () => {
-      const result = parseProjectName("worx-aws-dev");
-      expect(result).toEqual({
-        tenant: "worx",
-        provider: "aws",
-        environment: "dev",
-      });
-    });
-
-    it("should parse different tenant/provider/env combinations", () => {
-      expect(parseProjectName("care-gcp-prd")).toEqual({
-        tenant: "care",
-        provider: "gcp",
-        environment: "prd",
-      });
-
-      expect(parseProjectName("worx-azure-stg")).toEqual({
-        tenant: "worx",
-        provider: "azure",
-        environment: "stg",
-      });
-    });
-
-    it("should trim whitespace from components", () => {
-      // Test that parsed components are trimmed (even though input shouldn't have spaces)
-      const result = parseProjectName("worx-aws-dev");
-      expect(result.tenant).toBe("worx");
-      expect(result.provider).toBe("aws");
-      expect(result.environment).toBe("dev");
-    });
-
-    it("should throw error for invalid format with too few parts", () => {
-      expect(() => parseProjectName("worx-aws")).toThrow(
-        "Invalid project name format: worx-aws. Expected: {tenant}-{provider}-{env}"
-      );
-    });
-
-    it("should throw error for invalid format with too many parts", () => {
-      expect(() => parseProjectName("worx-aws-dev-extra")).toThrow(
-        "Invalid project name format: worx-aws-dev-extra. Expected: {tenant}-{provider}-{env}"
-      );
-    });
-
-    it("should throw error for single part name", () => {
-      expect(() => parseProjectName("worx")).toThrow("Invalid project name format");
-    });
-
-    it("should throw error for empty components", () => {
-      expect(() => parseProjectName("--")).toThrow("Incomplete project name components");
-    });
-
-    it("should throw error for components with only whitespace", () => {
-      expect(() => parseProjectName("   -   -   ")).toThrow("Incomplete project name components");
-    });
-  });
-
-  describe("parseStackName - 3-part format", () => {
-    it.each([
-      ["app-web-use1", { accountPurpose: "app", stackPurpose: "web", region: "use1" }],
-      ["ops-iam-use1", { accountPurpose: "ops", stackPurpose: "iam", region: "use1" }],
-      ["lake-data-usw2", { accountPurpose: "lake", stackPurpose: "data", region: "usw2" }],
-    ])("should parse '%s' correctly", (stackName, expected) => {
-      expect(parseStackName(stackName)).toEqual(expected);
-    });
-
-    it.each([["--use1"], ["app--use1"], ["app-web-"], ["   -web-use1"]])(
-      "should throw error for invalid format: %s",
-      invalidName => {
-        expect(() => parseStackName(invalidName)).toThrow("Incomplete stack name components");
-      }
-    );
-  });
-
-  describe("parseStackName - 4-part format with concern", () => {
-    it.each([
-      [
-        "app-iam-github-use1",
-        { accountPurpose: "app", stackPurpose: "iam", concern: "github", region: "use1" },
-      ],
-      [
-        "app-web-myapp-use1",
-        { accountPurpose: "app", stackPurpose: "web", concern: "myapp", region: "use1" },
-      ],
-      [
-        "ops-cicd-flow-usw2",
-        { accountPurpose: "ops", stackPurpose: "cicd", concern: "flow", region: "usw2" },
-      ],
-    ])("should parse '%s' correctly", (stackName, expected) => {
-      expect(parseStackName(stackName)).toEqual(expected);
-    });
-
-    it.each([["app--github-use1"], ["app-iam--use1"]])(
-      "should throw error for invalid format: %s",
-      invalidName => {
-        expect(() => parseStackName(invalidName)).toThrow("Incomplete stack name components");
-      }
-    );
-  });
-
-  describe("parseStackName - 4-part format with targetEnvironment", () => {
-    it.each([
-      [
-        "dev-ops-vpc-use1",
-        { targetEnvironment: "dev", accountPurpose: "ops", stackPurpose: "vpc", region: "use1" },
-      ],
-      [
-        "stg-ops-vpc-use1",
-        { targetEnvironment: "stg", accountPurpose: "ops", stackPurpose: "vpc", region: "use1" },
-      ],
-      [
-        "prd-ops-vpc-use1",
-        { targetEnvironment: "prd", accountPurpose: "ops", stackPurpose: "vpc", region: "use1" },
-      ],
-      [
-        "sec-ops-cicd-use1",
-        { targetEnvironment: "sec", accountPurpose: "ops", stackPurpose: "cicd", region: "use1" },
-      ],
-    ])("should parse '%s' correctly", (stackName, expected) => {
-      expect(parseStackName(stackName)).toEqual(expected);
-    });
-
-    it.each([["dev--vpc-use1"], ["dev-ops--use1"]])(
-      "should throw error for invalid format: %s",
-      invalidName => {
-        expect(() => parseStackName(invalidName)).toThrow("Incomplete stack name components");
-      }
-    );
-  });
-
-  describe("parseStackName - 5-part format", () => {
-    it.each([
-      [
-        "dev-ops-vpc-shared-use1",
-        {
-          targetEnvironment: "dev",
-          accountPurpose: "ops",
-          stackPurpose: "vpc",
-          concern: "shared",
-          region: "use1",
-        },
-      ],
-      [
-        "stg-ops-cicd-github-usw2",
-        {
-          targetEnvironment: "stg",
-          accountPurpose: "ops",
-          stackPurpose: "cicd",
-          concern: "github",
-          region: "usw2",
-        },
-      ],
-      [
-        "prd-ops-monitoring-prometheus-euw1",
-        {
-          targetEnvironment: "prd",
-          accountPurpose: "ops",
-          stackPurpose: "monitoring",
-          concern: "prometheus",
-          region: "euw1",
-        },
-      ],
-    ])("should parse '%s' correctly", (stackName, expected) => {
-      expect(parseStackName(stackName)).toEqual(expected);
-    });
-
-    it.each([
-      ["dev--vpc-shared-use1"],
-      ["dev-ops--shared-use1"],
-      ["dev-ops-vpc--use1"],
-      ["dev-ops-vpc-shared-"],
-    ])("should throw error for invalid format: %s", invalidName => {
-      expect(() => parseStackName(invalidName)).toThrow("Incomplete stack name components");
-    });
-  });
-
-  describe("parseStackName - full Pulumi paths", () => {
-    it("should parse full Pulumi path format (org/project/stack)", () => {
-      const result = parseStackName("adaptiveworx/worx-aws-dev/app-web-use1");
-      expect(result).toEqual({
-        org: "adaptiveworx",
-        tenant: "worx",
-        provider: "aws",
-        environment: "dev",
-        accountPurpose: "app",
-        stackPurpose: "web",
-        region: "use1",
-      });
-    });
-
-    it("should parse full path with 4-part stack (concern)", () => {
-      const result = parseStackName("adaptiveworx/worx-aws-dev/app-iam-github-use1");
-      expect(result).toEqual({
-        org: "adaptiveworx",
-        tenant: "worx",
-        provider: "aws",
-        environment: "dev",
-        accountPurpose: "app",
-        stackPurpose: "iam",
-        concern: "github",
-        region: "use1",
-      });
-    });
-
-    it("should parse full path with 4-part stack (targetEnvironment)", () => {
-      const result = parseStackName("adaptiveworx/worx-aws-sec/dev-ops-vpc-use1");
-      expect(result).toEqual({
-        org: "adaptiveworx",
-        tenant: "worx",
-        provider: "aws",
-        environment: "sec",
-        targetEnvironment: "dev",
-        accountPurpose: "ops",
-        stackPurpose: "vpc",
-        region: "use1",
-      });
-    });
-
-    it("should parse full path with 5-part stack", () => {
-      const result = parseStackName("adaptiveworx/worx-aws-sec/dev-ops-vpc-shared-use1");
-      expect(result).toEqual({
-        org: "adaptiveworx",
-        tenant: "worx",
-        provider: "aws",
-        environment: "sec",
-        targetEnvironment: "dev",
-        accountPurpose: "ops",
-        stackPurpose: "vpc",
-        concern: "shared",
-        region: "use1",
-      });
-    });
-
-    it("should handle paths with non-3-part project names", () => {
-      const result = parseStackName("adaptiveworx/care-gcp-prd/app-api-apne1");
-      expect(result).toEqual({
-        org: "adaptiveworx",
-        tenant: "care",
-        provider: "gcp",
-        environment: "prd",
-        accountPurpose: "app",
-        stackPurpose: "api",
-        region: "apne1",
-      });
-    });
-  });
-
-  describe("parseStackName - invalid formats", () => {
-    it("should throw error for 2-part stack names", () => {
-      expect(() => parseStackName("app-use1")).toThrow("Invalid stack name format");
-    });
-
-    it("should throw error for 6-part stack names", () => {
-      expect(() => parseStackName("dev-ops-vpc-shared-use1-extra")).toThrow(
-        "Invalid stack name format"
-      );
-    });
-
-    it("should throw error for single part stack names", () => {
-      expect(() => parseStackName("app")).toThrow("Invalid stack name format");
-    });
-
-    it("should throw error for empty stack names", () => {
-      expect(() => parseStackName("")).toThrow("Invalid stack name format");
-    });
-  });
-
-  describe("generateStackName", () => {
-    it("should generate 3-part stack name without concern or targetEnvironment", () => {
-      expect(generateStackName("app", "web", "use1")).toBe("app-web-use1");
-      expect(generateStackName("ops", "iam", "usw2")).toBe("ops-iam-usw2");
-    });
-
-    it("should generate 4-part stack name with concern", () => {
-      expect(generateStackName("app", "iam", "use1", "github")).toBe("app-iam-github-use1");
-      expect(generateStackName("ops", "cicd", "usw2", "flow")).toBe("ops-cicd-flow-usw2");
-    });
-
-    it("should generate 4-part stack name with targetEnvironment", () => {
-      expect(generateStackName("ops", "vpc", "use1", undefined, "dev")).toBe("dev-ops-vpc-use1");
-      expect(generateStackName("ops", "cicd", "usw2", undefined, "stg")).toBe("stg-ops-cicd-usw2");
-    });
-
-    it("should generate 5-part stack name with both concern and targetEnvironment", () => {
-      expect(generateStackName("ops", "vpc", "use1", "shared", "dev")).toBe(
-        "dev-ops-vpc-shared-use1"
-      );
-      expect(generateStackName("ops", "cicd", "usw2", "github", "prd")).toBe(
-        "prd-ops-cicd-github-usw2"
-      );
-    });
-
-    it("should ignore empty string concern", () => {
-      expect(generateStackName("app", "web", "use1", "")).toBe("app-web-use1");
-    });
-
-    it("should ignore empty string targetEnvironment", () => {
-      expect(generateStackName("app", "web", "use1", undefined, "")).toBe("app-web-use1");
-    });
-
-    it("should ignore both empty strings", () => {
-      expect(generateStackName("app", "web", "use1", "", "")).toBe("app-web-use1");
-    });
-  });
-
-  describe("isValidStackName", () => {
-    it("should return true for valid 3-part stack names", () => {
-      expect(isValidStackName("app-web-use1")).toBe(true);
-      expect(isValidStackName("ops-iam-usw2")).toBe(true);
-    });
-
-    it("should return true for valid 4-part stack names", () => {
-      expect(isValidStackName("app-iam-github-use1")).toBe(true);
-      expect(isValidStackName("dev-ops-vpc-use1")).toBe(true);
-    });
-
-    it("should return true for valid 5-part stack names", () => {
-      expect(isValidStackName("dev-ops-vpc-shared-use1")).toBe(true);
-    });
-
-    it("should return true for full Pulumi paths", () => {
-      expect(isValidStackName("adaptiveworx/worx-aws-dev/app-web-use1")).toBe(true);
-    });
-
-    it("should return false for invalid formats", () => {
-      expect(isValidStackName("app-use1")).toBe(false);
-      expect(isValidStackName("app")).toBe(false);
-      expect(isValidStackName("")).toBe(false);
-      expect(isValidStackName("app-web-use1-extra-extra-parts")).toBe(false);
-    });
   });
 
   describe("detectStackContext", () => {
@@ -403,8 +67,8 @@ describe("Stack Utils - Comprehensive Coverage", () => {
     });
 
     it("should detect context from Pulumi project and stack (3-part)", () => {
-      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-dev");
-      vi.mocked(pulumi.getStack).mockReturnValue("app-web-use1");
+      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-app-dev");
+      vi.mocked(pulumi.getStack).mockReturnValue("dev-web-use1");
 
       const context = detectStackContext();
 
@@ -415,16 +79,16 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       expect(context.accountPurpose).toBe("app");
       expect(context.stackPurpose).toBe("web");
       expect(context.region).toBe("use1");
-      expect(context.projectName).toBe("worx-aws-dev");
-      expect(context.stackName).toBe("app-web-use1");
+      expect(context.projectName).toBe("worx-aws-app-dev");
+      expect(context.stackName).toBe("dev-web-use1");
       expect(context.concern).toBeUndefined();
       expect(context.targetEnvironment).toBeUndefined();
     });
 
     it("uses PULUMI_ORG from the environment", () => {
       vi.stubEnv("PULUMI_ORG", "acme");
-      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-dev");
-      vi.mocked(pulumi.getStack).mockReturnValue("app-web-use1");
+      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-app-dev");
+      vi.mocked(pulumi.getStack).mockReturnValue("dev-web-use1");
 
       const context = detectStackContext();
 
@@ -433,8 +97,8 @@ describe("Stack Utils - Comprehensive Coverage", () => {
 
     it("trims surrounding whitespace from PULUMI_ORG", () => {
       vi.stubEnv("PULUMI_ORG", "  acme  ");
-      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-dev");
-      vi.mocked(pulumi.getStack).mockReturnValue("app-web-use1");
+      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-app-dev");
+      vi.mocked(pulumi.getStack).mockReturnValue("dev-web-use1");
 
       const context = detectStackContext();
 
@@ -443,23 +107,23 @@ describe("Stack Utils - Comprehensive Coverage", () => {
 
     it("throws when PULUMI_ORG is not set", () => {
       vi.stubEnv("PULUMI_ORG", undefined);
-      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-dev");
-      vi.mocked(pulumi.getStack).mockReturnValue("app-web-use1");
+      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-app-dev");
+      vi.mocked(pulumi.getStack).mockReturnValue("dev-web-use1");
 
       expect(() => detectStackContext()).toThrow(/PULUMI_ORG environment variable is required/);
     });
 
     it("throws when PULUMI_ORG is empty or whitespace", () => {
       vi.stubEnv("PULUMI_ORG", "   ");
-      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-dev");
-      vi.mocked(pulumi.getStack).mockReturnValue("app-web-use1");
+      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-app-dev");
+      vi.mocked(pulumi.getStack).mockReturnValue("dev-web-use1");
 
       expect(() => detectStackContext()).toThrow(/PULUMI_ORG environment variable is required/);
     });
 
     it("should detect context with concern (4-part)", () => {
-      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-dev");
-      vi.mocked(pulumi.getStack).mockReturnValue("app-iam-github-use1");
+      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-app-dev");
+      vi.mocked(pulumi.getStack).mockReturnValue("dev-iam-github-use1");
 
       const context = detectStackContext();
 
@@ -469,9 +133,9 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       expect(context.region).toBe("use1");
     });
 
-    it("should detect context with targetEnvironment (4-part)", () => {
-      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-sec");
-      vi.mocked(pulumi.getStack).mockReturnValue("dev-ops-vpc-use1");
+    it("should detect context with targetEnvironment (3-part, centralized)", () => {
+      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-ops-sec");
+      vi.mocked(pulumi.getStack).mockReturnValue("dev-vpc-use1");
 
       const context = detectStackContext();
 
@@ -482,11 +146,11 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       expect(context.region).toBe("use1");
     });
 
-    it("should detect context for 5-part stack names (one 3-5 segment rule)", () => {
-      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-sec");
-      vi.mocked(pulumi.getStack).mockReturnValue("dev-ops-vpc-shared-use1");
+    it("should detect context with targetEnvironment and concern (4-part, centralized)", () => {
+      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-ops-sec");
+      vi.mocked(pulumi.getStack).mockReturnValue("dev-vpc-shared-use1");
 
-      // StackNameSchema, parseStackName and StackContextSchema share the 3-5 segment rule.
+      // StackNameSchema, parseStackIdentity and StackContextSchema share the 3-4 segment rule.
       const context = detectStackContext();
       expect(context.targetEnvironment).toBe("dev");
       expect(context.concern).toBe("shared");
@@ -495,22 +159,22 @@ describe("Stack Utils - Comprehensive Coverage", () => {
 
     it("should throw error for invalid project name", () => {
       vi.mocked(pulumi.getProject).mockReturnValue("invalid-project");
-      vi.mocked(pulumi.getStack).mockReturnValue("app-web-use1");
+      vi.mocked(pulumi.getStack).mockReturnValue("dev-web-use1");
 
       expect(() => detectStackContext()).toThrow("Stack context detection failed");
       expect(pulumi.log.error).toHaveBeenCalled();
     });
 
     it("should throw error for invalid stack name", () => {
-      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-dev");
+      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-app-dev");
       vi.mocked(pulumi.getStack).mockReturnValue("invalid-stack");
 
       expect(() => detectStackContext()).toThrow("Stack context detection failed");
     });
 
     it("should exclude empty concern from context", () => {
-      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-dev");
-      vi.mocked(pulumi.getStack).mockReturnValue("app-web-use1");
+      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-app-dev");
+      vi.mocked(pulumi.getStack).mockReturnValue("dev-web-use1");
 
       const context = detectStackContext();
 
@@ -518,8 +182,8 @@ describe("Stack Utils - Comprehensive Coverage", () => {
     });
 
     it("should exclude empty targetEnvironment from context", () => {
-      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-dev");
-      vi.mocked(pulumi.getStack).mockReturnValue("app-web-use1");
+      vi.mocked(pulumi.getProject).mockReturnValue("worx-aws-app-dev");
+      vi.mocked(pulumi.getStack).mockReturnValue("dev-web-use1");
 
       const context = detectStackContext();
 
@@ -537,8 +201,8 @@ describe("Stack Utils - Comprehensive Coverage", () => {
         stackPurpose: "web",
         environment: "dev",
         region: "use1",
-        projectName: "worx-aws-dev",
-        stackName: "app-web-use1",
+        projectName: "worx-aws-app-dev",
+        stackName: "dev-web-use1",
       };
 
       expect(() => validateStackContext(context)).not.toThrow();
@@ -554,8 +218,8 @@ describe("Stack Utils - Comprehensive Coverage", () => {
         stackPurpose: "iam",
         environment: "dev",
         region: "use1",
-        projectName: "worx-aws-dev",
-        stackName: "app-iam-github-use1",
+        projectName: "worx-aws-app-dev",
+        stackName: "dev-iam-github-use1",
         concern: "github",
       };
 
@@ -571,8 +235,8 @@ describe("Stack Utils - Comprehensive Coverage", () => {
         stackPurpose: "web",
         environment: "dev",
         region: "use1",
-        projectName: "worx-aws-dev",
-        stackName: "app-web-use1",
+        projectName: "worx-aws-app-dev",
+        stackName: "dev-web-use1",
       } as unknown as StackContext;
 
       expect(() => validateStackContext(invalidContext)).toThrow("validation failed");
@@ -588,8 +252,8 @@ describe("Stack Utils - Comprehensive Coverage", () => {
         stackPurpose: "web",
         environment: "dev",
         region: "use1",
-        projectName: "worx-aws-dev",
-        stackName: "app-web-use1",
+        projectName: "worx-aws-app-dev",
+        stackName: "dev-web-use1",
       } as unknown as StackContext;
 
       try {
@@ -825,8 +489,8 @@ describe("Stack Utils - Comprehensive Coverage", () => {
       stackPurpose: "web",
       environment: "dev",
       region: "use1",
-      projectName: "worx-aws-dev",
-      stackName: "app-web-use1",
+      projectName: "worx-aws-app-dev",
+      stackName: "dev-web-use1",
       ...overrides,
     });
 

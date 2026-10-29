@@ -20,22 +20,14 @@ import {
 } from "./providers.js";
 
 /**
- * Stack names have 3 to 5 hyphen-separated segments:
- *   {account-purpose}-{stack-purpose}-{region}
- *   {account-purpose}-{stack-purpose}-{concern}-{region}
- *   {target-env}-{account-purpose}-{stack-purpose}-{region}
- *   {target-env}-{account-purpose}-{stack-purpose}-{concern}-{region}
- * One rule for StackNameSchema, parseStackName and StackContextSchema.
+ * Stack names have 3 or 4 hyphen-separated segments, in fixed position
+ * (Pl.Architecture.Meta.NamingConventionsAcrossPlatforms, the account grammar):
+ *   {target-env}-{stack-purpose}-{region}
+ *   {target-env}-{stack-purpose}-{concern}-{region}
+ * One rule for StackNameSchema, parseStackIdentity and StackContextSchema.
  */
 export const STACK_NAME_MIN_SEGMENTS = 3;
-export const STACK_NAME_MAX_SEGMENTS = 5;
-
-/**
- * Target environments recognized as the first segment of a 4-part stack name
- * (`dev-ops-vpc-use1`); any other first segment makes a 4-part name
- * `{account-purpose}-{stack-purpose}-{concern}-{region}`.
- */
-export const STACK_TARGET_ENVIRONMENTS = ["dev", "stg", "prd", "sec"] as const;
+export const STACK_NAME_MAX_SEGMENTS = 4;
 
 /**
  * Environment classification schema for policy behavior
@@ -191,33 +183,29 @@ export const OrgPrefixSchema = z
   });
 
 /**
- * Project name, in one of two grammars (Pl.Architecture.Meta.NamingConventionsAcrossPlatforms 9):
- *   account (4 segments): {tenant}-{provider}-{account-purpose}-{env}   worx-aws-ops-sec
- *   legacy  (3 segments): {tenant}-{provider}-{env}                     worx-aws-sec
- * The provider is one of {@link ProviderSchema}. The legacy grammar is read until every
- * project is renamed (see NameAliasMap in utils/stack-utils).
+ * Project name: one account, four segments
+ * (Pl.Architecture.Meta.NamingConventionsAcrossPlatforms, the account grammar):
+ *   {tenant}-{provider}-{account-purpose}-{env}   worx-aws-ops-sec, worx-cloudflare-ops-sec
+ * The provider is one of {@link ProviderSchema}.
  */
 export const ProjectNameSchema = z
   .string()
   .min(7, "Project name too short")
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Project name must be kebab-case")
-  .refine(val => [3, 4].includes(val.split("-").length), {
-    message:
-      "Project name must follow pattern: {tenant}-{provider}-{account-purpose}-{env} (or the legacy {tenant}-{provider}-{env})",
+  .refine(val => val.split("-").length === 4, {
+    message: "Project name must follow pattern: {tenant}-{provider}-{account-purpose}-{env}",
   })
   .refine(val => ProviderSchema.safeParse(val.split("-")[1]).success, {
     message: `Project name's provider segment must be one of: ${ProviderSchema.options.join(", ")}`,
   });
 
 /**
- * Stack name: 3 to 5 kebab-case segments (see STACK_NAME_MIN_SEGMENTS):
- *   3: {account-purpose}-{stack-purpose}-{region}                      app-web-use1, ops-ztna-glb
- *   4: {account-purpose}-{stack-purpose}-{concern}-{region}            ops-iam-github-use1
- *   4: {target-env}-{account-purpose}-{stack-purpose}-{region}         dev-ops-vpc-use1
- *   5: {target-env}-{account-purpose}-{stack-purpose}-{concern}-{region} dev-ops-vpc-shared-use1
+ * Stack name: 3 or 4 kebab-case segments (see STACK_NAME_MIN_SEGMENTS):
+ *   3: {target-env}-{stack-purpose}-{region}             dev-vpc-use1, sec-ztna-glb
+ *   4: {target-env}-{stack-purpose}-{concern}-{region}   sec-iam-github-use1
  *
- * The 4-part forms are told apart by the first segment: a target
- * environment (STACK_TARGET_ENVIRONMENTS) makes it the centralized form. The
+ * The target environment is always first: the project's own environment, or the one a
+ * centralized stack serves. The account purpose lives in the project, not the stack. The
  * region segment is checked against the provider in StackContextSchema.
  */
 export const StackNameSchema = z
@@ -231,13 +219,13 @@ export const StackNameSchema = z
     },
     {
       message:
-        "Stack name must have 3 to 5 segments: [{target-env}-]{account-purpose}-{stack-purpose}[-{concern}]-{region}",
+        "Stack name must have 3 or 4 segments: {target-env}-{stack-purpose}[-{concern}]-{region}",
     }
   );
 
 /**
  * Stack context schema with cross-field validation for project/stack naming
- * Architecture: {org}/{tenant}-{provider}-{env}/[{target-env}-]{account-purpose}-{stack-purpose}[-{concern}]-{region}
+ * Architecture: {org}/{tenant}-{provider}-{account-purpose}-{env}/{target-env}-{stack-purpose}[-{concern}]-{region}
  * Concern: Optional descriptor for blast radius isolation (e.g., "github", "sso", "appName1")
  *
  * `region` must be valid for the provider: a
@@ -273,11 +261,8 @@ export const StackContextSchema = z
     }
     const fullRegion = resolveProviderRegion(provider, data.region);
 
-    // Agent guardrail: Validate project name consistency (the account grammar has 4 segments)
-    const accountGrammar = data.projectName.split("-").length === 4;
-    const expectedProjectName = accountGrammar
-      ? `${data.tenant}-${provider}-${data.accountPurpose}-${data.environment}`
-      : `${data.tenant}-${provider}-${data.environment}`;
+    // Agent guardrail: Validate project name consistency: {tenant}-{provider}-{account-purpose}-{env}
+    const expectedProjectName = `${data.tenant}-${provider}-${data.accountPurpose}-${data.environment}`;
     if (data.projectName !== expectedProjectName) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -286,28 +271,11 @@ export const StackContextSchema = z
       });
     }
 
-    // Agent guardrail: Validate stack name consistency with optional targetEnvironment and concern
-    let expectedStackName: string;
-    const hasTargetEnv = data.targetEnvironment !== undefined;
+    // Agent guardrail: Validate stack name consistency. Fixed position:
+    // {target-env}-{stack-purpose}[-{concern}]-{region}; the target environment is the
+    // project's own unless the stack is centralized
     const hasConcern = data.concern !== undefined && data.concern.trim() !== "";
-
-    if (accountGrammar) {
-      // Fixed position: {target-env}-{stack-purpose}[-{concern}]-{region}; the target
-      // environment is the project's own unless the stack is centralized
-      expectedStackName = `${data.targetEnvironment ?? data.environment}-${data.stackPurpose}${hasConcern ? `-${data.concern}` : ""}-${data.region}`;
-    } else if (hasTargetEnv && hasConcern) {
-      // 5-part: target-account-stack-concern-region
-      expectedStackName = `${data.targetEnvironment}-${data.accountPurpose}-${data.stackPurpose}-${data.concern}-${data.region}`;
-    } else if (hasTargetEnv) {
-      // 4-part with target: target-account-stack-region
-      expectedStackName = `${data.targetEnvironment}-${data.accountPurpose}-${data.stackPurpose}-${data.region}`;
-    } else if (hasConcern) {
-      // 4-part with concern: account-stack-concern-region
-      expectedStackName = `${data.accountPurpose}-${data.stackPurpose}-${data.concern}-${data.region}`;
-    } else {
-      // 3-part: account-stack-region
-      expectedStackName = `${data.accountPurpose}-${data.stackPurpose}-${data.region}`;
-    }
+    const expectedStackName = `${data.targetEnvironment ?? data.environment}-${data.stackPurpose}${hasConcern ? `-${data.concern}` : ""}-${data.region}`;
 
     if (data.stackName !== expectedStackName) {
       ctx.addIssue({

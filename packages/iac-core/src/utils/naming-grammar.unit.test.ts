@@ -6,13 +6,12 @@
 
 /**
  * The project/stack naming grammar end to end: every project and stack name
- * iac-worx deploys today (apps/aws/{env}/Pulumi*.yaml, plus stacks on its
- * open branches) and the planned Cloudflare project, through
- * detectStackContext(), StackContextSchema, StackNameSchema and
- * parseStackName; then the negative cases.
+ * iac-worx deploys (apps/{provider}/{env}/Pulumi*.yaml, after its W3 renames),
+ * through detectStackContext(), StackContextSchema, StackNameSchema,
+ * parseStackIdentity, projectNameOf and stackNameOf; then the negative cases.
  *
- *   project: {tenant}-{provider}-{env}
- *   stack:   [{target-env}-]{account-purpose}-{stack-purpose}[-{concern}]-{region}
+ *   project: {tenant}-{provider}-{account-purpose}-{env}
+ *   stack:   {target-env}-{stack-purpose}[-{concern}]-{region}
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -31,12 +30,10 @@ import {
   StackPurposeSchema,
 } from "../schemas/core/core-schemas.js";
 import {
-  buildStackReference,
   detectStackContext,
-  generateStackName,
-  isValidStackName,
-  parseProjectName,
-  parseStackName,
+  parseStackIdentity,
+  projectNameOf,
+  stackNameOf,
 } from "./stack-utils.js";
 
 interface Expected {
@@ -51,134 +48,61 @@ interface Expected {
   targetEnvironment?: string;
 }
 
-/** iac-worx's project/stack pairs as deployed (2026-10-03), plus the planned Cloudflare one. */
+/** iac-worx's 16 stacks in its 5 projects, as deployed after the W3 renames (2026-10-28). */
 const IAC_WORX: Expected[] = [
-  // apps/aws/dev
+  ...(["dev", "stg", "prd"] as const).flatMap(env =>
+    ["github", "pulumi"].map(concern => ({
+      project: `worx-aws-app-${env}`,
+      stack: `${env}-iam-${concern}-use1`,
+      provider: "aws",
+      environment: env,
+      accountPurpose: "app",
+      stackPurpose: "iam",
+      concern,
+      region: "use1",
+    }))
+  ),
   {
-    project: "worx-aws-dev",
-    stack: "app-iam-github-use1",
-    provider: "aws",
-    environment: "dev",
-    accountPurpose: "app",
-    stackPurpose: "iam",
-    concern: "github",
-    region: "use1",
-  },
-  {
-    project: "worx-aws-dev",
-    stack: "app-flow-use1",
+    project: "worx-aws-app-dev",
+    stack: "dev-flow-use1",
     provider: "aws",
     environment: "dev",
     accountPurpose: "app",
     stackPurpose: "flow",
     region: "use1",
   },
-  // apps/aws/stg, apps/aws/prd
-  {
-    project: "worx-aws-stg",
-    stack: "app-iam-github-use1",
-    provider: "aws",
-    environment: "stg",
-    accountPurpose: "app",
-    stackPurpose: "iam",
-    concern: "github",
-    region: "use1",
-  },
-  {
-    project: "worx-aws-prd",
-    stack: "app-iam-github-use1",
-    provider: "aws",
-    environment: "prd",
-    accountPurpose: "app",
-    stackPurpose: "iam",
-    concern: "github",
-    region: "use1",
-  },
-  // apps/aws/sec
-  {
-    project: "worx-aws-sec",
-    stack: "ops-iam-github-use1",
+  ...["github", "pulumi"].map(concern => ({
+    project: "worx-aws-ops-sec",
+    stack: `sec-iam-${concern}-use1`,
     provider: "aws",
     environment: "sec",
     accountPurpose: "ops",
     stackPurpose: "iam",
-    concern: "github",
+    concern,
     region: "use1",
-  },
-  {
-    project: "worx-aws-sec",
-    stack: "dev-ops-vpc-use1",
+  })),
+  ...(
+    [
+      ["dev", "vpc", "use1"],
+      ["dev", "vpc", "usw2"],
+      ["dev", "vpn", "use1"],
+      ["stg", "vpc", "use1"],
+      ["stg", "vpc", "usw2"],
+      ["prd", "vpc", "use1"],
+    ] as const
+  ).map(([targetEnvironment, stackPurpose, region]) => ({
+    project: "worx-aws-ops-sec",
+    stack: `${targetEnvironment}-${stackPurpose}-${region}`,
     provider: "aws",
     environment: "sec",
     accountPurpose: "ops",
-    stackPurpose: "vpc",
-    targetEnvironment: "dev",
-    region: "use1",
-  },
+    stackPurpose,
+    targetEnvironment,
+    region,
+  })),
   {
-    project: "worx-aws-sec",
-    stack: "dev-ops-vpc-usw2",
-    provider: "aws",
-    environment: "sec",
-    accountPurpose: "ops",
-    stackPurpose: "vpc",
-    targetEnvironment: "dev",
-    region: "usw2",
-  },
-  {
-    project: "worx-aws-sec",
-    stack: "stg-ops-vpc-use1",
-    provider: "aws",
-    environment: "sec",
-    accountPurpose: "ops",
-    stackPurpose: "vpc",
-    targetEnvironment: "stg",
-    region: "use1",
-  },
-  {
-    project: "worx-aws-sec",
-    stack: "stg-ops-vpc-usw2",
-    provider: "aws",
-    environment: "sec",
-    accountPurpose: "ops",
-    stackPurpose: "vpc",
-    targetEnvironment: "stg",
-    region: "usw2",
-  },
-  {
-    project: "worx-aws-sec",
-    stack: "prd-ops-vpc-use1",
-    provider: "aws",
-    environment: "sec",
-    accountPurpose: "ops",
-    stackPurpose: "vpc",
-    targetEnvironment: "prd",
-    region: "use1",
-  },
-  {
-    project: "worx-aws-sec",
-    stack: "dev-ops-vpn-use1",
-    provider: "aws",
-    environment: "sec",
-    accountPurpose: "ops",
-    stackPurpose: "vpn",
-    targetEnvironment: "dev",
-    region: "use1",
-  },
-  {
-    project: "worx-aws-sec",
-    stack: "ops-ztna-cloudflare-use1",
-    provider: "aws",
-    environment: "sec",
-    accountPurpose: "ops",
-    stackPurpose: "ztna",
-    concern: "cloudflare",
-    region: "use1",
-  },
-  // planned: the Cloudflare project
-  {
-    project: "worx-cloudflare-sec",
-    stack: "ops-ztna-glb",
+    project: "worx-cloudflare-ops-sec",
+    stack: "sec-ztna-glb",
     provider: "cloudflare",
     environment: "sec",
     accountPurpose: "ops",
@@ -218,7 +142,13 @@ describe("naming grammar", () => {
   });
 
   describe("every iac-worx project and stack", () => {
-    it.each(IAC_WORX)("$project/$stack detects as before", e => {
+    it("covers 16 stacks in 5 projects", () => {
+      expect(IAC_WORX).toHaveLength(16);
+      expect(new Set(IAC_WORX.map(e => e.project)).size).toBe(5);
+      expect(new Set(IAC_WORX.map(e => `${e.project}/${e.stack}`)).size).toBe(16);
+    });
+
+    it.each(IAC_WORX)("$project/$stack detects its context", e => {
       vi.mocked(pulumi.getProject).mockReturnValue(e.project);
       vi.mocked(pulumi.getStack).mockReturnValue(e.stack);
 
@@ -244,55 +174,48 @@ describe("naming grammar", () => {
     });
 
     it.each(IAC_WORX)(
-      "$stack is one grammar: StackNameSchema, parseStackName, generateStackName agree",
+      "$project/$stack is one grammar: the schemas, parseStackIdentity and the builders agree",
       e => {
         expect(StackNameSchema.safeParse(e.stack).success).toBe(true);
-        expect(isValidStackName(e.stack)).toBe(true);
         expect(ProjectNameSchema.safeParse(e.project).success).toBe(true);
         expect(StackPurposeSchema.safeParse(e.stackPurpose).success).toBe(true);
-        const parsed = parseStackName(`adaptiveworx/${e.project}/${e.stack}`);
-        expect(parsed.provider).toBe(e.provider);
-        expect(
-          generateStackName(
-            parsed.accountPurpose,
-            parsed.stackPurpose,
-            parsed.region,
-            parsed.concern,
-            parsed.targetEnvironment
-          )
-        ).toBe(e.stack);
+        const identity = parseStackIdentity(e.project, e.stack);
+        expect(identity.provider).toBe(e.provider);
+        expect(projectNameOf(identity)).toBe(e.project);
+        expect(stackNameOf(identity)).toBe(e.stack);
       }
     );
   });
 
-  describe("stack name segments (one 3-5 rule)", () => {
+  describe("stack name segments (one 3-4 rule)", () => {
     it.each([
-      ["app-web-use1", 3],
-      ["ops-ztna-glb", 3],
-      ["ops-iam-github-use1", 4],
-      ["dev-ops-vpc-use1", 4],
-      ["dev-ops-vpc-shared-use1", 5],
-    ])("%s (%i segments) passes StackNameSchema and parseStackName", stack => {
+      ["dev-flow-use1", 3],
+      ["sec-ztna-glb", 3],
+      ["sec-iam-github-use1", 4],
+      ["dev-vpc-shared-use1", 4],
+    ])("%s (%i segments) passes StackNameSchema and parseStackIdentity", stack => {
       expect(StackNameSchema.safeParse(stack).success).toBe(true);
-      expect(isValidStackName(stack)).toBe(true);
+      expect(() => parseStackIdentity("worx-aws-ops-sec", stack)).not.toThrow();
     });
 
-    it.each(["ops-ztna", "a-b-c-d-e-f", "dev-ops-vpc-shared-use1-extra"])(
+    it.each(["sec-ztna", "dev-ops-vpc-shared-use1", "a-b-c-d-e-f"])(
       "%s (wrong segment count) fails both",
       stack => {
         expect(StackNameSchema.safeParse(stack).success).toBe(false);
-        expect(isValidStackName(stack)).toBe(false);
+        expect(() => parseStackIdentity("worx-aws-ops-sec", stack)).toThrow(
+          "Invalid stack name format"
+        );
       }
     );
 
-    it.each(["Ops-ztna-glb", "ops_ztna-glb", "ops--glb", "ops-ztna-glb-", "-ops-ztna-glb"])(
+    it.each(["Sec-ztna-glb", "sec_ztna-glb", "sec--glb", "sec-ztna-glb-", "-sec-ztna-glb"])(
       "%s (not kebab-case) fails StackNameSchema",
       stack => {
         expect(StackNameSchema.safeParse(stack).success).toBe(false);
       }
     );
 
-    it("validates a 5-part stack context (it used to fail StackNameSchema)", () => {
+    it("validates a centralized stack context with a concern (4 segments)", () => {
       expect(
         issuesOf({
           org: "adaptiveworx",
@@ -302,12 +225,52 @@ describe("naming grammar", () => {
           stackPurpose: "vpc",
           environment: "sec",
           region: "use1",
-          projectName: "worx-aws-sec",
-          stackName: "dev-ops-vpc-shared-use1",
+          projectName: "worx-aws-ops-sec",
+          stackName: "dev-vpc-shared-use1",
           concern: "shared",
           targetEnvironment: "dev",
         })
       ).toEqual([]);
+    });
+
+    it("refuses a legacy stack name in a context", () => {
+      const legacy = {
+        org: "adaptiveworx",
+        tenant: "worx",
+        provider: "aws",
+        accountPurpose: "ops",
+        stackPurpose: "vpc",
+        environment: "sec",
+        region: "use1",
+        projectName: "worx-aws-ops-sec",
+        targetEnvironment: "dev",
+      };
+      expect(issuesOf({ ...legacy, stackName: "dev-ops-vpc-use1" })).toEqual([
+        "stackName: Stack name 'dev-ops-vpc-use1' does not match expected pattern 'dev-vpc-use1'",
+      ]);
+      expect(
+        issuesOf({ ...legacy, stackName: "dev-ops-vpc-shared-use1", concern: "shared" })
+      ).toContain(
+        "stackName: Stack name must have 3 or 4 segments: {target-env}-{stack-purpose}[-{concern}]-{region}"
+      );
+    });
+
+    it("refuses a legacy project name in a context", () => {
+      const issues = issuesOf({
+        org: "adaptiveworx",
+        tenant: "worx",
+        provider: "aws",
+        accountPurpose: "ops",
+        stackPurpose: "iam",
+        environment: "sec",
+        region: "use1",
+        projectName: "worx-aws-sec",
+        stackName: "sec-iam-github-use1",
+        concern: "github",
+      });
+      expect(issues).toContain(
+        "projectName: Project name must follow pattern: {tenant}-{provider}-{account-purpose}-{env}"
+      );
     });
   });
 
@@ -316,7 +279,7 @@ describe("naming grammar", () => {
       expect(StackPurposeSchema.safeParse("ml-training").success).toBe(false);
       expect(StackPurposeSchema.safeParse("mltraining").success).toBe(true);
       // what a hyphenated purpose actually parses as: purpose + concern
-      expect(parseStackName("app-ml-training-use1")).toMatchObject({
+      expect(parseStackIdentity("worx-aws-app-dev", "dev-ml-training-use1")).toMatchObject({
         stackPurpose: "ml",
         concern: "training",
       });
@@ -330,6 +293,7 @@ describe("naming grammar", () => {
       accountPurpose: "ops",
       stackPurpose: "ztna",
       environment: "sec",
+      stackName: "sec-ztna-glb",
     };
 
     it("accepts github and infisical projects with glb", () => {
@@ -338,8 +302,7 @@ describe("naming grammar", () => {
           ...base,
           provider: "github",
           region: "glb",
-          projectName: "worx-github-sec",
-          stackName: "ops-ztna-glb",
+          projectName: "worx-github-ops-sec",
         })
       ).toEqual([]);
       expect(
@@ -347,8 +310,7 @@ describe("naming grammar", () => {
           ...base,
           provider: "infisical",
           region: "glb",
-          projectName: "worx-infisical-sec",
-          stackName: "ops-ztna-glb",
+          projectName: "worx-infisical-ops-sec",
         })
       ).toEqual([]);
     });
@@ -358,8 +320,7 @@ describe("naming grammar", () => {
         ...base,
         provider: "aws",
         region: "glb",
-        projectName: "worx-aws-sec",
-        stackName: "ops-ztna-glb",
+        projectName: "worx-aws-ops-sec",
       });
       expect(issues.join("\n")).toMatch(
         /region: Region 'glb' is not a aws region code \(glb is only for providers without regions/
@@ -371,8 +332,8 @@ describe("naming grammar", () => {
         ...base,
         provider: "cloudflare",
         region: "use1",
-        projectName: "worx-cloudflare-sec",
-        stackName: "ops-ztna-use1",
+        projectName: "worx-cloudflare-ops-sec",
+        stackName: "sec-ztna-use1",
       });
       expect(issues).toEqual([
         "region: Provider 'cloudflare' has no regions: its stacks use region 'glb'",
@@ -380,19 +341,18 @@ describe("naming grammar", () => {
     });
 
     it("rejects an unknown provider in the project and the context", () => {
-      expect(ProjectNameSchema.safeParse("worx-k8s-sec").success).toBe(false);
+      expect(ProjectNameSchema.safeParse("worx-k8s-ops-sec").success).toBe(false);
       expect(
         issuesOf({
           ...base,
           provider: "k8s",
           region: "glb",
-          projectName: "worx-k8s-sec",
-          stackName: "ops-ztna-glb",
+          projectName: "worx-k8s-ops-sec",
         }).length
       ).toBeGreaterThan(0);
 
-      vi.mocked(pulumi.getProject).mockReturnValue("worx-k8s-sec");
-      vi.mocked(pulumi.getStack).mockReturnValue("ops-ztna-glb");
+      vi.mocked(pulumi.getProject).mockReturnValue("worx-k8s-ops-sec");
+      vi.mocked(pulumi.getStack).mockReturnValue("sec-ztna-glb");
       expect(() => detectStackContext()).toThrow("Stack context detection failed");
     });
 
@@ -402,11 +362,10 @@ describe("naming grammar", () => {
           ...base,
           provider: "cloudflare",
           region: "glb",
-          projectName: "worx-aws-sec",
-          stackName: "ops-ztna-glb",
+          projectName: "worx-aws-ops-sec",
         })
       ).toEqual([
-        "projectName: Project name 'worx-aws-sec' does not match expected pattern 'worx-cloudflare-sec'",
+        "projectName: Project name 'worx-aws-ops-sec' does not match expected pattern 'worx-cloudflare-ops-sec'",
       ]);
     });
 
@@ -415,8 +374,7 @@ describe("naming grammar", () => {
         issuesOf({
           ...base,
           region: "glb",
-          projectName: "worx-cloudflare-sec",
-          stackName: "ops-ztna-glb",
+          projectName: "worx-cloudflare-ops-sec",
         }).some(issue => issue.startsWith("provider:"))
       ).toBe(true);
     });
@@ -426,19 +384,25 @@ describe("naming grammar", () => {
         ...base,
         cloud: "cloudflare",
         region: "glb",
-        projectName: "worx-cloudflare-sec",
-        stackName: "ops-ztna-glb",
+        projectName: "worx-cloudflare-ops-sec",
       });
       expect(result.success).toBe(false);
     });
 
     it("rejects a malformed project name", () => {
-      // Four segments is the account grammar ({tenant}-{provider}-{account-purpose}-{env});
-      // five is malformed in both grammars
-      for (const project of ["worx-aws", "worx-aws-ops-sec-x", "Worx-aws-sec", "worx_aws_sec"]) {
+      // Four segments, {tenant}-{provider}-{account-purpose}-{env}; three is the legacy grammar
+      for (const project of [
+        "worx-aws",
+        "worx-aws-sec",
+        "worx-aws-ops-sec-x",
+        "Worx-aws-ops-sec",
+        "worx_aws_ops_sec",
+      ]) {
         expect(ProjectNameSchema.safeParse(project).success).toBe(false);
       }
-      expect(() => parseProjectName("worx-cloudflare")).toThrow("{tenant}-{provider}-{env}");
+      expect(() => parseStackIdentity("worx-cloudflare", "sec-ztna-glb")).toThrow(
+        "{tenant}-{provider}-{account-purpose}-{env}"
+      );
     });
   });
 
@@ -450,28 +414,27 @@ describe("naming grammar", () => {
       accountPurpose: "ops",
       stackPurpose: "iam",
       environment: "prd",
-      projectName: "worx-aws-prd",
+      projectName: "worx-aws-ops-prd",
     };
 
     it("accepts a prd ops stack in use1 (the code for us-east-1)", () => {
-      expect(issuesOf({ ...prdOps, region: "use1", stackName: "ops-iam-use1" })).toEqual([]);
-      expect(
-        issuesOf({ ...prdOps, region: "us-east-1", stackName: "ops-iam-us-east-1" })
-      ).not.toContain("region: Production ops accounts must be deployed in us-east-1");
+      expect(issuesOf({ ...prdOps, region: "use1", stackName: "prd-iam-use1" })).toEqual([]);
     });
 
     it("rejects a prd ops stack outside us-east-1", () => {
-      expect(issuesOf({ ...prdOps, region: "usw2", stackName: "ops-iam-usw2" })).toEqual([
+      expect(issuesOf({ ...prdOps, region: "usw2", stackName: "prd-iam-usw2" })).toEqual([
         "region: Production ops accounts must be deployed in us-east-1",
       ]);
     });
   });
 
   describe("project names and stack references", () => {
-    it("buildStackReference() builds org/project/stack", () => {
+    const referenceOf = (org: string, identity: Parameters<typeof projectNameOf>[0]) =>
+      `${org}/${projectNameOf(identity)}/${stackNameOf(identity)}`;
+
+    it("projectNameOf and stackNameOf build org/project/stack", () => {
       expect(
-        buildStackReference({
-          org: "adaptiveworx",
+        referenceOf("adaptiveworx", {
           tenant: "worx",
           provider: "cloudflare",
           environment: "sec",
@@ -479,10 +442,9 @@ describe("naming grammar", () => {
           stackPurpose: "ztna",
           region: "glb",
         })
-      ).toBe("adaptiveworx/worx-cloudflare-sec/ops-ztna-glb");
+      ).toBe("adaptiveworx/worx-cloudflare-ops-sec/sec-ztna-glb");
       expect(
-        buildStackReference({
-          org: "adaptiveworx",
+        referenceOf("adaptiveworx", {
           tenant: "worx",
           provider: "aws",
           environment: "sec",
@@ -491,7 +453,7 @@ describe("naming grammar", () => {
           region: "use1",
           targetEnvironment: "dev",
         })
-      ).toBe("adaptiveworx/worx-aws-sec/dev-ops-vpc-use1");
+      ).toBe("adaptiveworx/worx-aws-ops-sec/dev-vpc-use1");
     });
   });
 });
