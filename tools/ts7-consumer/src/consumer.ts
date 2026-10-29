@@ -59,12 +59,12 @@ export const cloudflareAccount: core.AccountReference = core.accountReference(
   "cloudflare",
   "0123456789abcdef0123456789abcdef"
 );
-export const ztnaStack: string = core.buildStackReference({
-  org: "adaptiveworx",
+export const ztnaIdentity: stackUtils.StackIdentity = {
   tenant: "worx",
   provider: "cloudflare",
-  environment: "sec",
   accountPurpose: "ops",
+  environment: "sec",
   stackPurpose: "ztna",
   region: providers.GLOBAL_REGION_CODE,
-});
+};
+export const ztnaStack: string = `adaptiveworx/${core.projectNameOf(ztnaIdentity)}/${core.stackNameOf(ztnaIdentity)}`;
