@@ -50,20 +50,23 @@ import { resolveRegion } from "@adaptiveworx/iac-core/utils/region-utils";
 
 ## Naming
 
-Projects are `{tenant}-{provider}-{env}`; stacks are
-`[{target-env}-]{account-purpose}-{stack-purpose}[-{concern}]-{region}` (3 to 5
-one-word segments). Providers: `aws`, `gcp`, `azure` (regional: `use1`,
-`usw2`, …) and `cloudflare`, `github`, `infisical` (global: region `glb`).
+A project is one account: `{tenant}-{provider}-{account-purpose}-{env}`. A stack
+is `{target-env}-{stack-purpose}[-{concern}]-{region}` (3 or 4 one-word
+segments, the target environment always first). Providers: `aws`, `gcp`, `azure`
+(regional: `use1`, `usw2`, …) and `cloudflare`, `github`, `infisical` (global:
+region `glb`).
 
 | Project | Stack | Reads as |
 |---|---|---|
-| `worx-aws-dev` | `app-flow-use1` | app account, flow, us-east-1 |
-| `worx-aws-sec` | `ops-iam-github-use1` | ops account, iam, concern github |
-| `worx-aws-sec` | `dev-ops-vpc-use1` | centralized: dev's VPC, from sec |
-| `worx-cloudflare-sec` | `ops-ztna-glb` | ops account, ztna, global |
+| `worx-aws-app-dev` | `dev-flow-use1` | app account in dev, flow, us-east-1 |
+| `worx-aws-ops-sec` | `sec-iam-github-use1` | ops account in sec, iam, concern github |
+| `worx-aws-ops-sec` | `dev-vpc-use1` | centralized: dev's VPC, from the ops account in sec |
+| `worx-cloudflare-ops-sec` | `sec-ztna-glb` | ops account in sec, ztna, global |
 
-`provider` replaced the older `cloud` name in 0.5, with no aliases (the rename
-table is in the naming doc). See [docs/naming.md](./docs/naming.md) for the full grammar, the region rules per
+Only this grammar parses: a name in the legacy grammar (`{tenant}-{provider}-{env}`
+projects and their stacks) is refused, and 0.6 removed the alias map and the
+legacy parsers and builders (the table of replacements is in the naming doc).
+See [docs/naming.md](./docs/naming.md) for the full grammar, the region rules per
 provider, account references and how to add a provider.
 
 ## Quick-start guides per cloud
@@ -82,7 +85,7 @@ provider, account references and how to add a provider.
 
 ### `utils/`
 
-- **`stack-utils`** — `detectStackContext`, `parseProjectName`, `parseStackName`, `generateStackName`, `buildStackReference`, `validateStackContext`, `getEnvironmentConfig`, `getComplianceRequirements`, `validateCrossAccountOperation`.
+- **`stack-utils`** — `detectStackContext`, `parseStackIdentity` (`StackIdentity`), `projectNameOf`, `stackNameOf`, `isAccountGrammarProject`, `validateStackContext`, `getEnvironmentConfig`, `getComplianceRequirements`, `validateCrossAccountOperation`.
 - **`region-utils`** — `resolveRegion`, `getRegionAliases`, `isValidRegion`, `validateAvailabilityZones` (loads region aliases from `@adaptiveworx/iac-schemas`).
 - **`cidr-allocation`** — `calculateVpcCidr`, `getVpcCidr` for non-overlapping CIDR allocation across environments + regions.
 - **`stack-readme`** — `generateStackReadme`, `exportStackReadme` for auto-documenting Pulumi stacks.
@@ -393,11 +396,12 @@ resolveRegion("aws", "us-east-1"); // "us-east-1" (already canonical)
 function detectStackContext(): StackContext;
 function validateStackContext(ctx: StackContext): ValidationResult;
 
-// Stack name = "<targetEnv>-<accountPurpose>-<stackPurpose>-<region>"
-// e.g. "dev-app-iam-use1" or "stg-ops-vpc-use1"
-function parseStackName(stackName: string): StackContext | null;
-function generateStackName(ctx: StackContext): string;
-function isValidStackName(stackName: string): boolean;
+// Project "{tenant}-{provider}-{account-purpose}-{env}", stack "{target-env}-{stack-purpose}[-{concern}]-{region}"
+// e.g. "worx-aws-ops-sec" with "sec-iam-github-use1", or "dev-vpc-use1" (centralized)
+function parseStackIdentity(projectName: string, stackName: string): StackIdentity; // throws on any other grammar
+function projectNameOf(identity: StackIdentity): string;
+function stackNameOf(identity: StackIdentity): string;
+function isAccountGrammarProject(projectName: string): boolean;
 
 function getEnvironmentConfig(env: Environment): EnvironmentConfig;
 function getComplianceRequirements(env: Environment): ComplianceRequirement[];

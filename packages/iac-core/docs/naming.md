@@ -1,42 +1,48 @@
 # Naming: projects, stacks, providers, regions
 
 Every Pulumi stack is addressed as `{org}/{project}/{stack}`. iac-core parses and
-validates both names (`detectStackContext()`, `parseProjectName()`,
-`parseStackName()`, `StackContextSchema`, `ProjectNameSchema`,
-`StackNameSchema`); this page is the grammar they share.
+validates both names (`detectStackContext()`, `parseStackIdentity()`,
+`StackContextSchema`, `ProjectNameSchema`, `StackNameSchema`); this page is the
+grammar they share, the account grammar of
+`Pl.Architecture.Meta.NamingConventionsAcrossPlatforms`. It is the only grammar
+they read: a name in any other is refused, the legacy one included (see
+[Removed in 0.6](#removed-in-06)).
 
-## Project: `{tenant}-{provider}-{env}`
+## Project: `{tenant}-{provider}-{account-purpose}-{env}`
+
+A project is one account. Four segments:
 
 | Segment | Rule | Examples |
 |---|---|---|
 | tenant | `OrgPrefixSchema`: 2-8 lowercase alphanumerics | `worx`, `care` |
 | provider | `ProviderSchema` (below) | `aws`, `cloudflare` |
+| account-purpose | `AccountPurposeSchema`: 2-10 lowercase alphanumerics | `app`, `ops` |
 | env | `EnvironmentSchema`: 2-15 lowercase alphanumerics | `dev`, `stg`, `prd`, `sec` |
 
-`worx-aws-dev`, `worx-aws-sec`, `worx-cloudflare-sec`, `worx-github-sec`.
+`worx-aws-app-dev`, `worx-aws-ops-sec`, `worx-cloudflare-ops-sec`, `worx-github-ops-sec`.
 
 The provider segment used to be called `cloud`; iac-core 0.5 renamed it
 everywhere, with no aliases (see [Renamed in 0.5](#renamed-in-05)).
 
-## Stack: `[{target-env}-]{account-purpose}-{stack-purpose}[-{concern}]-{region}`
+## Stack: `{target-env}-{stack-purpose}[-{concern}]-{region}`
 
-Three to five kebab-case segments, one rule everywhere:
+Three or four kebab-case segments in fixed position, one rule everywhere:
 
 | Segments | Form | Examples |
 |---|---|---|
-| 3 | `{account-purpose}-{stack-purpose}-{region}` | `app-flow-use1`, `ops-ztna-glb` |
-| 4 | `{account-purpose}-{stack-purpose}-{concern}-{region}` | `ops-iam-github-use1`, `ops-ztna-cloudflare-use1` |
-| 4 | `{target-env}-{account-purpose}-{stack-purpose}-{region}` | `dev-ops-vpc-use1`, `dev-ops-vpn-use1` |
-| 5 | `{target-env}-{account-purpose}-{stack-purpose}-{concern}-{region}` | `dev-ops-vpc-shared-use1` |
+| 3 | `{target-env}-{stack-purpose}-{region}` | `dev-flow-use1`, `dev-vpc-use1`, `sec-ztna-glb` |
+| 4 | `{target-env}-{stack-purpose}-{concern}-{region}` | `sec-iam-github-use1`, `dev-iam-pulumi-use1` |
 
-- The two 4-part forms are told apart by the first segment: one of
-  `STACK_TARGET_ENVIRONMENTS` (`dev`, `stg`, `prd`, `sec`) makes it the
-  centralized form.
+- **The target environment is always first**: the project's own environment
+  (`sec-iam-github-use1` in `worx-aws-ops-sec`), or, for a centralized stack,
+  the environment it serves (`dev-vpc-use1` in `worx-aws-ops-sec`). The account
+  purpose lives in the project, not the stack.
 - **Every segment is one word.** A stack purpose has no hyphens
   (`StackPurposeSchema`): `ml-training` would read back as purpose `ml`, concern
   `training`. Write `mltraining`, or use the concern segment.
-- `targetEnvironment` (centralized resources) is only for `vpc`, `cicd`, `vpn`,
-  `monitoring`, deployed from the `sec` environment with account purpose `ops`.
+- `targetEnvironment` (centralized resources: a target environment other than
+  the project's) is only for `vpc`, `cicd`, `vpn`, `monitoring`, deployed from
+  the `sec` environment with account purpose `ops`.
 
 ## Providers and regions
 
@@ -56,9 +62,9 @@ its regions and its account-id shape.
 - **`glb`** (`global`) is the region of providers without regions. It is
   rejected for AWS, GCP and Azure: their "global" services (IAM, Route 53, …)
   are still deployed through a home region, so those stacks keep a regional
-  code (`ops-iam-github-use1`).
-- A regional code is rejected for a global provider (`ops-ztna-use1` in
-  `worx-cloudflare-sec`).
+  code (`sec-iam-github-use1`).
+- A regional code is rejected for a global provider (`sec-ztna-use1` in
+  `worx-cloudflare-ops-sec`).
 - `isValidProviderRegion(provider, region)`, `getProviderRegionCodes(provider)`
   and `resolveProviderRegion(provider, region)` (`use1` -> `us-east-1`,
   `glb` -> `global`) apply these rules. iac-schemas' `resolveRegion("cloudflare", "glb")`
@@ -82,14 +88,41 @@ The id is checked against the provider's shape (`isValidAccountId`).
 take an optional `provider` (default `aws`) and check both account ids against it.
 `AwsAccountRegistry` (iac-aws) stays the AWS account registry.
 
-## Building names
+## Parsing and building names
 
-- `generateStackName(accountPurpose, stackPurpose, region, concern?, targetEnv?)`.
-- `buildStackReference({ org, tenant, provider, environment, accountPurpose,
-  stackPurpose, region, concern?, targetEnvironment? })` ->
-  `adaptiveworx/worx-cloudflare-sec/ops-ztna-glb`.
+- `parseStackIdentity(project, stack)` -> `StackIdentity` (`tenant`, `provider`,
+  `accountPurpose`, `environment`, `stackPurpose`, `region`, `concern?`, and
+  `targetEnvironment?` for a centralized stack only). Any other grammar throws,
+  naming the expected one.
+- `projectNameOf(identity)` -> `worx-cloudflare-ops-sec`;
+  `stackNameOf(identity)` -> `sec-ztna-glb`.
+- A stack reference is `` `${org}/${projectNameOf(identity)}/${stackNameOf(identity)}` ``
+  -> `adaptiveworx/worx-cloudflare-ops-sec/sec-ztna-glb`.
+- `isAccountGrammarProject(project)`: four segments.
+
+## Removed in 0.6
+
+The legacy grammar (project `{tenant}-{provider}-{env}`, stack
+`[{target-env}-]{account-purpose}-{stack-purpose}[-{concern}]-{region}`) and the
+alias map that bridged its renames are gone. A legacy name is refused.
+
+| Removed | Use instead |
+|---|---|
+| `detectStackContext({ nameAliases })`, `DetectStackContextOptions` | `detectStackContext()` |
+| `NameAliasMap`, `validateNameAliases`, `canonicalStackName` | none: every name is in the account grammar |
+| `parseProjectName(project)` | `parseStackIdentity(project, stack)` |
+| `parseStackName(stack)` | `parseStackIdentity(project, stack)` |
+| `isValidStackName(stack)` | `StackNameSchema.safeParse(stack).success` |
+| `generateStackName(accountPurpose, stackPurpose, region, concern?, targetEnv?)` | `stackNameOf(identity)` |
+| `buildStackReference({ org, … })` | `` `${org}/${projectNameOf(identity)}/${stackNameOf(identity)}` `` |
+| `STACK_TARGET_ENVIRONMENTS` | none: the target environment is always the first segment |
+| `STACK_NAME_MAX_SEGMENTS` = 5 | 4 |
 
 ## Renamed in 0.5
+
+Rows naming `parseProjectName`, `parseStackName`, `buildStackReference` or the
+`{tenant}-{provider}-{env}` project name are superseded by
+[Removed in 0.6](#removed-in-06).
 
 `cloud` became `provider` throughout, with no deprecated aliases:
 
