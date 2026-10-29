@@ -1,3 +1,17 @@
+## 0.6.1 (2026-10-29)
+
+### 🩹 Fixes
+
+- **iac-aws:** accept @adaptiveworx/iac-core 0.6 as a peer ([a3bd773](https://github.com/AdaptiveWorX/iac-core/commit/a3bd773))
+
+### 🧱 Updated Dependencies
+
+- Updated @adaptiveworx/iac-core to 0.6.0
+
+### ❤️ Thank You
+
+- Lloyd Mangnall @lloydmangnall
+
 ## 0.6.0 (2026-10-25)
 
 ### 🚀 Features

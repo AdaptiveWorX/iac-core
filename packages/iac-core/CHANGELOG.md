@@ -1,3 +1,22 @@
+## 0.6.0 (2026-10-29)
+
+### 🚀 Features
+
+- ⚠️  **iac-core:** only the account grammar parses ([e5fa92e](https://github.com/AdaptiveWorX/iac-core/commit/e5fa92e))
+
+### ⚠️  Breaking Changes
+
+- **iac-core:** only the account grammar parses  ([e5fa92e](https://github.com/AdaptiveWorX/iac-core/commit/e5fa92e))
+  a legacy project or stack name is refused by parseStackIdentity,
+  detectStackContext and the name schemas. detectStackContext no longer takes nameAliases.
+  Removed exports: DetectStackContextOptions, NameAliasMap, validateNameAliases,
+  canonicalStackName, parseProjectName, parseStackName, isValidStackName, generateStackName,
+  buildStackReference, STACK_TARGET_ENVIRONMENTS. STACK_NAME_MAX_SEGMENTS is 4 (was 5).
+
+### ❤️ Thank You
+
+- Lloyd Mangnall @lloydmangnall
+
 ## 0.5.1 (2026-10-25)
 
 ### 🚀 Features

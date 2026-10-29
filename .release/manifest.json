@@ -2,14 +2,14 @@
   "releases": [
     {
       "package": "@adaptiveworx/iac-aws",
-      "version": "0.6.0",
-      "tag": "@adaptiveworx/iac-aws@0.6.0",
+      "version": "0.6.1",
+      "tag": "@adaptiveworx/iac-aws@0.6.1",
       "directory": "packages/iac-aws"
     },
     {
       "package": "@adaptiveworx/iac-core",
-      "version": "0.5.1",
-      "tag": "@adaptiveworx/iac-core@0.5.1",
+      "version": "0.6.0",
+      "tag": "@adaptiveworx/iac-core@0.6.0",
       "directory": "packages/iac-core"
     }
   ]
