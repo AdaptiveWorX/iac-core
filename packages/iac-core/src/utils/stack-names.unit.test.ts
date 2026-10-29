@@ -5,16 +5,15 @@
  */
 
 /**
- * The account grammar and the legacy grammar side by side
- * (Pl.Architecture.Meta.NamingConventionsAcrossPlatforms 9):
+ * The account grammar, and only it (Pl.Architecture.Meta.NamingConventionsAcrossPlatforms,
+ * the-legacy-grammar-is-removed-at-the-close):
  *
- *   project: {tenant}-{provider}-{account-purpose}-{env}   (legacy {tenant}-{provider}-{env})
+ *   project: {tenant}-{provider}-{account-purpose}-{env}
  *   stack:   {target-env}-{stack-purpose}[-{concern}]-{region}
- *            (legacy [{target-env}-]{account-purpose}-{stack-purpose}[-{concern}]-{region})
  *
- * The fixture is iac-worx's 16 stacks in its 5 projects as they are named today, each with
- * the name it takes. It is a fixture, not a declaration: the one declared map lives with the
- * consumer (iac-worx), which validates it with validateNameAliases.
+ * The policy's examples parse and round-trip; a legacy name is refused: a three-segment
+ * {tenant}-{provider}-{env} project, and a [{target-env}-]{account-purpose}-{stack-purpose}...
+ * stack under its account-grammar project.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -26,46 +25,22 @@ vi.mock("@pulumi/pulumi", () => ({
 }));
 
 import * as pulumi from "@pulumi/pulumi";
-import { ProjectNameSchema } from "../schemas/core/core-schemas.js";
+import { ProjectNameSchema, StackNameSchema } from "../schemas/core/core-schemas.js";
 import {
-  canonicalStackName,
   detectStackContext,
   isAccountGrammarProject,
-  type NameAliasMap,
   parseStackIdentity,
   projectNameOf,
   stackNameOf,
-  validateNameAliases,
 } from "./stack-utils.js";
 
-const WORX_RENAMES: NameAliasMap = {
-  "worx-aws-dev/app-flow-use1": "worx-aws-app-dev/dev-flow-use1",
-  "worx-aws-dev/app-iam-github-use1": "worx-aws-app-dev/dev-iam-github-use1",
-  "worx-aws-dev/app-iam-pulumi-use1": "worx-aws-app-dev/dev-iam-pulumi-use1",
-  "worx-aws-stg/app-iam-github-use1": "worx-aws-app-stg/stg-iam-github-use1",
-  "worx-aws-stg/app-iam-pulumi-use1": "worx-aws-app-stg/stg-iam-pulumi-use1",
-  "worx-aws-prd/app-iam-github-use1": "worx-aws-app-prd/prd-iam-github-use1",
-  "worx-aws-prd/app-iam-pulumi-use1": "worx-aws-app-prd/prd-iam-pulumi-use1",
-  "worx-aws-sec/dev-ops-vpc-use1": "worx-aws-ops-sec/dev-vpc-use1",
-  "worx-aws-sec/dev-ops-vpc-usw2": "worx-aws-ops-sec/dev-vpc-usw2",
-  "worx-aws-sec/dev-ops-vpn-use1": "worx-aws-ops-sec/dev-vpn-use1",
-  "worx-aws-sec/stg-ops-vpc-use1": "worx-aws-ops-sec/stg-vpc-use1",
-  "worx-aws-sec/stg-ops-vpc-usw2": "worx-aws-ops-sec/stg-vpc-usw2",
-  "worx-aws-sec/prd-ops-vpc-use1": "worx-aws-ops-sec/prd-vpc-use1",
-  "worx-aws-sec/ops-iam-github-use1": "worx-aws-ops-sec/sec-iam-github-use1",
-  "worx-aws-sec/ops-iam-pulumi-use1": "worx-aws-ops-sec/sec-iam-pulumi-use1",
-  "worx-cloudflare-sec/ops-ztna-glb": "worx-cloudflare-ops-sec/sec-ztna-glb",
-};
+const PROJECT_GRAMMAR = "{tenant}-{provider}-{account-purpose}-{env}";
+const STACK_GRAMMAR = "{target-env}-{stack-purpose}[-{concern}]-{region}";
 
-function contextFor(project: string, stack: string, nameAliases?: NameAliasMap) {
+function contextFor(project: string, stack: string) {
   vi.mocked(pulumi.getProject).mockReturnValue(project);
   vi.mocked(pulumi.getStack).mockReturnValue(stack);
-  return detectStackContext(nameAliases === undefined ? {} : { nameAliases });
-}
-
-function withoutNames<T extends { projectName: string; stackName: string }>(context: T) {
-  const { projectName: _p, stackName: _s, ...rest } = context;
-  return rest;
+  return detectStackContext();
 }
 
 describe("the account grammar", () => {
@@ -115,12 +90,21 @@ describe("the account grammar", () => {
     expect(stackNameOf(identity)).toBe("dev-vpn-use1");
   });
 
-  it("refuses a stack that is neither 3 nor 4 segments", () => {
+  it("refuses a stack that is neither 3 nor 4 segments, naming the grammar", () => {
     expect(() => parseStackIdentity("worx-aws-ops-sec", "sec-iam-github-x-use1")).toThrow(
-      /Invalid stack name format/
+      `Invalid stack name format: sec-iam-github-x-use1. Expected: ${STACK_GRAMMAR}`
     );
     expect(() => parseStackIdentity("worx-aws-ops-sec", "sec-use1")).toThrow(
-      /Invalid stack name format/
+      `Invalid stack name format: sec-use1. Expected: ${STACK_GRAMMAR}`
+    );
+  });
+
+  it("refuses an empty segment", () => {
+    expect(() => parseStackIdentity("worx-aws-ops-sec", "sec--use1")).toThrow(
+      `Incomplete stack name components: sec--use1. Expected: ${STACK_GRAMMAR}`
+    );
+    expect(() => parseStackIdentity("worx--ops-sec", "sec-iam-use1")).toThrow(
+      `Incomplete project name components: worx--ops-sec. Expected: ${PROJECT_GRAMMAR}`
     );
   });
 
@@ -129,9 +113,13 @@ describe("the account grammar", () => {
       /Stack context detection failed/
     );
   });
+
+  it("detectStackContext takes no options: there is no alias map", () => {
+    expect(detectStackContext.length).toBe(0);
+  });
 });
 
-describe("every iac-worx rename", () => {
+describe("the policy's examples", () => {
   beforeEach(() => {
     process.env.PULUMI_ORG = "adaptiveworx";
   });
@@ -139,32 +127,25 @@ describe("every iac-worx rename", () => {
     delete process.env.PULUMI_ORG;
   });
 
-  it("covers 16 stacks in 5 projects", () => {
-    const projects = new Set(Object.keys(WORX_RENAMES).map(name => name.split("/")[0]));
-    expect(Object.keys(WORX_RENAMES)).toHaveLength(16);
-    expect(projects.size).toBe(5);
+  // pulumi-project-is-one-account and pulumi-stack-shape, each stack under its project
+  it.each([
+    ["worx-aws-ops-sec", "dev-vpc-use1"],
+    ["worx-aws-ops-sec", "dev-vpn-use1"],
+    ["worx-aws-ops-sec", "sec-iam-pulumi-use1"],
+    ["worx-aws-ops-sec", "sec-iam-github-use1"],
+    ["worx-aws-app-dev", "dev-flow-use1"],
+    ["worx-cloudflare-ops-sec", "sec-ztna-glb"],
+  ])("%s/%s parses, detects and round-trips", (project, stack) => {
+    expect(ProjectNameSchema.safeParse(project).success).toBe(true);
+    expect(StackNameSchema.safeParse(stack).success).toBe(true);
+    const identity = parseStackIdentity(project, stack);
+    expect(projectNameOf(identity)).toBe(project);
+    expect(stackNameOf(identity)).toBe(stack);
+    expect(contextFor(project, stack)).toMatchObject({ projectName: project, stackName: stack });
   });
-
-  it("passes validateNameAliases", () => {
-    expect(() => validateNameAliases(WORX_RENAMES)).not.toThrow();
-  });
-
-  for (const [from, to] of Object.entries(WORX_RENAMES)) {
-    it(`${from} and ${to} give the same context`, () => {
-      const [oldProject, oldStack] = from.split("/") as [string, string];
-      const [newProject, newStack] = to.split("/") as [string, string];
-      const legacy = contextFor(oldProject, oldStack);
-      const account = contextFor(newProject, newStack);
-      expect(withoutNames(account)).toEqual(withoutNames(legacy));
-      expect(account.projectName).toBe(newProject);
-      expect(account.stackName).toBe(newStack);
-      expect(canonicalStackName(from, WORX_RENAMES)).toBe(to);
-      expect(canonicalStackName(to, WORX_RENAMES)).toBe(to);
-    });
-  }
 });
 
-describe("the alias map", () => {
+describe("the legacy grammar is refused", () => {
   beforeEach(() => {
     process.env.PULUMI_ORG = "adaptiveworx";
   });
@@ -172,50 +153,40 @@ describe("the alias map", () => {
     delete process.env.PULUMI_ORG;
   });
 
-  it("refuses a target that changes what the name means", () => {
-    expect(() =>
-      validateNameAliases({ "worx-aws-dev/app-flow-use1": "worx-aws-app-dev/dev-web-use1" })
-    ).toThrow(/changes what the name means/);
-  });
-
-  it("refuses a key already in the account grammar, and a legacy target", () => {
-    expect(() =>
-      validateNameAliases({ "worx-aws-app-dev/dev-flow-use1": "worx-aws-app-dev/dev-flow-use1" })
-    ).toThrow(/already an account-grammar name/);
-    expect(() =>
-      validateNameAliases({ "worx-aws-dev/app-flow-use1": "worx-aws-dev/app-flow-use1" })
-    ).toThrow(/not an account-grammar name/);
-  });
-
-  it("refuses two legacy names for one target", () => {
-    expect(() =>
-      validateNameAliases({
-        "worx-aws-dev/app-flow-use1": "worx-aws-app-dev/dev-flow-use1",
-        "worx-aws-dev/app-flow-use1x": "worx-aws-app-dev/dev-flow-use1",
-      })
-    ).toThrow();
-  });
-
-  it("with a map given, refuses a legacy name the map doesn't declare", () => {
-    expect(() => contextFor("worx-aws-dev", "app-web-use1", WORX_RENAMES)).toThrow(
-      /not in the name alias map/
+  it.each([
+    ["worx-aws-sec", "ops-iam-github-use1"],
+    ["worx-aws-sec", "dev-ops-vpc-use1"],
+    ["worx-aws-dev", "app-flow-use1"],
+    ["worx-cloudflare-sec", "ops-ztna-glb"],
+  ])("a legacy project: %s/%s", (project, stack) => {
+    expect(ProjectNameSchema.safeParse(project).success).toBe(false);
+    expect(() => parseStackIdentity(project, stack)).toThrow(
+      `Invalid project name format: ${project}. Expected: ${PROJECT_GRAMMAR}`
     );
-    expect(() => canonicalStackName("worx-aws-dev/app-web-use1", WORX_RENAMES)).toThrow(
-      /not in the name alias map/
+    expect(() => contextFor(project, stack)).toThrow(
+      `Stack context detection failed: Invalid project name format: ${project}. Expected: ${PROJECT_GRAMMAR}`
     );
   });
 
-  it("with a map given, still reads a declared legacy name and any account-grammar name", () => {
-    expect(contextFor("worx-aws-sec", "ops-iam-github-use1", WORX_RENAMES)).toMatchObject({
-      stackPurpose: "iam",
-      concern: "github",
-    });
-    expect(contextFor("worx-aws-app-dev", "dev-web-use1", WORX_RENAMES)).toMatchObject({
-      stackPurpose: "web",
-    });
+  it.each([
+    ["worx-aws-ops-sec", "ops-iam-github-use1"],
+    ["worx-aws-ops-sec", "dev-ops-vpc-use1"],
+    ["worx-aws-ops-sec", "dev-ops-vpn-use1"],
+    ["worx-aws-app-dev", "app-flow-use1"],
+    ["worx-aws-app-dev", "app-iam-github-use1"],
+    ["worx-cloudflare-ops-sec", "ops-ztna-glb"],
+  ])("a legacy stack under its account-grammar project: %s/%s", (project, stack) => {
+    expect(() => contextFor(project, stack)).toThrow(/Stack context detection failed/);
   });
 
-  it("refuses a name in neither grammar", () => {
+  it("a legacy five-segment stack, which no position reads", () => {
+    expect(StackNameSchema.safeParse("dev-ops-vpc-shared-use1").success).toBe(false);
+    expect(() => parseStackIdentity("worx-aws-ops-sec", "dev-ops-vpc-shared-use1")).toThrow(
+      `Invalid stack name format: dev-ops-vpc-shared-use1. Expected: ${STACK_GRAMMAR}`
+    );
+  });
+
+  it("a name in no grammar", () => {
     expect(() => contextFor("worx-aws", "flow")).toThrow(/Stack context detection failed/);
     expect(() => parseStackIdentity("worx-aws-ops-sec", "use1")).toThrow();
   });

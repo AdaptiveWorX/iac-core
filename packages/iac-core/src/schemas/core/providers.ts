@@ -5,7 +5,7 @@
  */
 
 /**
- * Providers: the second segment of a project name (`{tenant}-{provider}-{env}`).
+ * Providers: the second segment of a project name (`{tenant}-{provider}-{account-purpose}-{env}`).
  *
  * A provider is anything a project deploys into: a cloud (AWS, GCP, Azure) or
  * a SaaS platform (Cloudflare, GitHub, Infisical). Each one is a single entry
@@ -121,7 +121,7 @@ export const PROVIDER_DEFINITIONS = {
   },
 } as const satisfies Record<string, ProviderDefinition>;
 
-/** A provider name: the `{provider}` segment of `{tenant}-{provider}-{env}`. */
+/** A provider name: the `{provider}` segment of `{tenant}-{provider}-{account-purpose}-{env}`. */
 export type Provider = keyof typeof PROVIDER_DEFINITIONS;
 
 const PROVIDER_NAMES = Object.keys(PROVIDER_DEFINITIONS) as [Provider, ...Provider[]];
