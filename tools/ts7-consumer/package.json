@@ -19,6 +19,6 @@
     "@pulumi/pulumi": "^3.266.0",
     "@types/node": "26.6.3",
     "typescript": "npm:typescript@7.0.2",
-    "zod": "^4.6.6"
+    "zod": "^4.6.7"
   }
 }
