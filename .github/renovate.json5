@@ -23,8 +23,9 @@
   // scope-enum). Renovate's default "deps" scope is NOT in that list, so every
   // Renovate PR is pinned to `chore(repo)`, which is a valid scope and never
   // triggers an Nx Release version bump (correct for dependency hygiene PRs).
-  // Renovate auto-merges as the Renovate app, not an org admin, so its PRs are
-  // bound by the required `validate` + `validate-title` checks.
+  // Renovate auto-merges (first-party Actions only) as the Renovate app, not an
+  // org admin, so its PRs are bound by the required `validate` +
+  // `validate-title` checks.
   semanticCommits: "enabled",
   semanticCommitType: "chore",
   semanticCommitScope: "repo",
@@ -45,22 +46,38 @@
   // can't silently wedge the title check.
   addLabels: ["bot"],
 
+  // --- Automerge policy (security-architect, 2026-11-10) ----------------------
+  // npm NEVER automerges: not devDependencies, not lockfile maintenance, not
+  // pins. These packages are published, the release build runs on whatever
+  // the lockfile resolves, and npm trusted publishing is attached to it, so an
+  // automerged compromised build-time package could tamper with every
+  // consumer's install. Only first-party GitHub Actions (actions/*, github/*)
+  // automerge, in the packageRules below; every other action is reviewed.
+  // Belt and braces: automerge is off globally.
+  automerge: false,
+
   // --- The drift-prevention engine ------------------------------------------
   // Weekly in-range lockfile refresh. This is what would have prevented the
   // 30 stale-transitive Dependabot alerts: it pulls transitive deps up to the
-  // latest version already allowed by their parents' ranges. Auto-merged once
-  // CI (validate) is green, since it never changes manifests.
+  // latest version already allowed by their parents' ranges. Reviewed by hand
+  // like every npm update: it changes what the release build installs.
   lockFileMaintenance: {
     enabled: true,
     schedule: ["before 6am on monday"],
-    automerge: true,
+    automerge: false,
   },
 
   // Renovate also opens prioritised PRs for known vulnerabilities (independent
-  // of GitHub's Dependabot security alerts, which stay enabled).
+  // of GitHub's Dependabot security alerts, which stay enabled). Security
+  // fixes open at once (no schedule, no release age), never automerge, and are
+  // labelled for pm-lead, who puts them on the EA's list. Majors keep
+  // Dashboard approval through the packageRules below.
   vulnerabilityAlerts: {
-    labels: ["security"],
+    enabled: true,
+    schedule: [],
+    minimumReleaseAge: null,
     automerge: false,
+    labels: ["security", "pm-lead"],
   },
 
   packageRules: [
@@ -69,12 +86,6 @@
       // minimumReleaseAge enforces the 3 days on every version it resolves.
       matchUpdateTypes: ["lockFileMaintenance"],
       minimumReleaseAge: null,
-    },
-    {
-      // Auto-merge low-risk dev-dependency updates once CI passes.
-      matchDepTypes: ["devDependencies"],
-      matchUpdateTypes: ["minor", "patch"],
-      automerge: true,
     },
     {
       // Never auto-merge majors — they need a human (e.g. the vitest 3 -> 4
@@ -101,23 +112,27 @@
       // Nx core + plugins must move in lockstep, or the workspace breaks. Nx is
       // the release backbone (Nx Release drives versions, changelogs and the
       // tags npm trusted publishing hangs off), so its updates never automerge
-      // and run `nx migrate` by hand. After the devDependencies rule above.
+      // and run `nx migrate` by hand.
       matchPackageNames: ["nx", "/^@nx//"],
       groupName: "nx monorepo",
       automerge: false,
     },
     {
-      // GitHub Actions: non-major updates automerge once the required checks
-      // are green (aligned with flow-04).
-      matchManagers: ["github-actions"],
-      matchUpdateTypes: ["minor", "patch", "digest"],
-      automerge: true,
-    },
-    {
       // Pinning an action to its digest freezes code already run: no
-      // release-age delay, automerge.
+      // release-age delay (Actions only; automerge is the next rule's call).
+      matchManagers: ["github-actions"],
       matchUpdateTypes: ["pin", "pinDigest"],
       minimumReleaseAge: null,
+    },
+    {
+      // GitHub Actions automerge only when first-party (actions/*, github/*),
+      // for minor, patch, digest and pin updates, once the required checks are
+      // green. Every other action is reviewed by hand: a third-party action
+      // can run in the release workflow, which holds npm trusted publishing
+      // (pnpm/action-setup does) (security-architect, 2026-11-10).
+      matchManagers: ["github-actions"],
+      matchPackageNames: ["actions/**", "github/**"],
+      matchUpdateTypes: ["minor", "patch", "digest", "pin", "pinDigest"],
       automerge: true,
     },
     {
