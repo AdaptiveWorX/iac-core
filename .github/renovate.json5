@@ -55,7 +55,8 @@
   // npm trusted publishing is attached to it, so a compromised build-time
   // package could tamper with every consumer's install. This reverses the
   // 2026-11-10 ruling, which let first-party actions automerge. Non-major
-  // Actions updates come as one grouped PR a week instead (packageRules).
+  // updates of GitHub-owned actions (actions/*, github/*) come as one weekly
+  // PR; every other action comes alone (packageRules).
   // Belt and braces: automerge is off globally, and no rule turns it on.
   automerge: false,
 
@@ -130,15 +131,16 @@
       minimumReleaseAge: null,
     },
     {
-      // GitHub Actions: every non-major update (minor, patch, digest, pin),
-      // first-party or not, comes as one grouped PR on the Monday schedule, so
-      // each week is one hand merge. Never automerged (security-architect,
-      // 2026-11-11, reversing the 2026-11-10 first-party automerge): an action
-      // can run in the release workflow, which holds npm trusted publishing.
-      // Majors stay separate PRs, behind Dashboard approval (rule above).
+      // GitHub-owned actions (actions/*, github/*): minor, patch, digest and
+      // pin updates come as one weekly PR the EA merges by hand. Nothing
+      // automerges (security-architect, 2026-11-11). Every other action comes
+      // in its own PR: a third-party action runs with this repo's release
+      // credentials (npm trusted publishing), and a batch would hide it among
+      // first-party bumps. Majors stay separate, behind Dashboard approval.
       matchManagers: ["github-actions"],
+      matchPackageNames: ["actions/**", "github/**"],
       matchUpdateTypes: ["minor", "patch", "digest", "pin", "pinDigest"],
-      groupName: "GitHub Actions",
+      groupName: "GitHub-owned actions",
       automerge: false,
     },
     {
