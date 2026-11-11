@@ -23,8 +23,8 @@
   // scope-enum). Renovate's default "deps" scope is NOT in that list, so every
   // Renovate PR is pinned to `chore(repo)`, which is a valid scope and never
   // triggers an Nx Release version bump (correct for dependency hygiene PRs).
-  // Renovate auto-merges (first-party Actions only) as the Renovate app, not an
-  // org admin, so its PRs are bound by the required `validate` +
+  // Renovate merges nothing itself (see the automerge policy below): every
+  // Renovate PR is merged by hand, after the required `validate` +
   // `validate-title` checks.
   semanticCommits: "enabled",
   semanticCommitType: "chore",
@@ -46,14 +46,18 @@
   // can't silently wedge the title check.
   addLabels: ["bot"],
 
-  // --- Automerge policy (security-architect, 2026-11-10) ----------------------
-  // npm NEVER automerges: not devDependencies, not lockfile maintenance, not
-  // pins. These packages are published, the release build runs on whatever
-  // the lockfile resolves, and npm trusted publishing is attached to it, so an
-  // automerged compromised build-time package could tamper with every
-  // consumer's install. Only first-party GitHub Actions (actions/*, github/*)
-  // automerge, in the packageRules below; every other action is reviewed.
-  // Belt and braces: automerge is off globally.
+  // --- Automerge policy (security-architect, 2026-11-11) ----------------------
+  // Renovate automerges NOTHING: no npm update, no lockfile maintenance, no
+  // GitHub Action (first-party or not), no pin. The hosted app's merge right
+  // would put a change on main without the EA, and main is what the main-only
+  // environments trust. npm has a second reason: these packages are
+  // published, the release build runs on whatever the lockfile resolves, and
+  // npm trusted publishing is attached to it, so a compromised build-time
+  // package could tamper with every consumer's install. This reverses the
+  // 2026-11-10 ruling, which let first-party actions automerge. Non-major
+  // updates of GitHub-owned actions (actions/*, github/*) come as one weekly
+  // PR; every other action comes alone (packageRules).
+  // Belt and braces: automerge is off globally, and no rule turns it on.
   automerge: false,
 
   // --- The drift-prevention engine ------------------------------------------
@@ -121,21 +125,23 @@
     },
     {
       // Pinning an action to its digest freezes code already run: no
-      // release-age delay (Actions only; automerge is the next rule's call).
+      // release-age delay (Actions only; still merged by hand).
       matchManagers: ["github-actions"],
       matchUpdateTypes: ["pin", "pinDigest"],
       minimumReleaseAge: null,
     },
     {
-      // GitHub Actions automerge only when first-party (actions/*, github/*),
-      // for minor, patch, digest and pin updates, once the required checks are
-      // green. Every other action is reviewed by hand: a third-party action
-      // can run in the release workflow, which holds npm trusted publishing
-      // (pnpm/action-setup does) (security-architect, 2026-11-10).
+      // GitHub-owned actions (actions/*, github/*): minor, patch, digest and
+      // pin updates come as one weekly PR the EA merges by hand. Nothing
+      // automerges (security-architect, 2026-11-11). Every other action comes
+      // in its own PR: a third-party action runs with this repo's release
+      // credentials (npm trusted publishing), and a batch would hide it among
+      // first-party bumps. Majors stay separate, behind Dashboard approval.
       matchManagers: ["github-actions"],
       matchPackageNames: ["actions/**", "github/**"],
       matchUpdateTypes: ["minor", "patch", "digest", "pin", "pinDigest"],
-      automerge: true,
+      groupName: "GitHub-owned actions",
+      automerge: false,
     },
     {
       // The build stays on TypeScript 6 until Nx supports 7 (Nx 23 reads
