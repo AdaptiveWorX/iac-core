@@ -79,6 +79,8 @@
     automerge: false,
     labels: ["security", "pm-lead"],
   },
+  // Also read vulnerability data from OSV, which needs no GitHub alerts permission (security-architect, 2026-11-11).
+  osvVulnerabilityAlerts: true,
 
   packageRules: [
     {
