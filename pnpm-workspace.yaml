@@ -20,6 +20,10 @@ peerDependencyRules:
   allowedVersions:
     "@pulumi/pulumi>typescript": "7"
 
+overrides:
+  # nx 23.3.x pins undici 7.29.0 (18 advisories); 7.30.1 fixes them. Remove when nx >= 24.0.3 (which pins a fixed undici).
+  "undici@7.29.0": "7.30.1"
+
 # Dependency build scripts: every package that ships one is decided here
 # explicitly (true = run it, false = skip it).
 allowBuilds:
